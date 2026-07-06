@@ -348,6 +348,12 @@ fun SharedBookInfoDialog(
     // shiroikuma fork: extra icons in the dialog header (share the file, save a copy,
     // enter multi-select).  Receives the edit state and a way to start editing.
     headerActions: (@Composable RowScope.(isEditing: Boolean, startEditing: () -> Unit) -> Unit)? = null,
+    // shiroikuma fork: extra metadata read live from the file (published, publisher,
+    // language, rating, ISBN) and the extra edit fields that go with them.
+    extraInfoRows: (@Composable () -> Unit)? = null,
+    authorFieldContent: (@Composable (String, (String) -> Unit) -> Unit)? = null,
+    editFieldsAfterSeries: (@Composable () -> Unit)? = null,
+    editFieldsAfterSummary: (@Composable () -> Unit)? = null,
     onDismiss: () -> Unit,
     onSave: (BookItem) -> Unit,
     onSaveEmbeddedMetadata: ((BookItem) -> Unit)? = null,
@@ -435,6 +441,9 @@ fun SharedBookInfoDialog(
                     if (isEditing) {
                         if (canEditEmbeddedMetadata) {
                             SharedBookMetadataEditContent(
+                                authorFieldContent = authorFieldContent,
+                                editFieldsAfterSeries = editFieldsAfterSeries,
+                                editFieldsAfterSummary = editFieldsAfterSummary,
                                 titleInput = titleInput,
                                 onTitleChange = { titleInput = it },
                                 authorInput = authorInput,
@@ -473,6 +482,7 @@ fun SharedBookInfoDialog(
                         }
                     } else {
                         SharedBookMetadataInfoContent(
+                            extraInfoRows = extraInfoRows,
                             book = book,
                             hasMetadataChanges = effectiveMetadataChanges,
                             formattedAddedDate = formattedAddedDate,
@@ -637,6 +647,7 @@ private fun SharedBookMetadataInfoContent(
     tagChipsContent: (@Composable () -> Unit)?,
     onCopyPath: () -> Unit,
     clipboardErrorMessage: String?,
+    extraInfoRows: (@Composable () -> Unit)? = null,
 ) {
     SharedInfoCard {
         Text(
@@ -678,6 +689,7 @@ private fun SharedBookMetadataInfoContent(
         book.seriesLabel()?.let {
             SharedInfoRowDetailed(readerString("label_series", "Series"), it, maxLines = 2)
         }
+        extraInfoRows?.invoke()
         SharedInfoRowDetailed(readerString("format", "Format"), book.type.name)
         SharedInfoRowDetailed(readerString("size", "Size"), formatFileSize(book.fileSize))
         SharedInfoRowDetailed(readerString("label_reading", "Reading"), book.readingProgressText(), maxLines = 2)
@@ -773,6 +785,9 @@ private fun SharedBookMetadataEditContent(
     onClearCover: () -> Unit,
     editLibraryTags: Boolean,
     coverEditorContent: (@Composable () -> Unit)?,
+    authorFieldContent: (@Composable (String, (String) -> Unit) -> Unit)? = null,
+    editFieldsAfterSeries: (@Composable () -> Unit)? = null,
+    editFieldsAfterSummary: (@Composable () -> Unit)? = null,
 ) {
     SharedInfoSection(title = readerString("label_editable_metadata", "Editable metadata")) {
         SharedStableOutlinedTextField(
@@ -783,14 +798,18 @@ private fun SharedBookMetadataEditContent(
             maxLines = 3,
             selectionKey = "title"
         )
-        SharedStableOutlinedTextField(
-            value = authorInput,
-            onValueChange = onAuthorChange,
-            label = { Text(readerString("author", "Author")) },
-            modifier = Modifier.fillMaxWidth(),
-            maxLines = 2,
-            selectionKey = "author"
-        )
+        if (authorFieldContent != null) {
+            authorFieldContent(authorInput, onAuthorChange)
+        } else {
+            SharedStableOutlinedTextField(
+                value = authorInput,
+                onValueChange = onAuthorChange,
+                label = { Text(readerString("author", "Author")) },
+                modifier = Modifier.fillMaxWidth(),
+                maxLines = 2,
+                selectionKey = "author"
+            )
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             SharedStableOutlinedTextField(
                 value = seriesInput,
@@ -810,6 +829,7 @@ private fun SharedBookMetadataEditContent(
                 selectionKey = "seriesIndex"
             )
         }
+        editFieldsAfterSeries?.invoke()
         SharedStableOutlinedTextField(
             value = descriptionInput,
             onValueChange = onDescriptionChange,
@@ -821,6 +841,7 @@ private fun SharedBookMetadataEditContent(
             maxLines = 10,
             selectionKey = "description"
         )
+        editFieldsAfterSummary?.invoke()
         coverEditorContent?.invoke()
     }
 
@@ -992,7 +1013,7 @@ private fun SharedInfoCard(content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-private fun SharedInfoRowDetailed(
+fun SharedInfoRowDetailed(
     label: String,
     value: String,
     maxLines: Int = 1,
