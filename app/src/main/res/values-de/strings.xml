@@ -37,8 +37,8 @@
     <string name="not_available_locally">Nicht lokal verfügbar</string>
     <string name="drawer_sign_in">Mit Google anmelden</string>
     <string name="drawer_by_signing_in">Mit der Anmeldung</string>
-    <string name="drawer_pro_unlocked">Episteme Pro</string>
-    <string name="drawer_upgrade_pro">Upgrade auf Episteme Pro</string>
+    <string name="drawer_pro_unlocked">白い熊 書籍閲覧 Pro</string>
+    <string name="drawer_upgrade_pro">Upgrade auf 白い熊 書籍閲覧 Pro</string>
     <string name="drawer_sync_library">Bibliothek synchronisieren</string>
     <string name="drawer_backup_local_folders">Cloud-Synchronisierung für lokale Ordner</string>
     <string name="drawer_backup_desc">Laden Sie Bücher von Ihren synchronisierten Ordnern auf Google Drive hoch.</string>
@@ -81,7 +81,7 @@
     <string name="dialog_delete_shelves">%1$s löschen?</string>
     <string name="dialog_delete_shelves_desc">Sind Sie sicher, dass Sie %1$d %2$s löschen möchten? Alle enthaltenen Bücher werden nach Unsortiert verschoben.</string>
     <string name="sync_local_folders">Lokale Ordner synchronisieren</string>
-    <string name="sync_folders_desc">Verbinden Sie lokale Ordner, um eine Live-Bibliothek zu erstellen. Episteme wird Dateien überwachen und den Fortschritt synchronisieren.</string>
+    <string name="sync_folders_desc">Verbinden Sie lokale Ordner, um eine Live-Bibliothek zu erstellen. 白い熊 書籍閲覧 wird Dateien überwachen und den Fortschritt synchronisieren.</string>
     <string name="fab_add_folder">Ordner hinzufügen</string>
     <string name="scan_all">Alle scannen</string>
     <string name="scanning">Scannen…</string>
@@ -162,7 +162,7 @@
     <string name="source_opds">Quelle: OPDS-Stream</string>
     <string name="source_in_app">In-App Speicher</string>
     <string name="internal_storage">Interner Speicher</string>
-    <string name="about_title">Über Episteme</string>
+    <string name="about_title">Über 白い熊 書籍閲覧</string>
     <string name="about_version">Version: %1$s (Build: %2$d)</string>
     <string name="empty_select_file">Datei auswählen</string>
     <string name="clear_cloud_data_title">Alle synchronisierten Daten löschen?</string>
@@ -189,11 +189,11 @@
     <string name="existing_purchase_found">Vorhandener Kauf gefunden</string>
     <string name="get_lifetime_access">Bekommen Sie lebenslangen Zugang</string>
     <string name="upgrade_unavailable">Upgrade derzeit nicht verfügbar. Bitte überprüfen Sie Ihr Internet und versuchen Sie es erneut.</string>
-    <string name="sign_in_to_purchase">Bitte melden Sie sich mit Ihrem Google-Konto an, um Episteme Pro zu kaufen.</string>
+    <string name="sign_in_to_purchase">Bitte melden Sie sich mit Ihrem Google-Konto an, um 白い熊 書籍閲覧 Pro zu kaufen.</string>
     <string name="verifying_purchase_desc">Das kann einen Moment dauern. Ihr Pro-Status wird automatisch aktualisiert.</string>
     <string name="dialog_existing_purchase_desc">Dieses Gerät hat bereits einen Pro-Kauf, aber es ist mit einem anderen Konto verknüpft. Bitte melden Sie sich mit dem Konto an, das für den ursprünglichen Kauf verwendet wurde, um Ihre Pro-Funktionen wiederherzustellen.</string>
-    <string name="dialog_early_access_desc">Sie erhalten Episteme Pro zu einem Sonderpreis in unserer Early Access Phase! Dies ist ein begrenztes Angebot.</string>
-    <string name="dialog_sign_in_required_desc">Bitte melden Sie sich mit Ihrem Google-Konto an, um Episteme Pro zu kaufen und alle Premium-Features zu entsperren.</string>
+    <string name="dialog_early_access_desc">Sie erhalten 白い熊 書籍閲覧 Pro zu einem Sonderpreis in unserer Early Access Phase! Dies ist ein begrenztes Angebot.</string>
+    <string name="dialog_sign_in_required_desc">Bitte melden Sie sich mit Ihrem Google-Konto an, um 白い熊 書籍閲覧 Pro zu kaufen und alle Premium-Features zu entsperren.</string>
     <string name="action_not_now">Nicht jetzt</string>
     <string name="action_got_it">Verstanden!</string>
     <string name="custom_fonts">Benutzerdefinierte Schriftarten</string>
@@ -209,13 +209,13 @@
     <string name="github_issues_desc">Melden Sie Fehler, schlagen Sie Funktionen vor und verfolgen Sie den Verlauf der Entwicklung.</string>
     <string name="email_support">E-Mail Support</string>
     <string name="email_support_desc">Kontaktieren Sie uns direkt per E-Mail für andere Angelegenheiten.</string>
-    <string name="dialog_unlock_pro">Episteme Pro freischalten</string>
+    <string name="dialog_unlock_pro">白い熊 書籍閲覧 Pro freischalten</string>
     <string name="dialog_unlock_pro_desc">Synchronisierung über Geräte ist eine Pro-Funktion. Entsperren Sie alle Pro-Funktionen mit einem einzelnen, einmaligen Kauf.</string>
     <string name="action_upgrade">Upgrade</string>
     <string name="dialog_confirm_sign_out">Abmelden bestätigen</string>
     <string name="dialog_confirm_sign_out_desc">Sind Sie sicher, dass sie sich abmelden wollen?</string>
     <string name="device_limit_reached">Maximale Anzahl an Geräten erreicht</string>
-    <string name="device_limit_reached_desc">Um Episteme Pro auf diesem Gerät zu verwenden, entfernen Sie bitte eines Ihrer bereits registrierten Geräte.</string>
+    <string name="device_limit_reached_desc">Um 白い熊 書籍閲覧 Pro auf diesem Gerät zu verwenden, entfernen Sie bitte eines Ihrer bereits registrierten Geräte.</string>
     <string name="last_seen">Zuletzt gesehen: %1$s</string>
     <string name="dialog_destructive_action">Destruktive Aktion bestätigen</string>
     <string name="dialog_destructive_action_desc">Dies wird alle Ihre Bücher und den Lesefortschritt von diesem Gerät UND von Ihrem Google Drive-Konto dauerhaft löschen. Diese Aktion kann nicht rückgängig gemacht werden. Sind Sie sicher?</string>
@@ -330,7 +330,7 @@
     <string name="error_no_google_account">Google-Konto konnte nicht gefunden werden. Dies kann auf einer frischen Installation geschehen, bitte versuchen Sie es in einem Moment noch einmal.</string>
     <string name="error_sign_in_internet">Bei der Anmeldung ist ein Fehler aufgetreten. Bitte überprüfen Sie Ihre Internetverbindung.</string>
     <string name="error_sign_in_device_management">Bitte melden Sie sich an, um die Geräteverwaltung zu testen.</string>
-    <string name="error_sync_pro_feature">Synchronisierung ist eine Episteme Pro Funktion.</string>
+    <string name="error_sync_pro_feature">Synchronisierung ist eine 白い熊 書籍閲覧 Pro Funktion.</string>
     <string name="error_not_signed_in_sync">Nicht angemeldet, kann nicht synchronisieren.</string>
     <string name="banner_cloud_sync_checking">Cloud-Synchronisierung: Nach Updates suchen…</string>
     <string name="banner_cloud_sync_complete">Cloud-Synchronisierung: Komplett.</string>
@@ -686,8 +686,8 @@
     <string name="app_theme_mode_dark">Dunkel</string>
     <string name="drawer_support_project">Unterstützen Sie das Projekt</string>
     <string name="support_project_title">Unterstützen Sie das Projekt</string>
-    <string name="support_project_heading">Helfen Sie Episteme, in Bewegung zu bleiben</string>
-    <string name="support_project_desc">Ihre Unterstützung hilft mir, Episteme zu pflegen und zu verbessern für alle!!!</string>
+    <string name="support_project_heading">Helfen Sie 白い熊 書籍閲覧, in Bewegung zu bleiben</string>
+    <string name="support_project_desc">Ihre Unterstützung hilft mir, 白い熊 書籍閲覧 zu pflegen und zu verbessern für alle!!!</string>
     <string name="support_github_sponsor">Sponsor werden auf GitHub</string>
     <string name="theme_my_textured_themes">Meine strukturierten Designs</string>
     <string name="theme_textured_presets">Strukturierte Vorlagen</string>
@@ -701,7 +701,7 @@
     <string name="theme_texture_upload">Hochladen</string>
     <string name="theme_texture_transparency">Textur-Transparenz</string>
     <string name="ai_unlock_summarization">Kapitel-Zusammenfassung freischalten</string>
-    <string name="ai_unlock_summarization_desc">Mit Episteme Pro erhalten Sie präzise Zusammenfassungen zu jedem Kapitel. Führen Sie ein Upgrade durch, um diese Funktion zu nutzen.</string>
+    <string name="ai_unlock_summarization_desc">Mit 白い熊 書籍閲覧 Pro erhalten Sie präzise Zusammenfassungen zu jedem Kapitel. Führen Sie ein Upgrade durch, um diese Funktion zu nutzen.</string>
     <string name="ai_unlock_smart_dict">Smartes Wörterbuch freischalten</string>
     <string name="ai_unlock_smart_dict_desc">Das Nachschlagen ganzer Phrasen und Absätze mit bis zu 2000 Zeichen ist eine Pro-Funktion. Führen Sie ein Upgrade durch, um sofortige Definitionen für jeden ausgewählten Text zu erhalten.</string>
     <string name="menu_recap_beta">Recap (Beta)</string>
@@ -843,7 +843,7 @@
     <string name="credits_ai_summaries_desc">Kosten: ~1–4 Credits pro Anfrage abhängig von Kapitel-Länge.\nPro-Nutzer bekommen täglich 10 kostenlose Zusammenfassungen.</string>
     <string name="legal_by_purchasing">Mit dem Kauf,</string>
     <string name="dialog_out_of_credits_title">Credits verbraucht</string>
-    <string name="dialog_out_of_credits_desc">Sie haben nicht genügend Credits. Holen Sie sich Episteme Pro für 10 kostenlose Zusammenfassungen pro Tag oder laden Sie weitere Credits auf, um Zusammenfassungen, Cloud-TTS und Wiederholungen zu nutzen.</string>
+    <string name="dialog_out_of_credits_desc">Sie haben nicht genügend Credits. Holen Sie sich 白い熊 書籍閲覧 Pro für 10 kostenlose Zusammenfassungen pro Tag oder laden Sie weitere Credits auf, um Zusammenfassungen, Cloud-TTS und Wiederholungen zu nutzen.</string>
     <string name="action_get_pro_or_add_credits">Pro erhalten / Credits hinzufügen</string>
     <string name="dialog_unlock_page_summarization">Seiten-Zusammenfassungen freischalten</string>
     <string name="language_dutch">Nederlands (Niederländisch)</string>
@@ -903,7 +903,7 @@
     <string name="tts_notification_channel_desc">Wiedergabesteuerungen für Text-zu-Sprache.</string>
     <string name="tts_notification_preparing">Text-zu-Sprache vorbereiten</string>
     <string name="tts_notification_preparing_chapter">Wird vorbereitet: %1$s</string>
-    <string name="dialog_unlock_page_summarization_desc">Mit Episteme Pro erhalten Sie prägnante Zusammenfassungen jeder beliebigen Seite. Führen Sie ein Upgrade durch, um diese Funktion zu nutzen.</string>
+    <string name="dialog_unlock_page_summarization_desc">Mit 白い熊 書籍閲覧 Pro erhalten Sie prägnante Zusammenfassungen jeder beliebigen Seite. Führen Sie ein Upgrade durch, um diese Funktion zu nutzen.</string>
     <string name="action_translate">Übersetzen</string>
     <string name="pdf_back_to_page_short">Zurück zu Seite %1$d</string>
     <string name="pdf_page_short">Seite %1$d</string>
@@ -1052,7 +1052,7 @@
     <string name="menu_enable_folder_local_sync">Aktivieren Sie die lokale Synchronisierung</string>
     <string name="folder_local_sync_disabled">Lokale Synchronisierung deaktiviert</string>
     <string name="dialog_disable_folder_local_sync_title">Lokale Ordnersynchronisierung deaktivieren?</string>
-    <string name="dialog_disable_folder_local_sync_desc">Episteme stoppt das Scannen dieses Ordners und stoppt das Schreiben von JSON Dateien synchronisieren. Entfernen Sie den %1$s Ordner aus diesem Ordner auch?</string>
+    <string name="dialog_disable_folder_local_sync_desc">白い熊 書籍閲覧 stoppt das Scannen dieses Ordners und stoppt das Schreiben von JSON Dateien synchronisieren. Entfernen Sie den %1$s Ordner aus diesem Ordner auch?</string>
     <string name="action_disable_keep_sync_data">Synchronisieren Sie die Daten</string>
     <string name="action_disable_remove_sync_data">Synchronisierungsdaten entfernen</string>
     <string name="dialog_delete_fonts">Schriftarten löschen?</string>
@@ -1155,7 +1155,7 @@
     <string name="desktop_account_overview">Kontoübersicht</string>
     <string name="desktop_ai_hub">AI Nabe</string>
     <string name="desktop_ai_settings_summaries_desc">Wird für EPUB verwendet Zusammenfassungen und PDF Seitenzusammenfassungen.</string>
-    <string name="desktop_app_name_oss">Episteme oss</string>
+    <string name="desktop_app_name_oss">白い熊 書籍閲覧 oss</string>
     <string name="desktop_author_text">Autorentext</string>
     <string name="desktop_cache_format">Cache: %1$s</string>
     <string name="desktop_cached">Zwischengespeichert</string>
@@ -1256,9 +1256,9 @@
     <string name="desktop_source_code_desc">Durchsuchen Sie die Projektquelle auf GitHub.</string>
     <string name="desktop_stop_reading_change_voices">Hören Sie auf zu lesen, um die Stimmen zu ändern.</string>
     <string name="desktop_support">Unterstützung</string>
-    <string name="desktop_support_episteme">Unterstützung Episteme</string>
+    <string name="desktop_support_episteme">Unterstützung 白い熊 書籍閲覧</string>
     <string name="desktop_support_episteme_desc">Beiträge tragen dazu bei, dass sich der Leser im gesamten Android weiter verbessert und Desktop.</string>
-    <string name="desktop_support_project_desc">Möglichkeiten zur Unterstützung von Episteme Entwicklung</string>
+    <string name="desktop_support_project_desc">Möglichkeiten zur Unterstützung von 白い熊 書籍閲覧 Entwicklung</string>
     <string name="desktop_sync_folders">Ordner synchronisieren</string>
     <string name="desktop_sync_metadata">Metadaten synchronisieren</string>
     <string name="desktop_tag_name">Tag-Name</string>
@@ -1271,7 +1271,7 @@
     <string name="desktop_voice_cache">Sprachcache</string>
     <string name="desktop_webview_preparing">Eingebettete Webansicht wird vorbereitet…</string>
     <string name="desktop_webview_preparing_progress">Vorbereiten der gebündelten eingebetteten Webansicht %1$d%%</string>
-    <string name="desktop_webview_restart_required">Eingebettete Webansicht installiert. Starten Sie Episteme neu um die Einrichtung abzuschließen.</string>
+    <string name="desktop_webview_restart_required">Eingebettete Webansicht installiert. Starten Sie 白い熊 書籍閲覧 neu um die Einrichtung abzuschließen.</string>
     <string name="desktop_webview_start_error">Eingebettete Webansicht konnte nicht gestartet werden: %1$s</string>
     <string name="desktop_working">Arbeiten…</string>
     <string name="desktop_workspace">Arbeitsbereich</string>

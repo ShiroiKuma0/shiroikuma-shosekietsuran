@@ -1,9 +1,9 @@
 ---
 name: build-apk
-description: Build the signed release APK of shiroikuma-etsuran (the 「白い熊 閲覧」 document / e-book reader — a fork of Episteme) with the `buildApk` Gradle task, then deliver it automatically via the global /after-build skill (adb push if a phone is connected, else scp to skhw — no prompt). Always build first without asking permission to build. Use whenever the user asks to build the app, build the APK, make a release build, or build and send to the phone.
+description: Build the signed release APK of shiroikuma-shosekietsuran (the 「白い熊 書籍閲覧」 document / e-book reader — a fork of Episteme) with the `buildApk` Gradle task, then deliver it automatically via the global /after-build skill (adb push if a phone is connected, else scp to skhw — no prompt). Always build first without asking permission to build. Use whenever the user asks to build the app, build the APK, make a release build, or build and send to the phone.
 ---
 
-# Build the etsuran release APK and deliver it
+# Build the shosekietsuran release APK and deliver it
 
 > **Never ask whether to build — just build.** When this skill applies (the user asked to build,
 > or you've made changes ready to test), run the build immediately. Do **not** ask "shall I
@@ -35,7 +35,7 @@ export ANDROID_HOME=/home/shiroikuma/android-sdk
      build; `buildApk` bumps it afterward).
    - Upstream's base version lives in `app/build.gradle.kts` → `defaultConfig`
      (`versionCode` / `versionName` literals, e.g. `55` / `"1.0.51"`).
-   - The APK will be `shiroikuma-etsuran_<upstreamVersion>+<BUILD_NUMBER>_arm64-v8a.apk`; its
+   - The APK will be `shiroikuma-shosekietsuran_<upstreamVersion>+<BUILD_NUMBER>_arm64-v8a.apk`; its
      versionCode = `<upstream versionCode> * 10000 + BUILD_NUMBER` (e.g. `550001`).
 
 2. **Build** (oss flavor, release, signed) — from the repo root:
@@ -63,7 +63,7 @@ export ANDROID_HOME=/home/shiroikuma/android-sdk
 
 Release signing is non-interactive: the fork block at the top of `app/build.gradle.kts` maps the
 gitignored `keystore.properties` (repo root) onto upstream's `MYAPP_RELEASE_*` local.properties
-mechanism. The keystore is `~/.android-keystores/shiroikuma-etsuran.jks` (alias `etsuran`); the
+mechanism. The keystore is `~/.android-keystores/shiroikuma-shosekietsuran.jks` (alias `shosekietsuran`); the
 password is recorded in 白い熊's keystore org file (`~/〇/[666] 私資料/[666][27] 暗号/`), and the
 jks is backed up there too. If `keystore.properties` is absent the release build is **unsigned**
 and won't install — restore it (`storeFile` / `storePassword` / `keyAlias` / `keyPassword`).
@@ -77,7 +77,7 @@ and won't install — restore it (`storeFile` / `storePassword` / `keyAlias` / `
 - Fork `versionName = "<upstream>+<BUILD_NUMBER>"`;
   `versionCode = <upstream versionCode> * 10000 + BUILD_NUMBER` (Episteme 55 → `550001`, …).
 - The upstream `.oss` appId suffix and `-oss` versionName suffix are removed — the installed id
-  is exactly `shiroikuma.etsuran`.
+  is exactly `shiroikuma.shosekietsuran`.
 
 ---
 

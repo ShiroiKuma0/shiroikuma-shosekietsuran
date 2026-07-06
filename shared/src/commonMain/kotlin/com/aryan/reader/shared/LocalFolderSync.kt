@@ -15,7 +15,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 
-const val LOCAL_FOLDER_SYNC_DATA_DIR = "EpistemeSyncData"
+const val LOCAL_FOLDER_SYNC_DATA_DIR = "ShiroikumaSyncData"
 const val LOCAL_FOLDER_ANNOTATION_SUFFIX = "_annotations"
 const val LOCAL_FOLDER_SIDECAR_HASH_PREFIX = "book_"
 /** Version that makes null-valued metadata fields explicit clears. */

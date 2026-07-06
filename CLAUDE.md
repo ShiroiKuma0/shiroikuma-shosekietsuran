@@ -1,19 +1,19 @@
-# shiroikuma-etsuran
+# shiroikuma-shosekietsuran
 
 A fork of [Aryan-Raj3112/episteme](https://github.com/Aryan-Raj3112/episteme) (AGPL-3.0) — a
-multi-platform document / e-book reader. Our Android build: package `shiroikuma.etsuran`, label
-**「白い熊 閲覧」**, installable side-by-side with upstream Episteme.
+multi-platform document / e-book reader. Our Android build: package `shiroikuma.shosekietsuran`, label
+**「白い熊 書籍閲覧」**, installable side-by-side with upstream Episteme.
 
 ## Branch & remote model (same as the sister forks)
 
-- `origin` = `git@github.com:ShiroiKuma0/shiroikuma-etsuran.git` (ssh) — our fork.
+- `origin` = `git@github.com:ShiroiKuma0/shiroikuma-shosekietsuran.git` (ssh) — our fork.
 - `upstream` = `https://github.com/Aryan-Raj3112/episteme.git` (https, fetch only).
 - **`main`** mirrors upstream Android releases by **tag** (pattern `v<X.Y.Z>-oss`, e.g.
   `v1.0.51-oss`; ignore the `windows-*` tags). No fork work lives on `main`.
 - **`custom`** carries all our work, rebased onto `main` on each new upstream release. **All
   development happens on `custom`.**
 - **Do not rename the `com.aryan.reader` code namespace** — only the installed `applicationId`
-  differs (`shiroikuma.etsuran`). Renaming would make every rebase a mass-conflict.
+  differs (`shiroikuma.shosekietsuran`). Renaming would make every rebase a mass-conflict.
 
 ## Skills (`.claude/skills/`)
 
@@ -24,7 +24,7 @@ multi-platform document / e-book reader. Our Android build: package `shiroikuma.
   table of the new upstream features** (mandatory, before any rebase), then advance `main`, rebase
   `custom`, reset `BUILD_NUMBER`, build the new `+1`.
 - **`publish-version`** — publish the latest tested APK as a GitHub release of the fork; keep the
-  GitHub default branch on `custom`. Pin `gh` with `-R ShiroiKuma0/shiroikuma-etsuran`.
+  GitHub default branch on `custom`. Pin `gh` with `-R ShiroiKuma0/shiroikuma-shosekietsuran`.
 
 ## Build, versioning, signing
 
@@ -39,14 +39,20 @@ multi-platform document / e-book reader. Our Android build: package `shiroikuma.
   `gradle.properties`, is bumped by every `buildApk`, and resets to `1` on each new upstream
   version. The upstream `.oss` appId suffix and `-oss` versionName suffix are removed in the `oss`
   flavor.
-- **APK filename:** `shiroikuma-etsuran_<versionName>_arm64-v8a.apk` (single-ABI arm64 build via
+- **APK filename:** `shiroikuma-shosekietsuran_<versionName>_arm64-v8a.apk` (single-ABI arm64 build via
   `ndk.abiFilters`).
 - **Signing:** release signed from gitignored `keystore.properties` →
-  `~/.android-keystores/shiroikuma-etsuran.jks` (alias `etsuran`). The properties are mapped onto
+  `~/.android-keystores/shiroikuma-shosekietsuran.jks` (alias `shosekietsuran`). The properties are mapped onto
   upstream's `MYAPP_RELEASE_*` local.properties mechanism, so upstream's signing blocks stay
   untouched. Password recorded in 白い熊's keystore org file; jks backed up alongside it.
-- **Label:** `app_name` **and** `app_name_oss` in `app/src/main/res/values/strings.xml` (the
-  launcher uses `app_name`, the in-app home header uses `app_name_oss`).
+- **Label:** `白い熊 書籍閲覧`. ⚠ The launcher label comes from the **oss flavor override**
+  `app/src/oss/res/values/strings.xml` → `app_name` (flavor source sets win over `main`); also set
+  `app_name`, `app_name_oss` and `about_app_name` in `app/src/main/res/values/strings.xml`.
+- **Branding:** no user-visible "Episteme" anywhere — replaced with `白い熊 書籍閲覧` across
+  `values*/strings.xml` (all locales), the oss override, and the Bubble-Zoom toast in
+  `PdfViewerScreen.kt`; the sync folder is `ShiroikumaSyncData` (`LOCAL_FOLDER_SYNC_DATA_DIR` in
+  `shared/.../LocalFolderSync.kt`). License headers, log tags, User-Agent and resource *key names*
+  (e.g. `desktop_support_episteme_desc`) intentionally keep the upstream wording.
 - **Delivery:** APK lands in `~/tmp`, then `/after-build` pushes it to `/sdcard/tmp/`; **the user
   installs from the on-device file manager** (never `adb install`).
 
