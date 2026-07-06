@@ -963,6 +963,55 @@
         });
     }
 
+    // 白い熊 UI: after scrolling, nudge up so the top line is never cut — the partial line at
+    // the previous page's fold becomes the first FULL line of the new page.
+    window.whiteBearSnapTopToLine = function () {
+        if (!document.caretRangeFromPoint) return;
+        var x = Math.round((window.innerWidth || document.documentElement.clientWidth || 300) / 2);
+        // Probe a little below the very top so we land inside the first line, not the gap above it.
+        var range = document.caretRangeFromPoint(x, 3);
+        if (!range) return;
+        var node = range.startContainer;
+        var rect = null;
+        if (node && node.nodeType === 3 && node.length > 0) {
+            var start = Math.min(range.startOffset, node.length - 1);
+            var charRange = document.createRange();
+            charRange.setStart(node, start);
+            charRange.setEnd(node, start + 1);
+            rect = charRange.getBoundingClientRect();
+        } else {
+            rect = range.getBoundingClientRect();
+        }
+        if (!rect || rect.height <= 0) return;
+        // If the first line's top is above the viewport top (cut off), scroll up to reveal it.
+        if (rect.top < -0.5 && rect.top > -(rect.height + 6)) {
+            window.scrollBy({ top: Math.floor(rect.top), behavior: "auto" });
+        }
+    };
+
+    // 白い熊 UI: instant full-viewport page turn (no smooth-scroll animation). direction +1
+    // = next page (down), -1 = previous (up). Moves by fraction*viewport (1.0 = full page,
+    // no overlap), then snaps the top line whole. Returns "moved", or "end"/"start" when
+    // already at the chapter boundary so the app can flip to the neighbouring chapter.
+    window.whiteBearTurnPage = function (direction, fraction) {
+        var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+        if (vh <= 0) return "moved";
+        var frac = (typeof fraction === "number" && fraction > 0) ? fraction : 1.0;
+        var step = Math.max(1, Math.round(vh * frac));
+        var docHeight = document.body.scrollHeight || document.documentElement.scrollHeight || 0;
+        var maxScroll = Math.max(0, docHeight - vh);
+        var current = Math.round(window.scrollY || window.pageYOffset || 0);
+        if (direction > 0 && current >= maxScroll - 1) return "end";
+        if (direction < 0 && current <= 1) return "start";
+        var target = Math.min(maxScroll, Math.max(0, current + direction * step));
+        window.scrollTo({ top: target, behavior: "auto" });
+        window.whiteBearSnapTopToLine();
+        if (window.reportScrollState) {
+            setTimeout(function () { window.reportScrollState(); }, 30);
+        }
+        return "moved";
+    };
+
     window.updateReaderStyles = function (fontSizeEm, lineHeight, fontFamily, textAlign, paragraphGap, imageSize, horizontalMargin, verticalMargin, fontWeight, letterSpacing, hideImages) {
         var logTag = "ReaderFontDiagnosis";
         console.log(

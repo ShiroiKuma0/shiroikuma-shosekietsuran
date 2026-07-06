@@ -87,7 +87,8 @@ fun SharedSettingsHub(
     onBack: (() -> Unit)? = null,
     destination: SharedSettingsDestination = SharedSettingsDestination.ROOT,
     onDestinationChange: (SharedSettingsDestination) -> Unit = {},
-    contentPadding: PaddingValues = PaddingValues(0.dp)
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    belowSearchContent: (@Composable () -> Unit)? = null
 ) {
     val page = remember(model, destination) { model.page(destination) }
     val searchResults = remember(model, query) { model.searchResults(query) }
@@ -139,6 +140,10 @@ fun SharedSettingsHub(
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 label = { Text(readerString("desktop_search_settings", "Search settings")) }
             )
+
+            if (belowSearchContent != null && query.isBlank() && destination == SharedSettingsDestination.ROOT) {
+                belowSearchContent()
+            }
 
             when {
                 query.isNotBlank() -> SharedSettingsSearchResults(
