@@ -94,7 +94,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.border
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.ui.graphics.Color
+import com.aryan.reader.whitebear.LocalWhiteBearBorderWidth
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -681,6 +684,8 @@ fun ReaderTextFormatPanel(
             selectFontFamily = stringResource(R.string.content_desc_select_font_family),
             fontPreview = stringResource(R.string.label_aa_preview)
         ),
+        // 白い熊 UI: border around the sheet in the border color; width 0 removes it.
+        borderWidth = LocalWhiteBearBorderWidth.current,
         alignmentControl = {
             Surface(
                 shape = RoundedCornerShape(12.dp),
@@ -728,8 +733,8 @@ fun ReaderTextFormatPanel(
         },
         layoutControls = {
             FormatStepperRow(stringResource(R.string.label_line_height), formatMultiplier(currentLineHeight),
-                { onLineHeightChange(stepFormatValue(currentLineHeight, -0.1f, 1f, 3f)) },
-                { onLineHeightChange(stepFormatValue(currentLineHeight, 0.1f, 1f, 3f)) }) { activeAdjustment = ReaderFormatAdjustment.LINE_HEIGHT }
+                { onLineHeightChange(stepFormatValue(currentLineHeight, -0.1f, 0.3f, 3f)) },
+                { onLineHeightChange(stepFormatValue(currentLineHeight, 0.1f, 0.3f, 3f)) }) { activeAdjustment = ReaderFormatAdjustment.LINE_HEIGHT }
             FormatStepperRow(stringResource(R.string.label_paragraph_gap), formatMultiplier(currentParagraphGap),
                 { onParagraphGapChange(stepFormatValue(currentParagraphGap, -0.1f, 0f, 3f)) },
                 { onParagraphGapChange(stepFormatValue(currentParagraphGap, 0.1f, 0f, 3f)) }) { activeAdjustment = ReaderFormatAdjustment.PARAGRAPH_GAP }
@@ -811,7 +816,7 @@ private fun ReaderFormatAdjustmentDialog(
         ReaderFormatAdjustment.FONT_SIZE -> 0.5f..3f
         ReaderFormatAdjustment.FONT_WEIGHT -> 100f..1000f
         ReaderFormatAdjustment.LETTER_SPACING -> -0.10f..0.50f
-        ReaderFormatAdjustment.LINE_HEIGHT -> 1f..3f
+        ReaderFormatAdjustment.LINE_HEIGHT -> 0.3f..3f
         ReaderFormatAdjustment.PARAGRAPH_GAP -> 0f..3f
         ReaderFormatAdjustment.IMAGE_SIZE -> 0.5f..2f
         ReaderFormatAdjustment.HORIZONTAL_MARGIN,
@@ -822,7 +827,7 @@ private fun ReaderFormatAdjustmentDialog(
             ReaderFormatAdjustment.FONT_SIZE -> onFontSizeChange(stepFormatValue(raw, 0f, 0.5f, 3f))
             ReaderFormatAdjustment.FONT_WEIGHT -> onFontWeightChange(((raw / 100f).roundToInt() * 100).coerceIn(100, 1000))
             ReaderFormatAdjustment.LETTER_SPACING -> onLetterSpacingChange(stepFormatValue(raw, 0f, -0.10f, 0.50f, 100f))
-            ReaderFormatAdjustment.LINE_HEIGHT -> onLineHeightChange(stepFormatValue(raw, 0f, 1f, 3f))
+            ReaderFormatAdjustment.LINE_HEIGHT -> onLineHeightChange(stepFormatValue(raw, 0f, 0.3f, 3f))
             ReaderFormatAdjustment.PARAGRAPH_GAP -> onParagraphGapChange(stepFormatValue(raw, 0f, 0f, 3f))
             ReaderFormatAdjustment.IMAGE_SIZE -> onImageSizeChange(stepFormatValue(raw, 0f, 0.5f, 2f))
             ReaderFormatAdjustment.HORIZONTAL_MARGIN -> onHorizontalMarginChange(stepFormatValue(raw, 0f, 0f, 3f))
