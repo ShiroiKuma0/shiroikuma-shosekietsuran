@@ -64,6 +64,10 @@ multi-platform document / e-book reader. Our Android build: package `shiroikuma.
 - **Never commit or push until the user says "Push".** Treat the working tree as scratch between
   "Push" commands. "Push" = `git commit` + `git push origin custom` (and `main` after an upstream
   sync). The user tests each build on-device first.
+- **Always build when a change is finished (overrides the global "build only when told" rule
+  for this repo).** As soon as an implementation or fix compiles and is complete, run
+  `/build-apk` (release build + delivery) unprompted — do not wait for a "build" command.
+  Standing order from 白い熊, 2026-07-06.
 - **After every successful build, deliver the APK automatically via `/after-build`** — never ask
   how to transfer it.
 - **Never `adb install` / `adb uninstall`** — 白い熊 installs manually from `/sdcard/tmp/`.

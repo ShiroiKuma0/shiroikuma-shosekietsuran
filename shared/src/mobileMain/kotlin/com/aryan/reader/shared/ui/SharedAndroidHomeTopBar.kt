@@ -1,6 +1,10 @@
 package com.aryan.reader.shared.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FormatListNumbered
@@ -20,6 +24,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
 
 data class SharedAndroidHomeTopBarStrings(
     val openDrawer: String,
@@ -50,6 +58,7 @@ data class SharedAndroidHomeTopBarStrings(
 )
 
 /** Exact Android Home top bar and menus. Platform supplies strings, palette icon and persistence actions. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SharedAndroidHomeTopBar(
     strings: SharedAndroidHomeTopBarStrings,
@@ -65,6 +74,8 @@ fun SharedAndroidHomeTopBar(
     showDebugCloudActions: Boolean,
     onDrawer: () -> Unit,
     onSettings: () -> Unit,
+    // shiroikuma fork: long-press the cog to open the 白い熊 書籍閲覧 UI page.
+    onSettingsLongPress: () -> Unit = {},
     onAppTheme: () -> Unit,
     onRecentFilesLimitChange: (Int) -> Unit,
     onAbout: () -> Unit,
@@ -162,7 +173,16 @@ fun SharedAndroidHomeTopBar(
             }
         },
         actions = {
-            IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, strings.settings) }
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .combinedClickable(
+                        onClick = onSettings,
+                        onLongClick = onSettingsLongPress
+                    ),
+                contentAlignment = Alignment.Center
+            ) { Icon(Icons.Default.Settings, strings.settings) }
             IconButton(onClick = onAppTheme) { appThemeIcon() }
             Box {
                 IconButton(onClick = { limitsExpanded = true }) { Icon(Icons.Default.FormatListNumbered, strings.recentLimit) }

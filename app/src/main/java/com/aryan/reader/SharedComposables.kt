@@ -45,6 +45,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import com.aryan.reader.data.TagEntity
+import com.aryan.reader.whitebear.LocalWhiteBearBorderWidth
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -347,12 +348,19 @@ fun CustomTopAppBar(
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {}
 ) {
-    SharedMobileTopAppBar(
-        modifier = modifier,
-        title = title,
-        navigationIcon = navigationIcon,
-        actions = actions,
-    )
+    Column {
+        SharedMobileTopAppBar(
+            modifier = modifier,
+            title = title,
+            navigationIcon = navigationIcon,
+            actions = actions,
+        )
+        // 白い熊 UI: rule under the bar in the border color; width 0 removes it.
+        val whiteBearRule = LocalWhiteBearBorderWidth.current
+        if (whiteBearRule > 0.dp) {
+            HorizontalDivider(thickness = whiteBearRule, color = MaterialTheme.colorScheme.outline)
+        }
+    }
 }
 
 @Composable
@@ -674,7 +682,7 @@ fun AboutDialog(onDismiss: () -> Unit) {
         ),
         showGitHub = isOss,
         onDismiss = onDismiss,
-        onGitHubClick = { uriHandler.openUri("https://github.com/Aryan-Raj3112/episteme") },
+        onGitHubClick = { uriHandler.openUri("https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran") },
         onPrivacyClick = { uriHandler.openUri(PRIVACY_POLICY_URL) },
         onTermsClick = { uriHandler.openUri(TERMS_URL) },
         onLicensesClick = { uriHandler.openUri(LICENSES_URL) },

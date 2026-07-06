@@ -44,6 +44,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.aryan.reader.data.PlatformFeaturesRepository
 import com.aryan.reader.ui.theme.AppTheme
+import com.aryan.reader.whitebear.WhiteBearTheme
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -133,17 +134,19 @@ open class MainActivity : AppCompatActivity() {
                 textDimFactor = textDimFactor,
                 appFontFamily = appFontFamily
             ) {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    val windowSizeClass = calculateWindowSizeClass(this)
-                    val navController = rememberNavController()
-                    AppNavigation(
-                        navController = navController,
-                        windowSizeClass = windowSizeClass,
-                        viewModel = viewModel
-                    )
+                WhiteBearTheme {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
+                        val windowSizeClass = calculateWindowSizeClass(this)
+                        val navController = rememberNavController()
+                        AppNavigation(
+                            navController = navController,
+                            windowSizeClass = windowSizeClass,
+                            viewModel = viewModel
+                        )
+                    }
                 }
             }
         }

@@ -1,6 +1,6 @@
 ---
 name: build-apk
-description: Build the signed release APK of shiroikuma-shosekietsuran (the 「白い熊 書籍閲覧」 document / e-book reader — a fork of Episteme) with the `buildApk` Gradle task, then deliver it automatically via the global /after-build skill (adb push if a phone is connected, else scp to skhw — no prompt). Always build first without asking permission to build. Use whenever the user asks to build the app, build the APK, make a release build, or build and send to the phone.
+description: Build the signed release APK of shiroikuma-shosekietsuran (the 「白い熊 書籍閲覧」 document / e-book reader — a fork of Episteme) with the `buildApk` Gradle task, then deliver it automatically via the global /after-build skill (adb push if a phone is connected, else scp to skhw — no prompt). Always build first without asking permission to build. Use whenever the user asks to build the app, build the APK, make a release build, or build and send to the phone — AND, in this repo, whenever you have just finished implementing or fixing something testable: finishing the work IS the build trigger; build immediately without being told.
 ---
 
 # Build the shosekietsuran release APK and deliver it
@@ -9,6 +9,13 @@ description: Build the signed release APK of shiroikuma-shosekietsuran (the 「�
 > or you've made changes ready to test), run the build immediately. Do **not** ask "shall I
 > build?". There is **no** transfer question either: after a successful build, deliver the APK
 > automatically via the global **`/after-build`** skill — no prompts at all.
+
+> **Always build after finishing work (this repo overrides the global "build only when told"
+> rule).** The moment an implementation or fix in this repo is complete and compiles, run the
+> release build and delivery unprompted — do NOT wait for the user to say "build". 白い熊
+> explicitly ordered this standing behavior (2026-07-06). A quick `:app:compileOssDebugKotlin`
+> sanity check while iterating is fine, but a finished change always ends with `buildApk` +
+> `/after-build`.
 
 > **The push destination is ALWAYS `/sdcard/tmp/`.** Never `/sdcard/Download/`.
 
