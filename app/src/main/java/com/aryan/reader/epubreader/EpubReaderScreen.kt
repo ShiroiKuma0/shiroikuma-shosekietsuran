@@ -4270,8 +4270,11 @@ fun EpubReaderHost(
             val whiteBearTapTurn = whiteBearGestures.enabled && whiteBearGestures.tapToTurnPages
             val whiteBearRightSwipeFont = whiteBearGestures.enabled && whiteBearGestures.rightSwipeFontSize
             val whiteBearLeftSwipeBrightness = whiteBearGestures.enabled && whiteBearGestures.leftSwipeBrightness
+            // Disable the gesture layer while the top/bottom bars are shown, so their icons
+            // stay tappable (the layer intercepts in the Initial pass, ahead of the bars).
             val whiteBearGestureModifier = if (
                 whiteBearScreenWidthPx > 0f &&
+                !showBars && !navigation.showFormatAdjustmentBars &&
                 (whiteBearTapTurn || whiteBearRightSwipeFont || whiteBearLeftSwipeBrightness)
             ) {
                 Modifier.pointerInput(
@@ -5442,7 +5445,10 @@ fun EpubReaderHost(
                 )
 
                 AnimatedVisibility(
-                    visible = isTtsSessionActive && showBars,
+                    // 白い熊 UI: only surface the TTS controls while TTS is actually reading
+                    // aloud (or loading) — a paused/idle session no longer pops up when the
+                    // toolbars are shown, so a plain tap just reveals the toolbars.
+                    visible = isTtsSessionActive && showBars && (ttsState.isPlaying || ttsState.isLoading),
                     enter = if (motionPolicy.reduceMotion) {
                         androidx.compose.animation.EnterTransition.None
                     } else {
