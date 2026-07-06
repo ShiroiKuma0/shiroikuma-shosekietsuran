@@ -4,20 +4,23 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- shiroikuma traced icon, monochrome (system-tinted) line art -->
-    <path
-        android:pathData="M38,29 h20 a6,6 0 0 1 6,6 v30 a6,6 0 0 1 -6,6 h-20 a6,6 0 0 1 -6,-6 v-30 a6,6 0 0 1 6,-6 z"
-        android:strokeColor="#FFFFFF" android:strokeWidth="4"
-        android:strokeLineJoin="round" android:strokeLineCap="round"/>
-    <path
-        android:pathData="M42,29 v14 l5,-4 5,4 v-14"
-        android:strokeColor="#FFFFFF" android:strokeWidth="3"
-        android:strokeLineJoin="round" android:strokeLineCap="round"/>
-    <path
-        android:pathData="M52,65 a14,14 0 1 0 28,0 a14,14 0 1 0 -28,0 z"
-        android:strokeColor="#FFFFFF" android:strokeWidth="4"/>
-    <path
-        android:pathData="M61.5,58.5 L74,65 L61.5,71.5 Z"
-        android:strokeColor="#FFFFFF" android:strokeWidth="3.5"
-        android:strokeLineJoin="round" android:strokeLineCap="round"/>
+    <!-- shiroikuma traced icon, monochrome (system-tinted) line art.
+         Scaled to ~70% of the tile around the centre (54,54). -->
+    <group android:scaleX="1.4" android:scaleY="1.4" android:pivotX="54" android:pivotY="54">
+      <path
+          android:pathData="M38,29 h20 a6,6 0 0 1 6,6 v30 a6,6 0 0 1 -6,6 h-20 a6,6 0 0 1 -6,-6 v-30 a6,6 0 0 1 6,-6 z"
+          android:strokeColor="#FFFFFF" android:strokeWidth="4"
+          android:strokeLineJoin="round" android:strokeLineCap="round"/>
+      <path
+          android:pathData="M42,29 v14 l5,-4 5,4 v-14"
+          android:strokeColor="#FFFFFF" android:strokeWidth="3"
+          android:strokeLineJoin="round" android:strokeLineCap="round"/>
+      <path
+          android:pathData="M52,65 a14,14 0 1 0 28,0 a14,14 0 1 0 -28,0 z"
+          android:strokeColor="#FFFFFF" android:strokeWidth="4"/>
+      <path
+          android:pathData="M61.5,58.5 L74,65 L61.5,71.5 Z"
+          android:strokeColor="#FFFFFF" android:strokeWidth="3.5"
+          android:strokeLineJoin="round" android:strokeLineCap="round"/>
+    </group>
 </vector>
