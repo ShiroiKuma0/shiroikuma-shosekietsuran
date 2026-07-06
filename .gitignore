@@ -52,3 +52,7 @@ DerivedData/
 *.xcresult
 /docs
 .freebuff/
+
+# shiroikuma fork
+keystore.properties
+.claude/settings.local.json
