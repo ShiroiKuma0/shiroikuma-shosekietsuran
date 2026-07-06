@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Settings
@@ -75,6 +76,7 @@ fun WhiteBearUiScreen(
 ) {
     val context = LocalContext.current
     val state = remember { WhiteBearUiState.get(context) }
+    val gestureState = remember { WhiteBearGestureState.get(context) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val customFonts by viewModel.customFonts.collectAsStateWithLifecycle()
 
@@ -185,6 +187,54 @@ fun WhiteBearUiScreen(
                 steps = 11,
                 level = 1,
                 onChange = { state.updateBorderWidth((it * 2).roundToInt() / 2f) }
+            )
+
+            SectionHeader("Tap and swipe (reader)")
+            SwitchRow(
+                label = "Enable reading gestures",
+                checked = gestureState.enabled,
+                level = 1,
+                onToggle = { gestureState.updateEnabled(it) }
+            )
+            GestureHelpText("Left/right thirds and vertical swipes on the sides — the center still toggles the reader menu.", level = 1)
+            SubHeader("Page turning", level = 1)
+            SwitchRow(
+                label = "Tap right third → next page,  left third → previous",
+                checked = gestureState.tapToTurnPages,
+                level = 2,
+                onToggle = { gestureState.updateTapToTurnPages(it) }
+            )
+            SliderRow(
+                label = "Page turn amount",
+                value = gestureState.pageTurnStepPercent.toFloat(),
+                valueText = "${gestureState.pageTurnStepPercent}%",
+                range = 70f..100f,
+                steps = 5,
+                level = 2,
+                onChange = { gestureState.updatePageTurnStepPercent((it / 5f).roundToInt() * 5) }
+            )
+            PageTurnSoundChooser(
+                selected = gestureState.pageTurnSound,
+                level = 2,
+                onSelect = { choice ->
+                    gestureState.updatePageTurnSound(choice)
+                    if (choice in 1..WhiteBearSound.SOUND_COUNT) {
+                        WhiteBearSound.get(context).play(choice)
+                    }
+                }
+            )
+            SubHeader("Vertical swipes", level = 1)
+            SwitchRow(
+                label = "Right third: swipe up/down → font size larger/smaller",
+                checked = gestureState.rightSwipeFontSize,
+                level = 2,
+                onToggle = { gestureState.updateRightSwipeFontSize(it) }
+            )
+            SwitchRow(
+                label = "Left third: swipe up/down → brightness up/down",
+                checked = gestureState.leftSwipeBrightness,
+                level = 2,
+                onToggle = { gestureState.updateLeftSwipeBrightness(it) }
             )
         }
     }
@@ -310,6 +360,42 @@ private fun SubHeader(text: String, level: Int) {
         textDecoration = TextDecoration.Underline,
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(start = IndentStep * level, top = 8.dp, bottom = 2.dp)
+    )
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun PageTurnSoundChooser(selected: Int, level: Int, onSelect: (Int) -> Unit) {
+    Column(modifier = Modifier.padding(start = IndentStep * level, top = 4.dp, bottom = 2.dp)) {
+        Text(
+            "Page-turn sound (tap to preview)",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            val labels = listOf(0 to "Off", 1 to "1", 2 to "2", 3 to "3", 4 to "4", 5 to "5")
+            labels.forEach { (value, label) ->
+                androidx.compose.material3.FilterChip(
+                    selected = selected == value,
+                    onClick = { onSelect(value) },
+                    label = { Text(label) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GestureHelpText(text: String, level: Int) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = IndentStep * level, top = 2.dp, bottom = 2.dp)
     )
 }
 
@@ -489,28 +575,44 @@ private fun AddFontRow(level: Int, viewModel: MainViewModel) {
     }
 }
 
-/** The row injected at the top of the stock Settings screen. */
+/** The boxed entry card injected under the Settings search bar. */
 @Composable
 fun WhiteBearSettingsEntryRow(onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
+    androidx.compose.material3.OutlinedCard(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Icon(
-            painterResource(id = R.drawable.palette),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(22.dp)
-        )
-        Spacer(Modifier.width(16.dp))
-        Text(
-            "白い熊 書籍閲覧 UI",
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                painterResource(id = R.drawable.palette),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "白い熊 書籍閲覧 UI",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    "Colors, fonts, shapes, and reading gestures",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

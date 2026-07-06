@@ -486,6 +486,7 @@ fun LibraryScreen(
             onDeleteCatalogStreams = viewModel::deleteStreamedBooksForCatalog,
             onShowBanner = viewModel::showBanner,
             onSettingsClick = { navController.navigateIfReady(com.aryan.reader.shared.ui.SharedMobileAppDestination.SETTINGS) },
+            onSettingsLongClick = { navController.navigateIfReady(AppDestinations.WHITE_BEAR_UI_SCREEN_ROUTE) },
             usePdfFileNameAsDisplayName = uiState.usePdfFileNameAsDisplayName,
             cloudFolderSelection = cloudFolderSelection.takeIf { canUseCloudFolderSync },
             cloudSyncEnabled = uiState.isSyncEnabled,
@@ -807,6 +808,7 @@ fun LibraryScreenContent(
     onDeleteCatalogStreams: (String) -> Unit,
     onShowBanner: (String) -> Unit,
     onSettingsClick: () -> Unit,
+    onSettingsLongClick: () -> Unit = {},
     usePdfFileNameAsDisplayName: Boolean,
     cloudFolderSelection: CloudFolderSyncSelection? = null,
     cloudSyncEnabled: Boolean = false,
@@ -946,7 +948,19 @@ fun LibraryScreenContent(
                 )
                 IconButton(onClick = { onSearchActiveChange(true) }) { Icon(Icons.Default.Search, stringResource(R.string.action_search)) }
             }
-            IconButton(onClick = onSettingsClick) { Icon(Icons.Default.Settings, stringResource(R.string.settings)) }
+            // 白い熊: long-press the cog opens the UI page directly.
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .combinedClickable(
+                        onClick = onSettingsClick,
+                        onLongClick = onSettingsLongClick
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Settings, stringResource(R.string.settings))
+            }
         },
         filterChips = {
             if (pagerState.currentPage == 0) {

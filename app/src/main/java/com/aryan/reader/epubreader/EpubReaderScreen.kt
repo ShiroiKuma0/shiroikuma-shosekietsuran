@@ -137,7 +137,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -436,6 +438,25 @@ fun EpubReaderHost(
     val updateReaderBrightness: (com.aryan.reader.ReaderBrightnessSettings) -> Unit = { settings ->
         readerBrightnessSettings = settings
         saveReaderBrightnessSettings(context, settings)
+    }
+
+    // 白い熊 UI: reading gesture config (tap thirds turn pages; side vertical swipes change
+    // font size / brightness). Stepping helpers close over the reader state below.
+    val whiteBearGestures = remember { com.aryan.reader.whitebear.WhiteBearGestureState.get(context) }
+    LaunchedEffect(Unit) {
+        // Preload page-turn sounds so the first tap isn't silent.
+        if (whiteBearGestures.pageTurnSound in 1..com.aryan.reader.whitebear.WhiteBearSound.SOUND_COUNT) {
+            com.aryan.reader.whitebear.WhiteBearSound.get(context)
+        }
+    }
+    // Live overlay shown while swiping to change font size / brightness.
+    var whiteBearOverlayLabel by remember { mutableStateOf<String?>(null) }
+    var whiteBearOverlayTick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(whiteBearOverlayTick) {
+        if (whiteBearOverlayLabel != null) {
+            delay(650)
+            whiteBearOverlayLabel = null
+        }
     }
 
     fun showBanner(message: String, isError: Boolean = false, isPersistent: Boolean = false) {
@@ -4110,6 +4131,7 @@ fun EpubReaderHost(
             val keyboardLineScrollPx = with(density) {
                 (configuration.screenHeightDp.dp.toPx() * 0.16f).roundToInt().coerceAtLeast(96)
             }
+            val whiteBearScreenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
             val keyboardPageScrollPx = with(density) {
                 (configuration.screenHeightDp.dp.toPx() * 0.82f).roundToInt().coerceAtLeast(keyboardLineScrollPx)
             }
@@ -4161,6 +4183,70 @@ fun EpubReaderHost(
                 }
             }
 
+            // 白い熊 UI: gesture steppers. dir > 0 = larger/brighter, dir < 0 = smaller/dimmer.
+            fun whiteBearStepFont(dir: Int) {
+                val next = ((format.currentFontSizeEm + dir * 0.1f).coerceIn(0.5f, 3.0f) * 100f).roundToInt() / 100f
+                format.currentFontSizeEm = next
+                whiteBearOverlayLabel = "Font  ${(next * 100f).roundToInt()}%"
+                whiteBearOverlayTick++
+            }
+            fun whiteBearStepBrightness(dir: Int) {
+                val base = readerBrightnessSettings.safeCustomBrightness
+                val stepped = com.aryan.reader.stepReaderBrightness(base, dir * 8)
+                updateReaderBrightness(
+                    readerBrightnessSettings.copy(useSystemBrightness = false, customBrightness = stepped)
+                )
+                whiteBearOverlayLabel = "Brightness  ${(stepped * 100f).roundToInt()}%"
+                whiteBearOverlayTick++
+            }
+            fun whiteBearPlayPageSound() {
+                val sound = whiteBearGestures.pageTurnSound
+                if (sound in 1..com.aryan.reader.whitebear.WhiteBearSound.SOUND_COUNT) {
+                    com.aryan.reader.whitebear.WhiteBearSound.get(context).play(sound)
+                }
+            }
+            // WebView vertical mode loads one chapter at a time; when a tap lands on the chapter
+            // boundary, flip to the neighbouring chapter (next → its top, previous → its bottom).
+            fun whiteBearWebViewChapter(offset: Int, target: ChapterScrollPosition) {
+                scope.launch {
+                    clearPendingTtsRelocationState("wb_gesture_chapter_change")
+                    initialScrollTargetForChapter = target
+                    currentScrollYPosition = 0
+                    currentScrollHeightValue = 0
+                    currentChapterIndex += offset
+                }
+            }
+            // Real page turn for a tap: instant full-viewport jump (no smooth scroll) in the
+            // WebView vertical renderer, crossing chapter boundaries; the native paths already
+            // jump by a whole page.
+            fun whiteBearTurnPage(dir: Int) {
+                if (currentRenderMode == RenderMode.VERTICAL_SCROLL && !isNativeVerticalMode) {
+                    val fraction = whiteBearGestures.pageTurnStepPercent.coerceIn(50, 100) / 100.0
+                    val webView = webViewRefForTts
+                    if (webView == null) {
+                        navigateReaderPageBy(dir)
+                        whiteBearPlayPageSound()
+                        return
+                    }
+                    webView.evaluateJavascript("window.whiteBearTurnPage($dir, $fraction);") { result ->
+                        when (result?.trim('"')) {
+                            "moved" -> whiteBearPlayPageSound()
+                            "end" -> if (dir > 0 && currentChapterIndex < chapters.lastIndex) {
+                                whiteBearWebViewChapter(1, ChapterScrollPosition.START)
+                                whiteBearPlayPageSound()
+                            }
+                            "start" -> if (dir < 0 && currentChapterIndex > 0) {
+                                whiteBearWebViewChapter(-1, ChapterScrollPosition.END)
+                                whiteBearPlayPageSound()
+                            }
+                        }
+                    }
+                } else {
+                    navigateReaderPageBy(dir)
+                    whiteBearPlayPageSound()
+                }
+            }
+
             fun navigateReaderBoundary(first: Boolean) {
                 when {
                     isNativeVerticalMode -> navigateReaderPage(if (first) 0 else nativeVerticalTotalPages - 1)
@@ -4176,11 +4262,96 @@ fun EpubReaderHost(
                 }
             }
 
+            // 白い熊 UI: mode-agnostic reading-gesture layer. Attaches to the outer wrapper so
+            // it intercepts (in the Initial pass) before the paginated pager, the native
+            // vertical list, and the WebView renderer alike. Side-third taps turn pages;
+            // side-third vertical swipes step font (right) / brightness (left); everything
+            // else (center taps → chrome, center scroll, horizontal page-swipes) passes through.
+            val whiteBearTapTurn = whiteBearGestures.enabled && whiteBearGestures.tapToTurnPages
+            val whiteBearRightSwipeFont = whiteBearGestures.enabled && whiteBearGestures.rightSwipeFontSize
+            val whiteBearLeftSwipeBrightness = whiteBearGestures.enabled && whiteBearGestures.leftSwipeBrightness
+            val whiteBearGestureModifier = if (
+                whiteBearScreenWidthPx > 0f &&
+                (whiteBearTapTurn || whiteBearRightSwipeFont || whiteBearLeftSwipeBrightness)
+            ) {
+                Modifier.pointerInput(
+                    whiteBearTapTurn, whiteBearRightSwipeFont, whiteBearLeftSwipeBrightness, whiteBearScreenWidthPx
+                ) {
+                    val third = whiteBearScreenWidthPx / 3f
+                    val stepPx = 48.dp.toPx()
+                    val slop = viewConfiguration.touchSlop
+                    awaitEachGesture {
+                        val down = awaitFirstDown(
+                            requireUnconsumed = false,
+                            pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial
+                        )
+                        val zone = when {
+                            third <= 0f -> 0
+                            down.position.x < third -> -1
+                            down.position.x > whiteBearScreenWidthPx - third -> 1
+                            else -> 0
+                        }
+                        if (zone == 0) return@awaitEachGesture
+                        var verticalDrag = false
+                        var bailed = false
+                        var accumulated = 0f
+                        var lastY = down.position.y
+                        while (true) {
+                            val event = awaitPointerEvent(
+                                androidx.compose.ui.input.pointer.PointerEventPass.Initial
+                            )
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (!change.pressed) {
+                                // Only a quick release counts as a page-turn tap; a long press
+                                // is left alone so text selection still works.
+                                val quickTap = (change.uptimeMillis - down.uptimeMillis) < 350L
+                                if (!verticalDrag && !bailed && whiteBearTapTurn && quickTap) {
+                                    change.consume()
+                                    whiteBearTurnPage(if (zone < 0) -1 else 1)
+                                }
+                                break
+                            }
+                            val dx = change.position.x - down.position.x
+                            val dy = change.position.y - down.position.y
+                            if (!verticalDrag && !bailed) {
+                                if (kotlin.math.abs(dx) > slop && kotlin.math.abs(dx) >= kotlin.math.abs(dy)) {
+                                    bailed = true // horizontal → let the pager / children handle it
+                                } else if (kotlin.math.abs(dy) > slop) {
+                                    val featureOn = (zone == 1 && whiteBearRightSwipeFont) ||
+                                        (zone == -1 && whiteBearLeftSwipeBrightness)
+                                    if (featureOn) {
+                                        verticalDrag = true
+                                        lastY = change.position.y
+                                    } else {
+                                        bailed = true // feature off → let children scroll
+                                    }
+                                }
+                            }
+                            if (verticalDrag) {
+                                change.consume()
+                                accumulated += change.position.y - lastY
+                                lastY = change.position.y
+                                while (accumulated <= -stepPx) {
+                                    accumulated += stepPx
+                                    if (zone == 1) whiteBearStepFont(1) else whiteBearStepBrightness(1)
+                                }
+                                while (accumulated >= stepPx) {
+                                    accumulated -= stepPx
+                                    if (zone == 1) whiteBearStepFont(-1) else whiteBearStepBrightness(-1)
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                Modifier
+            }
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(effectiveBg)
                     .then(activeTextureModifier)
+                    .then(whiteBearGestureModifier)
                     .padding(top = effectiveTopPadding)
                     .focusRequester(containerFocusRequester)
                     .focusable()
@@ -5747,6 +5918,31 @@ fun EpubReaderHost(
                         scrollPaginatedToJumpPage(pageIndex, targetLocator)
                     }
                 )
+
+                // 白い熊 UI: live font-size / brightness readout while side-swiping —
+                // translucent yellow text with a black outline, readable over the page.
+                whiteBearOverlayLabel?.let { overlayText ->
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        val overlayStyle = MaterialTheme.typography.headlineLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 44.sp
+                        )
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                overlayText,
+                                style = overlayStyle.copy(
+                                    drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(width = 12f)
+                                ),
+                                color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.7f)
+                            )
+                            Text(
+                                overlayText,
+                                style = overlayStyle,
+                                color = androidx.compose.ui.graphics.Color(0xFFFFFF00).copy(alpha = 0.85f)
+                            )
+                        }
+                    }
+                }
             }
         }
 

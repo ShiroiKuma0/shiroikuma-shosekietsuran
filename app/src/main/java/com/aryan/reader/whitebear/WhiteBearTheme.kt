@@ -99,7 +99,9 @@ private fun whiteBearColorScheme(
         onSurface = text,
         surfaceVariant = surfaceHigh,
         onSurfaceVariant = textSecondary,
-        surfaceTint = accent,
+        // Transparent tint: Material3 tonal elevation must not tint bars/cards toward the
+        // yellow accent (that produced an olive cast over the black surfaces).
+        surfaceTint = Color.Transparent,
         inverseSurface = text,
         inverseOnSurface = background,
         inversePrimary = background,
