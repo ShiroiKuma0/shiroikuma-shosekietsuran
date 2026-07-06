@@ -78,7 +78,8 @@ top, and produce a fresh `+1` build.
    | Code namespace | `com.aryan.reader` (unchanged from upstream — never rename) | `app/build.gradle.kts` → `namespace` |
    | oss flavor suffixes removed | no `applicationIdSuffix` / `versionNameSuffix` | `app/build.gradle.kts` → `productFlavors.oss` |
    | App label | `白い熊 書籍閲覧` | **`app/src/oss/res/values/strings.xml` → `app_name` (the launcher label — flavor overrides `main`!)**, plus `app_name` / `app_name_oss` / `about_app_name` in `app/src/main/res/values/strings.xml` |
-   | Branding sweep | no user-visible "Episteme" (all locales' `strings.xml` values, Bubble-Zoom toast in `PdfViewerScreen.kt`); sync dir `ShiroikumaSyncData` | `app/src/main/res/values*/strings.xml`, `app/src/oss/res/values/strings.xml`, `shared/.../LocalFolderSync.kt` — re-sweep new upstream strings mentioning Episteme after every rebase |
+   | Branding sweep | no user-visible "Episteme" (all locales' `strings.xml` values, Bubble-Zoom toast in `PdfViewerScreen.kt`); sync dir `ShiroikumaSyncData`; demo art = our icon motif | `app/src/main/res/values*/strings.xml`, `app/src/oss/res/values/strings.xml`, `shared/.../LocalFolderSync.kt`, `app/src/main/assets/demo_art.svg` — re-sweep new upstream strings mentioning Episteme after every rebase |
+   | Repo links → our fork | About GitHub tile + feedback GitHub Issues point at `github.com/ShiroiKuma0/shiroikuma-shosekietsuran` (sponsors + `github.io` policy links stay upstream) | `SharedComposables.kt`, `feedback/FeedbackScreen.kt` |
    | Launcher icon | yellow-on-black traced book + play badge | `app/src/main/res/drawable/ic_launcher_foreground.xml`, `ic_launcher_background.xml`, `ic_launcher_monochrome.xml` |
    | Fork version lines | `versionName = "$versionName+$forkBuildNumber"`, `versionCode = versionCode!! * 10000 + forkBuildNumber` | `app/build.gradle.kts` → `defaultConfig` |
    | Single-ABI | `ndk { abiFilters += "arm64-v8a" }` | `app/build.gradle.kts` → `defaultConfig` |
