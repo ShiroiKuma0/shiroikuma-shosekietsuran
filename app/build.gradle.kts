@@ -1,6 +1,7 @@
 @file:Suppress("UnstableApiUsage")
 
 import java.util.Properties
+import java.io.File
 import java.io.StringReader
 import javax.xml.parsers.DocumentBuilderFactory
 import com.android.build.api.artifact.SingleArtifact
@@ -21,6 +22,24 @@ val localProperties = Properties()
 val localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
     localPropertiesFile.inputStream().use { localProperties.load(it) }
+}
+
+// --- shiroikuma fork: per-build version tail ---
+// forkVersionName = "<upstream>+N", forkVersionCode = <upstream> * 10000 + N,
+// where N = BUILD_NUMBER from gradle.properties (bumped by buildApk, reset to 1 on upstream sync).
+val forkBuildNumber = (project.findProperty("BUILD_NUMBER") as String?)?.trim()?.toIntOrNull() ?: 1
+
+// --- shiroikuma fork: release signing from a gitignored keystore.properties ---
+// Maps our standard keystore.properties keys onto the upstream MYAPP_RELEASE_* entries
+// (which upstream reads from local.properties), so the upstream signing blocks stay untouched.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+if (keystorePropertiesFile.exists()) {
+    val keystoreProperties = Properties()
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+    localProperties.setProperty("MYAPP_RELEASE_STORE_FILE", keystoreProperties.getProperty("storeFile"))
+    localProperties.setProperty("MYAPP_RELEASE_STORE_PASSWORD", keystoreProperties.getProperty("storePassword"))
+    localProperties.setProperty("MYAPP_RELEASE_KEY_ALIAS", keystoreProperties.getProperty("keyAlias"))
+    localProperties.setProperty("MYAPP_RELEASE_KEY_PASSWORD", keystoreProperties.getProperty("keyPassword"))
 }
 
 fun configuredAppLocaleTags(): Set<String> {
@@ -60,11 +79,21 @@ android {
     compileSdkMinor = 0
 
     defaultConfig {
-        applicationId = "com.aryan.reader"
+        applicationId = "shiroikuma.etsuran"
         minSdk = 26
         targetSdk = 36
         versionCode = 59
         versionName = "1.0.54"
+
+        // shiroikuma fork: keep upstream's literals above untouched (rebase-friendly);
+        // derive our real version from them: "<upstream>+N" / <upstream> * 10000 + N.
+        versionName = "$versionName+$forkBuildNumber"
+        versionCode = versionCode!! * 10000 + forkBuildNumber
+
+        // shiroikuma fork: single-ABI build (matches the shiroikuma-etsuran_*_arm64-v8a.apk name).
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
@@ -80,8 +109,8 @@ android {
     productFlavors {
         create("oss") {
             dimension = "version"
-            applicationIdSuffix = ".oss"
-            versionNameSuffix = "-oss"
+            // shiroikuma fork: no ".oss" appId / "-oss" versionName suffix — the installed
+            // id must be exactly shiroikuma.etsuran, the version exactly "<upstream>+N".
             buildConfigField("String", "AI_WORKER_URL", "\"\"")
             buildConfigField("String", "VERIFIER_WORKER_URL", "\"\"")
             buildConfigField("String", "FEEDBACK_WORKER_URL", "\"\"")
@@ -338,5 +367,40 @@ spotless {
     cpp {
         target("src/main/cpp/mobi_jni_bridge.c", "src/main/cpp/Woff2Converter.cpp")
         licenseHeaderFile(rootProject.file("spotless/copyright.kt"))
+    }
+}
+
+// --- shiroikuma fork: build the signed oss release APK, copy to ~/tmp, bump BUILD_NUMBER ---
+tasks.register("buildApk") {
+    description = "Build the signed oss release APK, copy it to ~/tmp, and bump BUILD_NUMBER for next time."
+    dependsOn("assembleOssRelease")
+    // Capture project state at configuration time so the action is configuration-cache compatible.
+    val fvName = android.defaultConfig.versionName
+    val fvCode = android.defaultConfig.versionCode
+    val releaseApkDir = layout.buildDirectory.dir("outputs/apk/oss/release")
+    val userHome = providers.systemProperty("user.home")
+    val propsFile = rootProject.file("gradle.properties")
+    val currentBuildNumber = forkBuildNumber
+    doLast {
+        val apkName = "shiroikuma-etsuran_${fvName}_arm64-v8a.apk"
+        val outputDir = releaseApkDir.get().asFile
+        val targetDir = File(userHome.get(), "tmp")
+        targetDir.mkdirs()
+        outputDir.listFiles { _, name -> name.endsWith(".apk") }?.firstOrNull()?.let { apk ->
+            val targetFile = File(targetDir, apkName)
+            apk.copyTo(targetFile, overwrite = true)
+            println("\u001B[1;36m>>> ${targetFile.absolutePath}\u001B[0m")
+            println("\u001B[1;36m>>> versionCode $fvCode\u001B[0m")
+        } ?: throw GradleException("No APK found in $outputDir")
+
+        // Auto-increment BUILD_NUMBER for the next build.
+        val nextBuildNumber = currentBuildNumber + 1
+        propsFile.writeText(
+            propsFile.readText().replace(
+                "BUILD_NUMBER=$currentBuildNumber",
+                "BUILD_NUMBER=$nextBuildNumber"
+            )
+        )
+        println("\u001B[1;36m>>> BUILD_NUMBER bumped to $nextBuildNumber\u001B[0m")
     }
 }
