@@ -91,7 +91,7 @@ fun FeedbackScreen(
             openDescription = stringResource(R.string.action_open),
         ),
         onNavigateBack = onNavigateBack,
-        onFirstClick = { uriHandler.openUri("https://github.com/Aryan-Raj3112/episteme/issues") },
+        onFirstClick = { uriHandler.openUri("https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/issues") },
         onSecondClick = { launchEmailFeedback(context) },
         heroIcon = {
             Icon(
