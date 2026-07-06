@@ -46,6 +46,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.border
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -655,19 +657,35 @@ fun SharedReaderTextFormatSheet(
     currentFontName: String,
     onFontOptionClick: () -> Unit,
     labels: SharedReaderTextFormatSheetLabels,
+    // shiroikuma fork: border drawn around the visible sheet; 0.dp removes it.
+    borderWidth: Dp = 0.dp,
     alignmentControl: @Composable () -> Unit,
     typographyControls: @Composable () -> Unit,
     layoutControls: @Composable () -> Unit
 ) {
     if (!isVisible) return
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // The border goes on the content (with our own drag handle inside): on the
+    // ModalBottomSheet modifier it would outline the full-height container instead.
+    val sheetShape = BottomSheetDefaults.ExpandedShape
     ModalBottomSheet(
+        shape = sheetShape,
+        dragHandle = null,
         onDismissRequest = onClose,
         sheetState = sheetState,
         scrimColor = Color.Transparent,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f),
         contentWindowInsets = { WindowInsets.navigationBars }
     ) {
+      Column(
+          modifier = if (borderWidth > 0.dp) {
+              Modifier.fillMaxWidth().border(borderWidth, MaterialTheme.colorScheme.outline, sheetShape)
+          } else {
+              Modifier.fillMaxWidth()
+          },
+          horizontalAlignment = Alignment.CenterHorizontally
+      ) {
+        BottomSheetDefaults.DragHandle()
         Column(
             Modifier.fillMaxWidth().heightIn(max = maxSheetHeight).verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp).padding(bottom = 24.dp)
@@ -756,6 +774,7 @@ fun SharedReaderTextFormatSheet(
             SharedReaderFormatSectionLabel(labels.layoutSpacingSection, bottomPadding = 12.dp)
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { layoutControls() }
         }
+      }
     }
 }
 
