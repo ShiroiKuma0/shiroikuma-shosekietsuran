@@ -43,7 +43,7 @@
     <string name="source_opds">Источник: OPDS Stream</string>
     <string name="source_in_app">Встроенное хранилище</string>
     <string name="internal_storage">Внутреннее хранилище</string>
-    <string name="about_title">О Episteme</string>
+    <string name="about_title">О 白い熊 書籍閲覧</string>
     <string name="about_version">Версия: %1$s (Сборка: %2$d)</string>
     <string name="empty_select_file">Выберите файл</string>
     <string name="clear_cloud_data_title">Очистить все синхронизированные данные?</string>
@@ -64,8 +64,8 @@
     <string name="not_available_locally">Недоступно локально</string>
     <string name="drawer_sign_in">Войти через Google</string>
     <string name="drawer_by_signing_in">Соглашаясь,</string>
-    <string name="drawer_pro_unlocked">Episteme Pro</string>
-    <string name="drawer_upgrade_pro">Обновиться на Episteme Pro</string>
+    <string name="drawer_pro_unlocked">白い熊 書籍閲覧 Pro</string>
+    <string name="drawer_upgrade_pro">Обновиться на 白い熊 書籍閲覧 Pro</string>
     <string name="drawer_sync_library">Синхронизировать библиотеку</string>
     <string name="drawer_backup_local_folders">Облачная синхронизация для локальных папок</string>
     <string name="drawer_backup_desc">Загрузить книги из синхронизированных папок в Google Drive.</string>
@@ -107,7 +107,7 @@
     <string name="dialog_delete_shelves">Удалить полки %1$s?</string>
     <string name="dialog_delete_shelves_desc">Вы уверены, что хотите удалить %1$d выбранных %2$s? Все книги с них будут перемещены в раздел «Без полки».</string>
     <string name="sync_local_folders">Синхронизация локальных папок</string>
-    <string name="sync_folders_desc">Подключите локальные папки для создания динамической библиотеки. Episteme будет отслеживать файлы и синхронизировать процесс.</string>
+    <string name="sync_folders_desc">Подключите локальные папки для создания динамической библиотеки. 白い熊 書籍閲覧 будет отслеживать файлы и синхронизировать процесс.</string>
     <string name="fab_add_folder">Добавить папку</string>
     <string name="scan_all">Сканировать всё</string>
     <string name="scanning">Сканируем…</string>
@@ -678,7 +678,7 @@
     <string name="ai_chapter_summary">Краткое содержание главы</string>
     <string name="ai_story_recap_beta">Пересказ сюжета (Бета)</string>
     <string name="ai_unlock_summarization">Разблокировать краткое содержание глав</string>
-    <string name="ai_unlock_summarization_desc">Получайте краткие содержания любой главы с помощью Episteme Pro. Для этого необходимо оформить подписку.</string>
+    <string name="ai_unlock_summarization_desc">Получайте краткие содержания любой главы с помощью 白い熊 書籍閲覧 Pro. Для этого необходимо оформить подписку.</string>
     <string name="ai_unlock_smart_dict">Разблокировать умный словарь</string>
     <string name="ai_unlock_smart_dict_desc">Определение целых фраз и абзацев объемом до 2000 символов доступно в Pro-версии. Перейдите на Pro, чтобы мгновенно получать определения для любого выделенного текста.</string>
     <string name="menu_recap_beta">Пересказ (Бета)</string>
@@ -828,7 +828,7 @@
     <string name="dialog_out_of_credits_desc">У вас закончились кредиты. Пожалуйста, пополните баланс для использования этой функции.</string>
     <string name="action_get_pro_or_add_credits">Получить PRO или пополнить кредиты</string>
     <string name="dialog_unlock_page_summarization">Разблокировать краткое содержание страниц</string>
-    <string name="dialog_unlock_page_summarization_desc">Получайте краткие содержании по любой странице с помощью Episteme Pro. Для этого необходимо оформить подписку.</string>
+    <string name="dialog_unlock_page_summarization_desc">Получайте краткие содержании по любой странице с помощью 白い熊 書籍閲覧 Pro. Для этого необходимо оформить подписку.</string>
     <string name="dialog_download_bubble_zoom_model">Скачать модель увеличения облачков текста</string>
     <string name="dialog_download_bubble_zoom_model_desc">Для использования функции Bubble Zoom необходимо загрузить модель ИИ (~134 МБ). Хотите загрузить её сейчас?</string>
     <string name="action_translate">Перевод</string>
@@ -892,8 +892,8 @@
     <string name="desc_toggle_smart_comic_zoom">Включить/выключить умный масштаб комикса</string>
     <string name="drawer_support_project">Помочь проекту</string>
     <string name="support_project_title">Помочь проекту</string>
-    <string name="support_project_heading">Помогите Episteme продолжать свою работу</string>
-    <string name="support_project_desc">Ваша поддержка помогает мне продолжать поддерживать и улучшать Episteme для всех!!!</string>
+    <string name="support_project_heading">Помогите 白い熊 書籍閲覧 продолжать свою работу</string>
+    <string name="support_project_desc">Ваша поддержка помогает мне продолжать поддерживать и улучшать 白い熊 書籍閲覧 для всех!!!</string>
     <string name="support_github_sponsor">Спонсировать на GitHub</string>
     <string name="support_github_sponsor_desc">Поддержите разработку напрямую через GitHub Sponsors. В знак благодарности вы получите упоминание в файле README репозитория проекта.</string>
     <string name="support_patreon">Присоединяйтесь на Patreon</string>
@@ -1219,9 +1219,9 @@
     <string name="desktop_source_code_desc">Просмотр исходного кода проекта на GitHub.</string>
     <string name="desktop_stop_reading_change_voices">Остановите чтение, чтобы сменить голос.</string>
     <string name="desktop_support">Поддержка</string>
-    <string name="desktop_support_episteme">Поддержать Episteme</string>
+    <string name="desktop_support_episteme">Поддержать 白い熊 書籍閲覧</string>
     <string name="desktop_support_episteme_desc">Пожертвования помогают развивать приложение на Android и ПК.</string>
-    <string name="desktop_support_project_desc">Способы поддержать разработку Episteme</string>
+    <string name="desktop_support_project_desc">Способы поддержать разработку 白い熊 書籍閲覧</string>
     <string name="desktop_sync_folders">Синхронизировать папки</string>
     <string name="desktop_sync_metadata">Синхронизировать метаданные</string>
     <string name="desktop_tag_name">Название тега</string>
@@ -1234,7 +1234,7 @@
     <string name="desktop_voice_cache">Кэш голосов</string>
     <string name="desktop_webview_preparing">Подготовка встроенного веб-просмотра…</string>
     <string name="desktop_webview_preparing_progress">Подготовка встроенного веб-просмотра: %1$d%%</string>
-    <string name="desktop_webview_restart_required">Встроенный веб-просмотр установлен. Перезапустите Episteme для завершения настройки.</string>
+    <string name="desktop_webview_restart_required">Встроенный веб-просмотр установлен. Перезапустите 白い熊 書籍閲覧 для завершения настройки.</string>
     <string name="desktop_webview_start_error">Не удалось запустить встроенный веб-просмотр: %1$s</string>
     <string name="desktop_working">Выполнение…</string>
     <string name="desktop_workspace">Рабочая область</string>
@@ -1479,7 +1479,7 @@
     <string name="menu_enable_folder_local_sync">Включить локальную синхронизацию</string>
     <string name="folder_local_sync_disabled">Локальная синхронизация отключена</string>
     <string name="dialog_disable_folder_local_sync_title">Отключить синхронизацию локальных папок?</string>
-    <string name="dialog_disable_folder_local_sync_desc">Episteme прекратит сканирование этой папки и перестанет писать JSON синхронизировать файлы. Удалите %1$s папка из этой папки тоже?</string>
+    <string name="dialog_disable_folder_local_sync_desc">白い熊 書籍閲覧 прекратит сканирование этой папки и перестанет писать JSON синхронизировать файлы. Удалите %1$s папка из этой папки тоже?</string>
     <string name="action_disable_keep_sync_data">Сохранять данные синхронизации</string>
     <string name="action_disable_remove_sync_data">Удалить данные синхронизации</string>
     <string name="dialog_delete_fonts">Удалить шрифты?</string>
@@ -1501,7 +1501,7 @@
     <string name="book_replacements_empty_replacement">пустой текст</string>
     <string name="desktop_account_and_credits">Счет и кредиты</string>
     <string name="desktop_account_overview">Обзор аккаунта</string>
-    <string name="desktop_app_name_oss">Episteme ОСС</string>
+    <string name="desktop_app_name_oss">白い熊 書籍閲覧 ОСС</string>
     <string name="desktop_cloud_sync">Облачная синхронизация</string>
     <string name="desktop_help">Помощь</string>
     <string name="desktop_more_library_actions">Действия библиотеки</string>

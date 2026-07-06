@@ -8842,7 +8842,7 @@ private fun androidx.compose.foundation.layout.BoxWithConstraintsScope.PdfViewer
                 return@PdfBottomBar
             } else if (isOss) {
                 showBanner(
-                    "Bubble Zoom is only available in Playstore version of Episteme",
+                    "Bubble Zoom is only available in Playstore version of 白い熊 書籍閲覧",
                     isError = true
                 )
             } else if (!isBubbleZoomModeActive && !viewModel.isSpeechBubbleModelAvailable(context)) {

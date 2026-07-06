@@ -46,7 +46,7 @@
     <string name="source_opds">Джерело: OPDS Stream</string>
     <string name="source_in_app">Сховище додатка</string>
     <string name="internal_storage">Внутрішнє сховище</string>
-    <string name="about_title">Про Episteme</string>
+    <string name="about_title">Про 白い熊 書籍閲覧</string>
     <string name="about_version">Версія: %1$s (Збірка: %2$d)</string>
     <string name="empty_select_file">Виберіть файл</string>
     <string name="clear_cloud_data_title">Видалити всі синхронізовані дані?</string>
@@ -68,7 +68,7 @@
     <string name="drawer_sign_in">Sign in with Google</string>
     <string name="drawer_by_signing_in">Під час входу</string>
     <string name="drawer_pro_unlocked">Pro</string>
-    <string name="drawer_upgrade_pro">Обновити до Episteme Pro</string>
+    <string name="drawer_upgrade_pro">Обновити до 白い熊 書籍閲覧 Pro</string>
     <string name="drawer_sync_library">Синхронізувати бібліотеку</string>
     <string name="drawer_backup_local_folders">Синхронізація локальних папок</string>
     <string name="drawer_backup_desc">Завантажити до Google Drive.</string>
@@ -111,7 +111,7 @@
     <string name="dialog_delete_shelves">Видалити %1$s?</string>
     <string name="dialog_delete_shelves_desc">Ви впевнені, що хочете видалити %1$d вибрані %2$s? Усі книги в них буде переміщено до нерозподілених.</string>
     <string name="sync_local_folders">Синхронізувати локальні папки</string>
-    <string name="sync_folders_desc">Підключіть локальні папки, щоб створити «живу» бібліотеку. Episteme відстежуватиме файли та синхронізуватиме прогрес.</string>
+    <string name="sync_folders_desc">Підключіть локальні папки, щоб створити «живу» бібліотеку. 白い熊 書籍閲覧 відстежуватиме файли та синхронізуватиме прогрес.</string>
     <string name="fab_add_folder">Додати папку</string>
     <string name="scan_all">Сканувати все</string>
     <string name="scanning">Сканування…</string>
@@ -192,12 +192,12 @@
     <string name="existing_purchase_found">Покупку знайдено</string>
     <string name="get_lifetime_access">Придбати безстроковий доступ</string>
     <string name="upgrade_unavailable">Оновлення наразі недоступне. Перевірте підключення до Інтернету та спробуйте ще раз.</string>
-    <string name="sign_in_to_purchase">Будь ласка, увійдіть у свій обліковий запис Google, щоб придбати Episteme Pro.</string>
+    <string name="sign_in_to_purchase">Будь ласка, увійдіть у свій обліковий запис Google, щоб придбати 白い熊 書籍閲覧 Pro.</string>
     <string name="sign_in_to_purchase_credits">Будь ласка, увійдіть у свій обліковий запис Google, щоб придбати кредити.</string>
     <string name="verifying_purchase_desc">Це може зайняти кілька хвилин. Ваш статус Pro буде оновлено автоматично.</string>
     <string name="dialog_existing_purchase_desc">На цьому пристрої вже придбано підписку Pro, але вона пов’язана з іншим обліковим записом. Щоб відновити функції Pro, увійдіть в обліковий запис, який було використано для початкової покупки.</string>
-    <string name="dialog_early_access_desc">Ви отримуєте Episteme Pro за спеціальною зниженою ціною протягом періоду раннього доступу! Це пропозиція обмеженого часу.</string>
-    <string name="dialog_sign_in_required_desc">Будь ласка, увійдіть у свій обліковий запис Google, щоб придбати Episteme Pro та розблокувати всі преміум-функції.</string>
+    <string name="dialog_early_access_desc">Ви отримуєте 白い熊 書籍閲覧 Pro за спеціальною зниженою ціною протягом періоду раннього доступу! Це пропозиція обмеженого часу.</string>
+    <string name="dialog_sign_in_required_desc">Будь ласка, увійдіть у свій обліковий запис Google, щоб придбати 白い熊 書籍閲覧 Pro та розблокувати всі преміум-функції.</string>
     <string name="action_not_now">Не зараз</string>
     <string name="action_got_it">Зрозуміло!</string>
     <string name="custom_fonts">Користувацькі шрифти</string>
@@ -219,7 +219,7 @@
     <string name="github_issues_desc">Повідомляйте про помилки, запитуйте функції та відстежуйте прогрес розробки.</string>
     <string name="email_support">Підтримка електронною поштою</string>
     <string name="email_support_desc">З будь-якими іншими питаннями звертайтеся до нас безпосередньо електронною поштою.</string>
-    <string name="dialog_unlock_pro">Розблокуйте Episteme Pro</string>
+    <string name="dialog_unlock_pro">Розблокуйте 白い熊 書籍閲覧 Pro</string>
     <string name="dialog_unlock_pro_desc">Синхронізація між пристроями є функцією Pro. Розблокуйте всі функції Pro за допомогою однієї одноразової покупки.</string>
     <string name="action_upgrade">Оновити</string>
     <string name="filter_tags">Теги: %1$s</string>
@@ -262,8 +262,8 @@
     <string name="content_desc_chapters_menu">Зміст книги</string>
     <string name="drawer_support_project">Підтримайте проект</string>
     <string name="support_project_title">Підтримайте проект</string>
-    <string name="support_project_heading">Допоможіть Episteme продовжувати свою діяльність</string>
-    <string name="support_project_desc">Ваша підтримка допомагає мені підтримувати та покращувати Episteme для всіх!!!</string>
+    <string name="support_project_heading">Допоможіть 白い熊 書籍閲覧 продовжувати свою діяльність</string>
+    <string name="support_project_desc">Ваша підтримка допомагає мені підтримувати та покращувати 白い熊 書籍閲覧 для всіх!!!</string>
     <string name="support_github_sponsor">Спонсор на GitHub</string>
     <string name="support_github_sponsor_desc">Підтримайте розробку безпосередньо через GitHub Sponsors. На знак подяки ваше ім’я буде вказано у файлі README репозиторію проєкту.</string>
     <string name="support_patreon">Приєднуйтесь на Patreon</string>
@@ -271,7 +271,7 @@
     <string name="dialog_confirm_sign_out">Підтвердити вихід</string>
     <string name="dialog_confirm_sign_out_desc">Ви впевнені, що бажаєте вийти?</string>
     <string name="device_limit_reached">Досягнуто ліміту пристроїв</string>
-    <string name="device_limit_reached_desc">Щоб використовувати Episteme Pro на цьому пристрої, видаліть один із своїх зареєстрованих пристроїв.</string>
+    <string name="device_limit_reached_desc">Щоб використовувати 白い熊 書籍閲覧 Pro на цьому пристрої, видаліть один із своїх зареєстрованих пристроїв.</string>
     <string name="last_seen">Востаннє в мережі: %1$s</string>
     <string name="dialog_destructive_action">Підтвердити видалення</string>
     <string name="dialog_destructive_action_desc">Це призведе до остаточного видалення всіх ваших книг та даних про прочитане з цього пристрою, А ТАКОЖ з вашого облікового запису Google Drive. Цю дію неможливо скасувати. Ви впевнені?</string>
@@ -385,7 +385,7 @@
     <string name="error_no_google_account">Не вдалося знайти обліковий запис Google. Це може статися під час нової інсталяції, спробуйте ще раз за мить.</string>
     <string name="error_sign_in_internet">Під час входу сталася помилка. Перевірте підключення до Інтернету.</string>
     <string name="error_sign_in_device_management">Увійдіть, щоб перевірити керування пристроєм.</string>
-    <string name="error_sync_pro_feature">Синхронізація є функцією Episteme Pro.</string>
+    <string name="error_sync_pro_feature">Синхронізація є функцією 白い熊 書籍閲覧 Pro.</string>
     <string name="error_not_signed_in_sync">Не ввійшли, не вдається синхронізувати.</string>
     <string name="banner_cloud_sync_checking">Cloud Sync: перевірка оновлень…</string>
     <string name="banner_cloud_sync_complete">Хмарна синхронізація: завершено.</string>
@@ -491,7 +491,7 @@
     <string name="ai_chapter_summary">Короткий зміст глави</string>
     <string name="ai_story_recap_beta">Підсумок історії (бета-версія)</string>
     <string name="ai_unlock_summarization">Розблокувати підсумок розділу</string>
-    <string name="ai_unlock_summarization_desc">Отримайте стислі підсумки будь-якого розділу за допомогою Episteme Pro. Оновіть, щоб почати використовувати цю функцію.</string>
+    <string name="ai_unlock_summarization_desc">Отримайте стислі підсумки будь-якого розділу за допомогою 白い熊 書籍閲覧 Pro. Оновіть, щоб почати використовувати цю функцію.</string>
     <string name="action_learn_more">Дізнайтеся більше</string>
     <string name="ai_unlock_smart_dict">Розблокуйте Smart Dictionary</string>
     <string name="ai_unlock_smart_dict_desc">Визначення цілих фраз і абзаців до 2000 символів є функцією Pro. Оновіть, щоб отримати миттєві визначення для будь-якого вибраного тексту.</string>
@@ -872,10 +872,10 @@
     <string name="credits_ai_summaries_desc">Вартість: ~1-4 кредити на запит залежно від довжини розділу.\nPro Користувачі отримують 10 безкоштовних підсумків щодня.</string>
     <string name="legal_by_purchasing">Купуючи,</string>
     <string name="dialog_out_of_credits_title">Закінчилися кредити</string>
-    <string name="dialog_out_of_credits_desc">У вас недостатньо кредитів. Отримайте Episteme Pro на 10 безкоштовних підсумків на день або додайте більше кредитів, щоб використовувати Summaries, Cloud TTS і Story Recap.</string>
+    <string name="dialog_out_of_credits_desc">У вас недостатньо кредитів. Отримайте 白い熊 書籍閲覧 Pro на 10 безкоштовних підсумків на день або додайте більше кредитів, щоб використовувати Summaries, Cloud TTS і Story Recap.</string>
     <string name="action_get_pro_or_add_credits">Отримайте Pro / Додайте кредити</string>
     <string name="dialog_unlock_page_summarization">Розблокувати підсумок сторінки</string>
-    <string name="dialog_unlock_page_summarization_desc">Отримуйте стислі підсумки будь-якої сторінки за допомогою Episteme Pro. Оновіть, щоб почати використовувати цю функцію.</string>
+    <string name="dialog_unlock_page_summarization_desc">Отримуйте стислі підсумки будь-якої сторінки за допомогою 白い熊 書籍閲覧 Pro. Оновіть, щоб почати використовувати цю функцію.</string>
     <string name="dialog_download_bubble_zoom_model">Завантажити модель Bubble Zoom</string>
     <string name="dialog_download_bubble_zoom_model_desc">Щоб використовувати функцію Bubble Zoom, потрібно завантажити модель AI (~134 МБ). Ви хочете завантажити його зараз?</string>
     <string name="action_translate">Перекласти</string>
@@ -1092,7 +1092,7 @@
     <string name="menu_enable_folder_local_sync">Увімкнути локальну синхронізацію</string>
     <string name="folder_local_sync_disabled">Локальну синхронізацію вимкнено</string>
     <string name="dialog_disable_folder_local_sync_title">Вимкнути синхронізацію локальних папок?</string>
-    <string name="dialog_disable_folder_local_sync_desc">Episteme припинить сканування цієї папки та припинить запис JSON синхронізувати файли. Видаліть %1$s папку з цієї папки теж?</string>
+    <string name="dialog_disable_folder_local_sync_desc">白い熊 書籍閲覧 припинить сканування цієї папки та припинить запис JSON синхронізувати файли. Видаліть %1$s папку з цієї папки теж?</string>
     <string name="action_disable_keep_sync_data">Тримайте дані синхронізації</string>
     <string name="action_disable_remove_sync_data">Видалити дані синхронізації</string>
     <string name="dialog_delete_fonts">Видалити шрифти?</string>
@@ -1155,7 +1155,7 @@
     <string name="desktop_account_overview">Огляд облікового запису</string>
     <string name="desktop_ai_hub">AI хаб</string>
     <string name="desktop_ai_settings_summaries_desc">Використовується для EPUB резюме та PDF резюме сторінок.</string>
-    <string name="desktop_app_name_oss">Episteme осс</string>
+    <string name="desktop_app_name_oss">白い熊 書籍閲覧 осс</string>
     <string name="desktop_author_text">Авторський текст</string>
     <string name="desktop_cache_format">Кеш: %1$s</string>
     <string name="desktop_cached">Кешовано</string>
@@ -1256,9 +1256,9 @@
     <string name="desktop_source_code_desc">Перегляньте джерело проекту на GitHub.</string>
     <string name="desktop_stop_reading_change_voices">Припиніть читати, щоб змінити голоси.</string>
     <string name="desktop_support">Підтримка</string>
-    <string name="desktop_support_episteme">Підтримка Episteme</string>
+    <string name="desktop_support_episteme">Підтримка 白い熊 書籍閲覧</string>
     <string name="desktop_support_episteme_desc">Внески допомагають читачеві вдосконалюватись у Android і робочий стіл.</string>
-    <string name="desktop_support_project_desc">Способи підтримки Episteme розвитку</string>
+    <string name="desktop_support_project_desc">Способи підтримки 白い熊 書籍閲覧 розвитку</string>
     <string name="desktop_sync_folders">Синхронізація папок</string>
     <string name="desktop_sync_metadata">Синхронізація метаданих</string>
     <string name="desktop_tag_name">Назва тега</string>
@@ -1271,7 +1271,7 @@
     <string name="desktop_voice_cache">Голосовий кеш</string>
     <string name="desktop_webview_preparing">Підготовка вбудованого веб-перегляду…</string>
     <string name="desktop_webview_preparing_progress">Підготовка вбудованого веб-перегляду %1$d%%</string>
-    <string name="desktop_webview_restart_required">Вбудований веб-перегляд встановлено. Перезапустіть Episteme щоб завершити налаштування.</string>
+    <string name="desktop_webview_restart_required">Вбудований веб-перегляд встановлено. Перезапустіть 白い熊 書籍閲覧 щоб завершити налаштування.</string>
     <string name="desktop_webview_start_error">Не вдалося запустити вбудований веб-перегляд: %1$s</string>
     <string name="desktop_working">Робота…</string>
     <string name="desktop_workspace">Робоча область</string>
