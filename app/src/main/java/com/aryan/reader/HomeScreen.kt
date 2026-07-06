@@ -475,6 +475,9 @@ fun HomeScreen(
                                 onSettingsClick = {
                                     navController.navigateIfReady(SharedMobileAppDestination.SETTINGS)
                                 },
+                                onSettingsLongClick = {
+                                    navController.navigate(AppDestinations.WHITE_BEAR_UI_SCREEN_ROUTE)
+                                },
                                 onTestPanelDetectionClick = { viewModel.testPanelDetection(context) },
                                 onTestSpeechBubbleDetectionClick = { viewModel.testSpeechBubbleDetection(context) },
                                 onLanguageClick = { showLanguageDialog = true },
@@ -881,6 +884,7 @@ fun RecentFileCard(
 }
 
 @Suppress("unused", "KotlinConstantConditions")
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DefaultTopAppBar(
     uiState: ReaderScreenState,
@@ -899,6 +903,7 @@ fun DefaultTopAppBar(
     onUsePdfFileNameAsDisplayNameToggle: () -> Unit,
     onAppThemeClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    onSettingsLongClick: () -> Unit = {},
     onTestPanelDetectionClick: () -> Unit,
     onTestSpeechBubbleDetectionClick: () -> Unit,
     onLanguageClick: () -> Unit,
@@ -954,6 +959,7 @@ fun DefaultTopAppBar(
         onFpsOverlayToggle = onFpsOverlayToggle,
         onDrawer = onDrawerClick,
         onSettings = onSettingsClick,
+        onSettingsLongPress = onSettingsLongClick,
         onAppTheme = onAppThemeClick,
         onRecentFilesLimitChange = onRecentFilesLimitChange,
         onAbout = onAboutClick,

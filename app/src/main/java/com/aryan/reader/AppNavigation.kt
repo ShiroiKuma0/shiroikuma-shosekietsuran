@@ -81,9 +81,16 @@ import com.aryan.reader.shared.TTS_PLAYBACK_SOURCE_AUDIOBOOK
 import com.aryan.reader.shared.samePdfDocument
 import com.aryan.reader.shared.ui.SharedMobileAppDestination
 import com.aryan.reader.tts.ReaderTtsMiniBar
+import com.aryan.reader.whitebear.WhiteBearUiScreen
 import com.aryan.reader.tts.readerTtsMiniBarBottomPaddingDp
 import com.aryan.reader.tts.shouldShowReaderTtsMiniBar
 import kotlinx.coroutines.delay
+
+// shiroikuma fork: routes for our own screens.  Upstream's destinations moved to
+// SharedMobileAppDestination; only the fork-local ones live here.
+object AppDestinations {
+    const val WHITE_BEAR_UI_SCREEN_ROUTE = "white_bear_ui_screen_route"
+}
 
 fun shouldInterceptAppNavBack(
     currentRoute: String?,
@@ -606,6 +613,13 @@ fun AppNavigation(
                     navController.popBackStackIfReady()
                 }
             }
+        }
+
+        composable(route = AppDestinations.WHITE_BEAR_UI_SCREEN_ROUTE) {
+            WhiteBearUiScreen(
+                viewModel = viewModel,
+                onBackClick = { navController.popBackStackIfReady() }
+            )
         }
         }
 

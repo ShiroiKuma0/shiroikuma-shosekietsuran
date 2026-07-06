@@ -49,6 +49,7 @@ import com.aryan.reader.data.PlatformFeaturesRepository
 import com.aryan.reader.ui.theme.AppTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import com.aryan.reader.whitebear.WhiteBearTheme
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -199,28 +200,30 @@ open class MainActivity : AppCompatActivity() {
             textDimFactor = textDimFactor,
             appFontFamily = appFontFamily
         ) {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.background
-            ) {
-                CompositionLocalProvider(LocalUriHandler provides safeUriHandler) {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        AppNavigation(
-                            navController = navController,
-                            windowSizeClass = windowSizeClass,
-                            viewModel = viewModel
-                        )
-                        // Debug-only global FPS meter: beneath the status
-                        // bar, top-left, above every destination. Gated
-                        // twice (here + inside) so release builds pay
-                        // nothing and never compose the Choreographer loop.
-                        if (BuildConfig.DEBUG && debugFpsEnabled) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize(),
-                                contentAlignment = Alignment.TopStart
-                            ) {
-                                DebugFpsGlobalOverlay(enabled = true)
+            WhiteBearTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    CompositionLocalProvider(LocalUriHandler provides safeUriHandler) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            AppNavigation(
+                                navController = navController,
+                                windowSizeClass = windowSizeClass,
+                                viewModel = viewModel
+                            )
+                            // Debug-only global FPS meter: beneath the status
+                            // bar, top-left, above every destination. Gated
+                            // twice (here + inside) so release builds pay
+                            // nothing and never compose the Choreographer loop.
+                            if (BuildConfig.DEBUG && debugFpsEnabled) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize(),
+                                    contentAlignment = Alignment.TopStart
+                                ) {
+                                    DebugFpsGlobalOverlay(enabled = true)
+                                }
                             }
                         }
                     }
