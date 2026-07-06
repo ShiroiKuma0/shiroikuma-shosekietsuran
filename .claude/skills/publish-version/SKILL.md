@@ -1,12 +1,12 @@
 ---
 name: publish-version
-description: Publish the latest built shiroikuma-etsuran APK as a GitHub release of the fork — create the version tag, attach the APK, update the README and CHANGELOG, ensure the GitHub default branch is `custom` so the repo page lands on our work, and write specific release notes. Use when the user says publish / release / cut a version / ship this build / make a GitHub release / publish the latest build.
+description: Publish the latest built shiroikuma-shosekietsuran APK as a GitHub release of the fork — create the version tag, attach the APK, update the README and CHANGELOG, ensure the GitHub default branch is `custom` so the repo page lands on our work, and write specific release notes. Use when the user says publish / release / cut a version / ship this build / make a GitHub release / publish the latest build.
 ---
 
-# Publish an etsuran version to GitHub
+# Publish a shosekietsuran version to GitHub
 
 Turn the latest tested build into a public GitHub **release** of the fork
-(`ShiroiKuma0/shiroikuma-etsuran`): a version tag, the APK as a downloadable asset, an updated
+(`ShiroiKuma0/shiroikuma-shosekietsuran`): a version tag, the APK as a downloadable asset, an updated
 README + CHANGELOG, and a default branch (`custom`) so the repo landing page shows our work.
 
 > **This is outward-facing — it publishes to GitHub.** The user invoking this skill *is* the
@@ -18,13 +18,13 @@ README + CHANGELOG, and a default branch (`custom`) so the repo landing page sho
 
 ## What gets published
 
-The **latest APK in `~/tmp/`** (`shiroikuma-etsuran_<version>+<N>_arm64-v8a.apk`) — the build the
+The **latest APK in `~/tmp/`** (`shiroikuma-shosekietsuran_<version>+<N>_arm64-v8a.apk`) — the build the
 user just tested on-device. Derive the version from the **APK filename**, NOT `gradle.properties`
 (whose `BUILD_NUMBER` is already the *next* number, because `buildApk` bumps it after building).
 
 ```bash
-APK=$(ls -t ~/tmp/shiroikuma-etsuran_*.apk 2>/dev/null | head -1)
-VERSION=$(basename "$APK" | sed -E 's/^shiroikuma-etsuran_(.+)_arm64-v8a\.apk$/\1/')   # e.g. 1.0.51+3
+APK=$(ls -t ~/tmp/shiroikuma-shosekietsuran_*.apk 2>/dev/null | head -1)
+VERSION=$(basename "$APK" | sed -E 's/^shiroikuma-shosekietsuran_(.+)_arm64-v8a\.apk$/\1/')   # e.g. 1.0.51+3
 TAG="$VERSION"   # the tag is the bare version, no "v" prefix
 ```
 
@@ -44,9 +44,9 @@ If `$APK` is empty, stop and tell the user there's no built APK to publish (run 
 1. **Ensure the GitHub default branch is `custom`** so the repo page lands on our README, not
    upstream's `main`:
    ```bash
-   gh repo edit ShiroiKuma0/shiroikuma-etsuran --default-branch custom
-   gh repo edit ShiroiKuma0/shiroikuma-etsuran \
-     --description "白い熊 閲覧 — a fork of Episteme, the multi-platform document / e-book reader. Side-by-side installable, AGPL-3."
+   gh repo edit ShiroiKuma0/shiroikuma-shosekietsuran --default-branch custom
+   gh repo edit ShiroiKuma0/shiroikuma-shosekietsuran \
+     --description "白い熊 書籍閲覧 — a fork of Episteme, the multi-platform document / e-book reader. Side-by-side installable, AGPL-3."
    ```
    (Idempotent — safe to run every time.)
 
@@ -69,27 +69,27 @@ If `$APK` is empty, stop and tell the user there's no built APK to publish (run 
 
 5. **Tag and release.** Annotated tag at `HEAD`, then a GitHub release targeting `custom` with
    the APK attached and the new CHANGELOG section as the notes. **Always pin the repo with
-   `-R ShiroiKuma0/shiroikuma-etsuran`** — the working copy has an `upstream` remote, and bare
+   `-R ShiroiKuma0/shiroikuma-shosekietsuran`** — the working copy has an `upstream` remote, and bare
    `gh release` may otherwise resolve against upstream. Write the notes to a real file under
    `~/tmp`:
    ```bash
-   REPO=ShiroiKuma0/shiroikuma-etsuran
-   git tag -a "$TAG" -m "白い熊 閲覧 $VERSION"
+   REPO=ShiroiKuma0/shiroikuma-shosekietsuran
+   git tag -a "$TAG" -m "白い熊 書籍閲覧 $VERSION"
    git push origin "$TAG"
-   NOTES="$HOME/tmp/etsuran_release_notes.md"
+   NOTES="$HOME/tmp/shosekietsuran_release_notes.md"
    sed -n "/^## ${VERSION} —/,/^## [0-9]/p" CHANGELOG.md | sed '/^## [0-9]/d' | tail -n +2 > "$NOTES"
    gh release create "$TAG" "$APK" -R "$REPO" \
      --target custom \
-     --title "白い熊 閲覧 $VERSION" \
+     --title "白い熊 書籍閲覧 $VERSION" \
      --notes-file "$NOTES"
    rm -f "$NOTES"
    ```
-   Keep the APK asset name as built (`shiroikuma-etsuran_<VERSION>_arm64-v8a.apk`).
+   Keep the APK asset name as built (`shiroikuma-shosekietsuran_<VERSION>_arm64-v8a.apk`).
 
 6. **Report** the release URL and confirm the default branch:
    ```bash
-   gh release view "$TAG" -R ShiroiKuma0/shiroikuma-etsuran --json url -q .url
-   gh repo view ShiroiKuma0/shiroikuma-etsuran --json defaultBranchRef -q .defaultBranchRef.name
+   gh release view "$TAG" -R ShiroiKuma0/shiroikuma-shosekietsuran --json url -q .url
+   gh repo view ShiroiKuma0/shiroikuma-shosekietsuran --json defaultBranchRef -q .defaultBranchRef.name
    ```
 
 ## Notes

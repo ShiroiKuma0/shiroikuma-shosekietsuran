@@ -1,6 +1,6 @@
 ---
 name: upstream-new-version
-description: Rebase the shiroikuma-etsuran fork onto a new upstream release of Aryan-Raj3112/episteme (the document / e-book reader this is forked from). Use when 白い熊 says a new upstream Episteme version is out, asks to update/sync to upstream, bump to the new release, check for a new version, or rebase custom onto the latest upstream tag. ALWAYS presents a proceed-gated table of the new upstream features BEFORE rebasing.
+description: Rebase the shiroikuma-shosekietsuran fork onto a new upstream release of Aryan-Raj3112/episteme (the document / e-book reader this is forked from). Use when 白い熊 says a new upstream Episteme version is out, asks to update/sync to upstream, bump to the new release, check for a new version, or rebase custom onto the latest upstream tag. ALWAYS presents a proceed-gated table of the new upstream features BEFORE rebasing.
 ---
 
 # Rebase the fork onto a new upstream Episteme release
@@ -15,7 +15,7 @@ top, and produce a fresh `+1` build.
 ## Background — branch model & versioning
 
 - `upstream` = `https://github.com/Aryan-Raj3112/episteme` (https). `origin` =
-  `git@github.com:ShiroiKuma0/shiroikuma-etsuran.git` (ssh).
+  `git@github.com:ShiroiKuma0/shiroikuma-shosekietsuran.git` (ssh).
 - **`main` tracks upstream Android releases by TAG** — pattern `v<X.Y.Z>-oss` (e.g.
   `v1.0.51-oss`). **Ignore the `windows-*` tags** (desktop releases). We base on the latest
   Android release tag, not bleeding `upstream/main`.
@@ -74,15 +74,16 @@ top, and produce a fresh `+1` build.
 
    | What | Expected value | Where |
    | --- | --- | --- |
-   | Installed app id | `shiroikuma.etsuran` | `app/build.gradle.kts` → `defaultConfig.applicationId` |
+   | Installed app id | `shiroikuma.shosekietsuran` | `app/build.gradle.kts` → `defaultConfig.applicationId` |
    | Code namespace | `com.aryan.reader` (unchanged from upstream — never rename) | `app/build.gradle.kts` → `namespace` |
    | oss flavor suffixes removed | no `applicationIdSuffix` / `versionNameSuffix` | `app/build.gradle.kts` → `productFlavors.oss` |
-   | App label | `白い熊 閲覧` | `app_name` **and** `app_name_oss` in `app/src/main/res/values/strings.xml` |
+   | App label | `白い熊 書籍閲覧` | **`app/src/oss/res/values/strings.xml` → `app_name` (the launcher label — flavor overrides `main`!)**, plus `app_name` / `app_name_oss` / `about_app_name` in `app/src/main/res/values/strings.xml` |
+   | Branding sweep | no user-visible "Episteme" (all locales' `strings.xml` values, Bubble-Zoom toast in `PdfViewerScreen.kt`); sync dir `ShiroikumaSyncData` | `app/src/main/res/values*/strings.xml`, `app/src/oss/res/values/strings.xml`, `shared/.../LocalFolderSync.kt` — re-sweep new upstream strings mentioning Episteme after every rebase |
    | Launcher icon | yellow-on-black traced book + play badge | `app/src/main/res/drawable/ic_launcher_foreground.xml`, `ic_launcher_background.xml`, `ic_launcher_monochrome.xml` |
    | Fork version lines | `versionName = "$versionName+$forkBuildNumber"`, `versionCode = versionCode!! * 10000 + forkBuildNumber` | `app/build.gradle.kts` → `defaultConfig` |
    | Single-ABI | `ndk { abiFilters += "arm64-v8a" }` | `app/build.gradle.kts` → `defaultConfig` |
    | Signing bridge | keystore.properties → `MYAPP_RELEASE_*` mapping block | top of `app/build.gradle.kts` |
-   | APK filename | `shiroikuma-etsuran_<version>_arm64-v8a.apk` | `app/build.gradle.kts` → `applicationVariants.all` |
+   | APK filename | `shiroikuma-shosekietsuran_<version>_arm64-v8a.apk` | `app/build.gradle.kts` → `applicationVariants.all` |
    | `buildApk` task | copies to `~/tmp`, bumps `BUILD_NUMBER` | end of `app/build.gradle.kts` |
    | Build tail | `BUILD_NUMBER=1` | `gradle.properties` |
    | Committed agent files | `CLAUDE.md`, `.claude/` in; `keystore.properties`, `.claude/settings.local.json` ignored | `.gitignore` |
