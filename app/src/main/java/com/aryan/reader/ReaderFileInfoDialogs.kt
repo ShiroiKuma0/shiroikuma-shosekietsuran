@@ -103,7 +103,10 @@ internal fun HydratedFileInfoDialog(
     uiState: ReaderScreenState,
     viewModel: MainViewModel,
     onDismiss: () -> Unit,
-    onOpenTags: (String) -> Unit
+    onOpenTags: (String) -> Unit,
+    onShareFile: (() -> Unit)? = null,
+    onSaveCopy: (() -> Unit)? = null,
+    onSelectForActions: (() -> Unit)? = null
 ) {
     var fileInfoItem by remember(item?.bookId) { mutableStateOf(item) }
     var hasResolvedFullItem by remember(item?.bookId) { mutableStateOf(false) }
@@ -137,7 +140,10 @@ internal fun HydratedFileInfoDialog(
             },
             onOpenTags = {
                 onOpenTags(resolvedItem.bookId)
-            }
+            },
+            onShareFile = onShareFile,
+            onSaveCopy = onSaveCopy,
+            onSelectForActions = onSelectForActions
         )
     }
 }
