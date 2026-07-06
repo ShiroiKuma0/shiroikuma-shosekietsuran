@@ -120,6 +120,41 @@ class RecentFilesRepository(
         return@withContext recentFileDao.getAllFiles().map { it.toRecentFileItem() }
     }
 
+    /**
+     * 白い熊 UI: assigns the embedded subject/genre entries of a book file as library tags,
+     * matching existing tags case-insensitively by name and creating missing ones.
+     */
+    suspend fun assignEmbeddedSubjectTags(bookId: String, subjects: List<String>) = withContext(Dispatchers.IO) {
+        val cleaned = subjects
+            .mapNotNull { subject ->
+                subject.replace(Regex("\\s+"), " ").trim().takeIf { it.isNotBlank() && it.length <= 100 }
+            }
+            .distinctBy { it.lowercase() }
+        if (cleaned.isEmpty()) return@withContext
+
+        val tagDao = database.tagDao()
+        val existingByName = tagDao.getAllTagsList()
+            .associateBy { it.name.lowercase() }
+            .toMutableMap()
+        val colors = listOf(
+            0xFFE57373, 0xFFF06292, 0xFFBA68C8, 0xFF9575CD, 0xFF7986CB, 0xFF64B5F6, 0xFF4FC3F7,
+            0xFF4DD0E1, 0xFF4DB6AC, 0xFF81C784, 0xFFAED581, 0xFFFF8A65, 0xFFA1887F, 0xFF90A4AE
+        )
+        cleaned.forEach { name ->
+            val key = name.lowercase()
+            val tag = existingByName[key] ?: TagEntity(
+                id = java.util.UUID.randomUUID().toString(),
+                name = name,
+                color = colors.random().toInt(),
+                createdAt = System.currentTimeMillis()
+            ).also { created ->
+                tagDao.insertTag(created)
+                existingByName[key] = created
+            }
+            tagDao.insertBookTagCrossRef(BookTagCrossRef(bookId, tag.id))
+        }
+    }
+
     override suspend fun clearAllLocalData() = withContext(Dispatchers.IO) {
         // Keep the database cleanup together so a successful remote clear
         // cannot leave orphaned library metadata behind.

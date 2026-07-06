@@ -20,7 +20,8 @@ data class SharedEpubMetadataUpdate(
     val description: String?,
     val seriesName: String?,
     val seriesIndex: Double?,
-    val cover: SharedEpubCoverUpdate? = null
+    val cover: SharedEpubCoverUpdate? = null,
+    val publicationDate: String? = null
 )
 
 data class SharedEpubMetadataSnapshot(
@@ -172,6 +173,8 @@ private fun rewriteOpf(opf: String, update: SharedEpubMetadataUpdate, coverHref:
         seriesIndex = update.seriesIndex,
         packageVersion = packageElement?.attr("version")?.takeIf(String::isNotBlank)
     )
+    // 白い熊 UI: only touch dc:date when a value is supplied, so blank input never wipes it.
+    update.publicationDate?.takeIf { it.isNotBlank() }?.let { metadata.upsertDcText("date", it) }
     if (coverHref != null) {
         val manifest = document.getAllElements().firstOrNull { it.localNameEquals("manifest") }
             ?: error("EPUB package manifest section is missing.")

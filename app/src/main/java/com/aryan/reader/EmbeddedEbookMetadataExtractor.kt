@@ -16,7 +16,13 @@ internal data class EmbeddedEbookMetadata(
     val description: String? = null,
     val seriesName: String? = null,
     val seriesIndex: Double? = null,
-    val cover: EmbeddedEbookCover? = null
+    val cover: EmbeddedEbookCover? = null,
+    val subjects: List<String> = emptyList(),
+    val publisher: String? = null,
+    val language: String? = null,
+    val publicationDate: String? = null,
+    val rating: Double? = null,
+    val isbn: String? = null
 )
 
 internal data class EmbeddedEbookCover(
@@ -105,15 +111,65 @@ internal object EmbeddedEbookMetadataExtractor {
             null
         }
 
-        val series = resolveMobileEpubSeries(parseMobileOpfMetaElements(opf))
+        val metaElements = parseMobileOpfMetaElements(opf)
+        val series = resolveMobileEpubSeries(metaElements)
         return EmbeddedEbookMetadata(
             title = opf.tagText("title"),
             author = opf.tagText("creator"),
             description = opf.tagInnerContent("description"),
             seriesName = series?.name,
             seriesIndex = series?.index,
-            cover = cover
+            cover = cover,
+            subjects = opf.tagTextAll("subject"),
+            publisher = opf.tagText("publisher"),
+            language = opf.tagText("language"),
+            publicationDate = opf.epubPublicationDate(),
+            rating = metaElements.firstOrNull { it.name == "calibre:rating" }?.content?.toDoubleOrNull(),
+            isbn = opf.epubIsbn()
         )
+    }
+
+    /** Prefers a dc:date carrying opf:event="publication", else the first dc:date. */
+    private fun String.epubPublicationDate(): String? {
+        val matches = Regex(
+            "<(?:[^:>]+:)?date\\b([^>]*)>(.*?)</(?:[^:>]+:)?date>",
+            setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
+        ).findAll(this).toList()
+        if (matches.isEmpty()) return null
+        fun clean(raw: String) = raw
+            .replace(Regex("<[^>]+>"), " ")
+            .decodeEntities()
+            .replace(Regex("\\s+"), " ")
+            .trim()
+            .takeIf { it.isNotBlank() }
+        val preferred = matches.firstOrNull {
+            it.groupValues[1].contains(Regex("event\\s*=\\s*[\"']publication[\"']", RegexOption.IGNORE_CASE))
+        }
+        return clean((preferred ?: matches.first()).groupValues[2])
+    }
+
+    /** Picks the dc:identifier that names or looks like an ISBN. */
+    private fun String.epubIsbn(): String? {
+        val matches = Regex(
+            "<(?:[^:>]+:)?identifier\\b([^>]*)>(.*?)</(?:[^:>]+:)?identifier>",
+            setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
+        ).findAll(this).toList()
+        if (matches.isEmpty()) return null
+        fun clean(raw: String) = raw
+            .replace(Regex("<[^>]+>"), " ")
+            .decodeEntities()
+            .replace(Regex("\\s+"), " ")
+            .trim()
+        fun looksLikeIsbn(value: String): Boolean {
+            val digits = value.filter { it.isDigit() || it == 'X' || it == 'x' }
+            return digits.length == 10 || digits.length == 13
+        }
+        val candidate = matches.firstOrNull { match ->
+            match.groupValues[1].contains("isbn", ignoreCase = true) ||
+                clean(match.groupValues[2]).contains("isbn", ignoreCase = true)
+        } ?: matches.firstOrNull { looksLikeIsbn(clean(it.groupValues[2])) }
+        val raw = candidate?.let { clean(it.groupValues[2]) }?.takeIf { it.isNotBlank() } ?: return null
+        return raw.replace(Regex("(?i)urn:isbn:"), "").trim().takeIf { it.isNotBlank() }
     }
 
     private fun readFirstZipTextEntry(
@@ -243,6 +299,7 @@ internal object EmbeddedEbookMetadataExtractor {
 
         var title: String? = null
         val authors = mutableListOf<String>()
+        val genres = mutableListOf<String>()
         var inAuthor = false
         var inBody = false
         var inCoverPage = false
@@ -268,6 +325,11 @@ internal object EmbeddedEbookMetadataExtractor {
                         "book-title" -> {
                             if (title == null) {
                                 title = parser.nextTextOrNull()
+                            }
+                        }
+                        "genre" -> {
+                            if (!inBody) {
+                                parser.nextTextOrNull()?.let(genres::add)
                             }
                         }
                         "first-name", "middle-name", "last-name", "nickname" -> {
@@ -320,7 +382,8 @@ internal object EmbeddedEbookMetadataExtractor {
         return EmbeddedEbookMetadata(
             title = title,
             author = authors.distinct().joinToString(", ").takeIf { it.isNotBlank() },
-            cover = cover
+            cover = cover,
+            subjects = genres.distinct()
         )
     }
 
@@ -355,7 +418,8 @@ internal object EmbeddedEbookMetadataExtractor {
             author = exth.author,
             seriesName = exth.seriesName,
             seriesIndex = exth.seriesIndex,
-            cover = cover
+            cover = cover,
+            subjects = exth.subjects
         )
     }
 
@@ -452,6 +516,7 @@ internal object EmbeddedEbookMetadataExtractor {
         var coverOffset: Int? = null
         var seriesName: String? = null
         var seriesIndexValue: String? = null
+        val subjects = mutableListOf<String>()
         val exthOffsetLong = 16L + mobiHeaderLength
         if (mobiHeaderLength <= 0 || exthOffsetLong > Int.MAX_VALUE - 12L) {
             return MobiExthMetadata(title = fullName.takeUnlessBlank())
@@ -471,6 +536,7 @@ internal object EmbeddedEbookMetadataExtractor {
                 when (type) {
                     99 -> exthTitle = exthTitle ?: header.safeString(dataOffset, dataSize, charset)
                     100 -> author = author ?: header.safeString(dataOffset, dataSize, charset)
+                    105 -> header.safeString(dataOffset, dataSize, charset)?.let(subjects::add)
                     201 -> coverOffset = coverOffset ?: header.u32(dataOffset).toInt().takeIf { dataSize >= 4 }
                     503 -> exthTitle = exthTitle ?: header.safeString(dataOffset, dataSize, charset)
                     MOBI_EXTH_SERIES_RECORD_TYPE ->
@@ -487,7 +553,8 @@ internal object EmbeddedEbookMetadataExtractor {
             author = author.takeUnlessBlank(),
             coverOffset = coverOffset,
             seriesName = seriesName.takeUnlessBlank(),
-            seriesIndex = seriesIndexValue?.trim()?.toDoubleOrNull()
+            seriesIndex = seriesIndexValue?.trim()?.toDoubleOrNull(),
+            subjects = subjects.distinct()
         )
     }
 
@@ -587,6 +654,24 @@ internal object EmbeddedEbookMetadataExtractor {
             ?.replace(Regex("\\s+"), " ")
             ?.trim()
             ?.takeIf { it.isNotBlank() }
+    }
+
+    private fun String.tagTextAll(tag: String): List<String> {
+        return Regex(
+            "<(?:[^:>]+:)?$tag\\b[^>]*>(.*?)</(?:[^:>]+:)?$tag>",
+            setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
+        )
+            .findAll(this)
+            .mapNotNull { match ->
+                match.groupValues[1]
+                    .replace(Regex("<[^>]+>"), " ")
+                    .decodeEntities()
+                    .replace(Regex("\\s+"), " ")
+                    .trim()
+                    .takeIf { it.isNotBlank() }
+            }
+            .distinct()
+            .toList()
     }
 
     private fun String.tagInnerContent(tag: String): String? {
@@ -734,6 +819,7 @@ internal object EmbeddedEbookMetadataExtractor {
         val author: String? = null,
         val coverOffset: Int? = null,
         val seriesName: String? = null,
-        val seriesIndex: Double? = null
+        val seriesIndex: Double? = null,
+        val subjects: List<String> = emptyList()
     )
 }
