@@ -1680,6 +1680,61 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
         PageModificationResult(newLayout, newAnnotations, newBookmarksJson)
     }
 
+    /**
+     * 白い熊 UI: one-shot-per-book pass that reads the embedded subjects/genres of every
+     * library book (EPUB dc:subject, MOBI EXTH subject, FB2 genre) and assigns them as
+     * library tags. Processed book ids are remembered in a fork-local pref, so each new
+     * book is picked up on the next start and nothing is scanned twice.
+     */
+    private fun backfillEmbeddedSubjectTags() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val tagPrefs = appContext.getSharedPreferences("whitebear_tags_prefs", Context.MODE_PRIVATE)
+                val processed = (tagPrefs.getStringSet("wb_subject_tagged_books", emptySet()) ?: emptySet())
+                    .toMutableSet()
+                val candidates = recentFilesRepository.getAllFilesForSync().filter { item ->
+                    !item.isDeleted &&
+                        item.bookId !in processed &&
+                        item.type in setOf(FileType.EPUB, FileType.MOBI, FileType.FB2) &&
+                        item.uriString != null &&
+                        item.uriString?.startsWith("opds") != true
+                }
+                if (candidates.isEmpty()) return@launch
+
+                fun persistProcessed() {
+                    tagPrefs.edit().putStringSet("wb_subject_tagged_books", processed.toSet()).apply()
+                }
+
+                var sincePersist = 0
+                candidates.forEach { item ->
+                    runCatching {
+                        val uri = item.uriString!!.toUri()
+                        val subjects = EmbeddedEbookMetadataExtractor.extract(
+                            type = item.type,
+                            displayName = item.displayName,
+                            openStream = { appContext.contentResolver.openInputStream(uri) },
+                            extractCover = false
+                        ).subjects
+                        if (subjects.isNotEmpty()) {
+                            recentFilesRepository.assignEmbeddedSubjectTags(item.bookId, subjects)
+                        }
+                    }.onFailure { error ->
+                        Timber.tag("WhiteBearTags").w(error, "Subject-tag extraction failed for ${item.displayName}")
+                    }
+                    processed.add(item.bookId)
+                    if (++sincePersist >= 25) {
+                        persistProcessed()
+                        sincePersist = 0
+                    }
+                }
+                persistProcessed()
+                Timber.tag("WhiteBearTags").i("Subject-tag backfill covered ${candidates.size} book(s)")
+            } catch (e: Exception) {
+                Timber.tag("WhiteBearTags").e(e, "Subject-tag backfill failed")
+            }
+        }
+    }
+
     init {
         Timber.d("ViewModel instance created.")
 
@@ -1701,6 +1756,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch(Dispatchers.IO) {
             FolderAnnotationExportWorker.scheduleAllPending(appContext)
         }
+        backfillEmbeddedSubjectTags()
 
         val locatorConverter = LocatorConverter(
             bookCacheDao,
@@ -9068,6 +9124,34 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
     }
+
+    /**
+     * 白い熊 UI: reads the extra embedded metadata (publisher, language, publication date,
+     * rating, ISBN) live from the book file for the details dialog. EPUB/MOBI/FB2 only.
+     */
+    suspend fun getBookExtraMetadata(item: RecentFileItem): com.aryan.reader.whitebear.WhiteBearExtraMetadata =
+        withContext(Dispatchers.IO) {
+            val uri = item.uriString?.toUri()
+                ?: return@withContext com.aryan.reader.whitebear.WhiteBearExtraMetadata()
+            if (item.type !in setOf(FileType.EPUB, FileType.MOBI, FileType.FB2)) {
+                return@withContext com.aryan.reader.whitebear.WhiteBearExtraMetadata()
+            }
+            val meta = runCatching {
+                EmbeddedEbookMetadataExtractor.extract(
+                    type = item.type,
+                    displayName = item.displayName,
+                    openStream = { appContext.contentResolver.openInputStream(uri) },
+                    extractCover = false
+                )
+            }.getOrNull() ?: return@withContext com.aryan.reader.whitebear.WhiteBearExtraMetadata()
+            com.aryan.reader.whitebear.WhiteBearExtraMetadata(
+                publisher = meta.publisher,
+                language = meta.language,
+                publicationDate = meta.publicationDate,
+                rating = meta.rating,
+                isbn = meta.isbn
+            )
+        }
 
     fun updateBookMetadata(bookId: String, metadata: BookMetadataEdit) {
         viewModelScope.launch {

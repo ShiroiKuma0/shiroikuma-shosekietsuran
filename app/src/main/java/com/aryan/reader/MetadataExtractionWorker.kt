@@ -247,6 +247,11 @@ class MetadataExtractionWorker(
                         else -> TextMetadata()
                     }
 
+                    // 白い熊 UI: surface the file's embedded subjects/genres as library tags.
+                    if (metadata.subjects.isNotEmpty()) {
+                        recentFilesRepository.assignEmbeddedSubjectTags(item.bookId, metadata.subjects)
+                    }
+
                     val title = sanitizeTitle(metadata.title)
                     val author = sanitizeAuthor(metadata.author)
                     val description = metadata.description?.trim()?.takeIf { it.isNotBlank() }
@@ -600,7 +605,8 @@ class MetadataExtractionWorker(
             description = description,
             seriesName = seriesName,
             seriesIndex = seriesIndex,
-            cover = cover
+            cover = cover,
+            subjects = subjects
         )
     }
 
@@ -610,7 +616,8 @@ class MetadataExtractionWorker(
         val description: String? = null,
         val seriesName: String? = null,
         val seriesIndex: Double? = null,
-        val cover: EmbeddedEbookCover? = null
+        val cover: EmbeddedEbookCover? = null,
+        val subjects: List<String> = emptyList()
     )
 }
 

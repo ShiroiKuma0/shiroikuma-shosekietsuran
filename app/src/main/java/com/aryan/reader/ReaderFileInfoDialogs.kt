@@ -110,17 +110,29 @@ internal fun HydratedFileInfoDialog(
 ) {
     var fileInfoItem by remember(item?.bookId) { mutableStateOf(item) }
     var hasResolvedFullItem by remember(item?.bookId) { mutableStateOf(false) }
+    var extraMetadata by remember(item?.bookId) {
+        mutableStateOf<com.aryan.reader.whitebear.WhiteBearExtraMetadata?>(null)
+    }
 
     LaunchedEffect(item) {
         fileInfoItem = item
         hasResolvedFullItem = false
+        extraMetadata = null
     }
 
     LaunchedEffect(isVisible, item?.bookId) {
         if (isVisible && item != null) {
             fileInfoItem = viewModel.getFileInfoItem(item.bookId)?.copy(tags = item.tags) ?: item
             hasResolvedFullItem = true
+            extraMetadata = viewModel.getBookExtraMetadata(fileInfoItem ?: item)
         }
+    }
+
+    val libraryAuthors = remember(uiState.rawLibraryFiles) {
+        uiState.rawLibraryFiles
+            .mapNotNull { it.author?.trim()?.takeIf { author -> author.isNotBlank() && !author.equals("Unknown", ignoreCase = true) } }
+            .distinct()
+            .sortedBy { it.lowercase() }
     }
 
     val resolvedItem = fileInfoItem
@@ -143,7 +155,9 @@ internal fun HydratedFileInfoDialog(
             },
             onShareFile = onShareFile,
             onSaveCopy = onSaveCopy,
-            onSelectForActions = onSelectForActions
+            onSelectForActions = onSelectForActions,
+            extraMetadata = extraMetadata,
+            libraryAuthors = libraryAuthors
         )
     }
 }

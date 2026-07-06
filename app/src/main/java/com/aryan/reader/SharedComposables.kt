@@ -42,6 +42,7 @@ import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import com.aryan.reader.data.TagEntity
@@ -162,6 +163,7 @@ import com.aryan.reader.shared.SharedText
 import com.aryan.reader.shared.sharedLegalLinksForProfile
 import com.aryan.reader.shared.ui.SharedMarkdownText
 import com.aryan.reader.shared.ui.SharedBookInfoDialog
+import com.aryan.reader.shared.ui.SharedInfoRowDetailed
 import com.aryan.reader.shared.ui.SharedMobileEmptyLibrary
 import com.aryan.reader.shared.ui.SharedMobileTopBanner
 import com.aryan.reader.shared.ui.SharedMobileTopAppBar
@@ -420,9 +422,14 @@ fun FileInfoDialog(
     onOpenTags: () -> Unit,
     onShareFile: (() -> Unit)? = null,
     onSaveCopy: (() -> Unit)? = null,
-    onSelectForActions: (() -> Unit)? = null
+    onSelectForActions: (() -> Unit)? = null,
+    extraMetadata: com.aryan.reader.whitebear.WhiteBearExtraMetadata? = null,
+    libraryAuthors: List<String> = emptyList()
 ) {
     val context = LocalContext.current
+    var publicationDateInput by remember(item.bookId, extraMetadata?.publicationDate) {
+        mutableStateOf(extraMetadata?.publicationDate.orEmpty())
+    }
     var selectedCoverUri by remember(item.bookId) { mutableStateOf<Uri?>(null) }
     var selectedCoverName by remember(item.bookId) { mutableStateOf<String?>(null) }
     val coverPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -475,6 +482,60 @@ fun FileInfoDialog(
             { BookTagChipsRow(tags = tags, compact = false) }
         },
         embeddedEditLabel = "Edit metadata",
+        // 白い熊: publication date / publisher / language / rating / ISBN read live from
+        // the file, shown under Series.
+        extraInfoRows = extraMetadata?.let { extra ->
+            {
+                extra.publicationDate?.takeIf { it.isNotBlank() }?.let {
+                    SharedInfoRowDetailed(stringResource(R.string.label_publication_date), it)
+                }
+                extra.publisher?.takeIf { it.isNotBlank() }?.let {
+                    SharedInfoRowDetailed(stringResource(R.string.label_publisher), it, maxLines = 2)
+                }
+                extra.language?.takeIf { it.isNotBlank() }?.let {
+                    SharedInfoRowDetailed(stringResource(R.string.label_language), it)
+                }
+                extra.rating?.takeIf { it > 0.0 }?.let {
+                    SharedInfoRowDetailed(stringResource(R.string.label_rating), formatBookRating(it))
+                }
+                extra.isbn?.takeIf { it.isNotBlank() }?.let { isbn ->
+                    SharedInfoRowDetailed(stringResource(R.string.label_isbn), isbn)
+                }
+            }
+        },
+        // 白い熊: author autocomplete over the authors already in the library.
+        authorFieldContent = { value, onChange ->
+            AuthorAutocompleteField(value = value, onValueChange = onChange, suggestions = libraryAuthors)
+        },
+        // 白い熊: the publication date is editable and written back to the EPUB dc:date.
+        editFieldsAfterSeries = {
+            OutlinedTextField(
+                value = publicationDateInput,
+                onValueChange = { publicationDateInput = it },
+                label = { Text(stringResource(R.string.label_publication_date)) },
+                placeholder = { Text("YYYY-MM-DD") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+        },
+        // 白い熊: reach the tag sheet straight from edit mode.
+        editFieldsAfterSummary = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    stringResource(R.string.label_library_tags),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TextButton(onClick = onOpenTags) { Text(stringResource(R.string.action_add_edit)) }
+            }
+            if (item.tags.isNotEmpty()) {
+                BookTagChipsRow(tags = item.tags, compact = false)
+            }
+        },
         // 白い熊: edit / share / save-a-copy / select icons in the dialog header.
         headerActions = { isEditing, startEditing ->
             if (!isEditing) {
@@ -528,12 +589,71 @@ fun FileInfoDialog(
                     seriesIndex = updated.seriesIndex,
                     description = updated.description,
                     coverImageUri = selectedCoverUri?.toString(),
+                    publicationDate = publicationDateInput.trim().takeIf { it.isNotBlank() },
                 ),
             )
         },
         onSaveDisplayName = onSaveDisplayName,
         onRestore = { onRestoreMetadata() },
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AuthorAutocompleteField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    suggestions: List<String>
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val matches = remember(value, suggestions) {
+        val query = value.trim()
+        if (query.isBlank()) {
+            emptyList()
+        } else {
+            suggestions
+                .filter { it.contains(query, ignoreCase = true) && !it.equals(query, ignoreCase = true) }
+                .take(8)
+        }
+    }
+    ExposedDropdownMenuBox(
+        expanded = expanded && matches.isNotEmpty(),
+        onExpandedChange = { expanded = it },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {
+                onValueChange(it)
+                expanded = true
+            },
+            label = { Text(stringResource(R.string.author)) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(),
+            maxLines = 2
+        )
+        ExposedDropdownMenu(
+            expanded = expanded && matches.isNotEmpty(),
+            onDismissRequest = { expanded = false }
+        ) {
+            matches.forEach { suggestion ->
+                DropdownMenuItem(
+                    text = { Text(suggestion) },
+                    onClick = {
+                        onValueChange(suggestion)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+/** Formats a Calibre 0–10 rating as an "N / 5" star value. */
+private fun formatBookRating(rating: Double): String {
+    val stars = (rating / 2.0).coerceIn(0.0, 5.0)
+    return if (stars % 1.0 == 0.0) "${stars.toInt()} / 5" else "%.1f / 5".format(stars)
 }
 
 @Composable
