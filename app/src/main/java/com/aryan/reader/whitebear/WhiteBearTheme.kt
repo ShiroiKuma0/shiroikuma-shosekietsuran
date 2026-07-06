@@ -10,7 +10,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -110,10 +109,10 @@ private fun whiteBearColorScheme(
         surfaceBright = surfaceHigh,
         surfaceDim = background,
         surfaceContainerLowest = background,
-        surfaceContainerLow = lerp(surface, surfaceHigh, 0.5f),
+        surfaceContainerLow = surface,
         surfaceContainer = surfaceHigh,
-        surfaceContainerHigh = lerp(surfaceHigh, text, 0.06f),
-        surfaceContainerHighest = lerp(surfaceHigh, text, 0.12f)
+        surfaceContainerHigh = surfaceHigh,
+        surfaceContainerHighest = surfaceHigh
     )
 }
 

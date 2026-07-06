@@ -80,6 +80,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -416,7 +417,10 @@ fun FileInfoDialog(
     onSaveMetadata: (BookMetadataEdit) -> Unit,
     onSaveDisplayName: (String?) -> Unit,
     onRestoreMetadata: () -> Unit,
-    onOpenTags: () -> Unit
+    onOpenTags: () -> Unit,
+    onShareFile: (() -> Unit)? = null,
+    onSaveCopy: (() -> Unit)? = null,
+    onSelectForActions: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     var selectedCoverUri by remember(item.bookId) { mutableStateOf<Uri?>(null) }
@@ -471,6 +475,29 @@ fun FileInfoDialog(
             { BookTagChipsRow(tags = tags, compact = false) }
         },
         embeddedEditLabel = "Edit metadata",
+        // 白い熊: edit / share / save-a-copy / select icons in the dialog header.
+        headerActions = { isEditing, startEditing ->
+            if (!isEditing) {
+                IconButton(onClick = startEditing) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit")
+                }
+                if (onShareFile != null) {
+                    IconButton(onClick = onShareFile) {
+                        Icon(Icons.Default.Share, contentDescription = "Share file")
+                    }
+                }
+                if (onSaveCopy != null) {
+                    IconButton(onClick = onSaveCopy) {
+                        Icon(painterResource(id = R.drawable.wb_save_alt), contentDescription = "Save a copy")
+                    }
+                }
+                if (onSelectForActions != null) {
+                    IconButton(onClick = onSelectForActions) {
+                        Icon(Icons.Default.Check, contentDescription = "Select")
+                    }
+                }
+            }
+        },
         coverEditorContent = if (canEditEmbeddedMetadata) {
             {
                 MetadataCoverPreview(

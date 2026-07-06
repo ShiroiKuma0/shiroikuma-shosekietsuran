@@ -57,6 +57,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.PagerState
@@ -93,6 +96,7 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -113,7 +117,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.aryan.reader.whitebear.WhiteBearLibraryState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -424,7 +430,12 @@ fun LibraryScreen(
             onPinClick = { viewModel.togglePinForContextualItems(isHome = false) },
             onClearSelection = { viewModel.clearContextualAction() },
             onItemClick = viewModel::onRecentFileClicked,
-            onItemLongClick = viewModel::onRecentItemLongPress,
+            // 白い熊 UI: long-press opens the book-details dialog (multi-select is still
+            // reachable from the dialog's select action).
+            onItemLongClick = { item ->
+                itemForInfoDialog = item
+                showInfoDialog = true
+            },
             onInfoClick = {
                 if (selectedItems.size == 1) {
                     itemForInfoDialog = selectedItems.first()
@@ -559,7 +570,20 @@ fun LibraryScreen(
                 showInfoDialog = false
                 itemForInfoDialog = null
             },
-            onOpenTags = { bookId -> viewModel.openTagSelection(setOf(bookId)) }
+            onOpenTags = { bookId -> viewModel.openTagSelection(setOf(bookId)) },
+            onShareFile = itemForInfoDialog
+                ?.takeIf { it.canExportOriginalFile() }
+                ?.let { item -> { shareOriginalItem(item) } },
+            onSaveCopy = itemForInfoDialog
+                ?.takeIf { it.canExportOriginalFile() }
+                ?.let { item -> { saveOriginalItem(item) } },
+            onSelectForActions = itemForInfoDialog?.let { item ->
+                {
+                    showInfoDialog = false
+                    itemForInfoDialog = null
+                    viewModel.onRecentItemLongPress(item)
+                }
+            }
         )
         CustomTopBanner(bannerMessage = uiState.bannerMessage)
     }
@@ -790,6 +814,18 @@ fun LibraryScreenContent(
     onCloudFolderSettingsClick: (() -> Unit)? = null,
     onIncomingCloudFolderClick: ((String) -> Unit)? = null,
 ) {
+    // 白い熊 UI: list/grid layout, its metrics menu, and the author/tag quick filters.
+    val wbContext = LocalContext.current
+    val wbLibraryState = remember { WhiteBearLibraryState.get(wbContext) }
+    var showWbLayoutMenu by remember { mutableStateOf(false) }
+    var wbAuthorFilter by rememberSaveable { mutableStateOf<String?>(null) }
+    var wbTagFilterId by rememberSaveable { mutableStateOf<String?>(null) }
+    val wbAuthors = remember(rawLibraryFiles) {
+        rawLibraryFiles.mapNotNull { it.author?.trim() }
+            .filter { it.isNotBlank() && !it.equals("Unknown", ignoreCase = true) }
+            .distinct()
+            .sortedBy { it.lowercase() }
+    }
     val selectedBookIds = remember(selectedItems) { selectedItems.mapTo(mutableSetOf()) { it.bookId } }
     com.aryan.reader.shared.ui.SharedAndroidLibraryScaffold(
         pagerState = pagerState,
@@ -841,6 +877,64 @@ fun LibraryScreenContent(
         },
         normalTopBarActions = {
             if (pagerState.currentPage == 0) {
+                // 白い熊 UI: list/grid switch with live thumbnail and font-size sliders.
+                Box {
+                    IconButton(onClick = { showWbLayoutMenu = true }) {
+                        Icon(painterResource(id = R.drawable.wb_grid), contentDescription = "Layout")
+                    }
+                    DropdownMenu(
+                        expanded = showWbLayoutMenu,
+                        onDismissRequest = { showWbLayoutMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("List layout") },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) },
+                            trailingIcon = if (!wbLibraryState.gridLayout) {
+                                { Icon(Icons.Default.Check, contentDescription = null) }
+                            } else null,
+                            onClick = {
+                                wbLibraryState.updateGridLayout(false)
+                                showWbLayoutMenu = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Grid layout") },
+                            leadingIcon = { Icon(painterResource(id = R.drawable.wb_grid), contentDescription = null) },
+                            trailingIcon = if (wbLibraryState.gridLayout) {
+                                { Icon(Icons.Default.Check, contentDescription = null) }
+                            } else null,
+                            onClick = {
+                                wbLibraryState.updateGridLayout(true)
+                                showWbLayoutMenu = false
+                            }
+                        )
+                        HorizontalDivider()
+                        WhiteBearLayoutMenuSlider(
+                            label = "Thumbnail height",
+                            value = wbLibraryState.thumbnailHeight,
+                            valueText = "${wbLibraryState.thumbnailHeight.toInt()} dp",
+                            range = 100f..320f,
+                            steps = 21,
+                            onChange = { wbLibraryState.updateThumbnailHeight(it) }
+                        )
+                        WhiteBearLayoutMenuSlider(
+                            label = "Title size",
+                            value = wbLibraryState.titleFontSize,
+                            valueText = "${wbLibraryState.titleFontSize.toInt()} sp",
+                            range = 9f..24f,
+                            steps = 14,
+                            onChange = { wbLibraryState.updateTitleFontSize(it) }
+                        )
+                        WhiteBearLayoutMenuSlider(
+                            label = "Author size",
+                            value = wbLibraryState.authorFontSize,
+                            valueText = "${wbLibraryState.authorFontSize.toInt()} sp",
+                            range = 8f..20f,
+                            steps = 11,
+                            onChange = { wbLibraryState.updateAuthorFontSize(it) }
+                        )
+                    }
+                }
                 IconButton(onClick = onFilterClick) { Icon(Icons.Default.FilterList, stringResource(R.string.content_desc_filter)) }
                 SharedMobileLibrarySortControl(
                     sortOrder = sortOrder,
@@ -855,6 +949,20 @@ fun LibraryScreenContent(
             IconButton(onClick = onSettingsClick) { Icon(Icons.Default.Settings, stringResource(R.string.settings)) }
         },
         filterChips = {
+            if (pagerState.currentPage == 0) {
+                WhiteBearLibraryFilterRow(
+                    authors = wbAuthors,
+                    allTags = allTags,
+                    selectedAuthor = wbAuthorFilter,
+                    selectedTagId = wbTagFilterId,
+                    onAuthorSelected = { wbAuthorFilter = it },
+                    onTagSelected = { wbTagFilterId = it },
+                    onClearFilters = {
+                        wbAuthorFilter = null
+                        wbTagFilterId = null
+                    }
+                )
+            }
             androidx.compose.animation.AnimatedVisibility(visible = libraryFilters.isActive && pagerState.currentPage == 0) {
                 val selectedTags = allTags.filter { it.id in libraryFilters.tagIds }
                 val tagLabel = when {
@@ -875,7 +983,15 @@ fun LibraryScreenContent(
         },
         pageContent = { page ->
             when (page) {
-                0 -> when {
+                0 -> {
+                    // 白い熊 UI: the author/tag pull-downs narrow both layouts.
+                    val wbVisibleFiles = remember(recentFiles, wbAuthorFilter, wbTagFilterId) {
+                        recentFiles.filter { item ->
+                            (wbAuthorFilter == null || item.author?.trim() == wbAuthorFilter) &&
+                                (wbTagFilterId == null || item.tags.any { it.id == wbTagFilterId })
+                        }
+                    }
+                    when {
                     recentFiles.isEmpty() && searchQuery.isNotEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(stringResource(R.string.no_results_found, searchQuery))
                     }
@@ -885,12 +1001,37 @@ fun LibraryScreenContent(
                         onSelectFileClick = onSelectFileClick,
                         modifier = Modifier.fillMaxSize(),
                     )
+                    wbVisibleFiles.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No books match the author/tag filter.")
+                    }
+                    wbLibraryState.gridLayout -> LazyVerticalGrid(
+                        columns = GridCells.Adaptive(
+                            minSize = (wbLibraryState.thumbnailHeight * 0.7f).dp.coerceAtLeast(72.dp)
+                        ),
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        gridItems(wbVisibleFiles, key = { it.bookId }) { item ->
+                            WhiteBearLibraryGridItem(
+                                item = item,
+                                isSelected = item.bookId in selectedBookIds,
+                                thumbnailHeightDp = wbLibraryState.thumbnailHeight,
+                                titleFontSp = wbLibraryState.titleFontSize,
+                                authorFontSp = wbLibraryState.authorFontSize,
+                                onItemClick = { onItemClick(item) },
+                                onItemLongClick = { onItemLongClick(item) },
+                                usePdfFileNameAsDisplayName = usePdfFileNameAsDisplayName,
+                            )
+                        }
+                    }
                     else -> LazyColumn(
                         Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        items(recentFiles, key = { it.bookId }) { item ->
+                        items(wbVisibleFiles, key = { it.bookId }) { item ->
                             LibraryListItem(
                                 item = item,
                                 isSelected = item.bookId in selectedBookIds,
@@ -901,6 +1042,7 @@ fun LibraryScreenContent(
                                 usePdfFileNameAsDisplayName = usePdfFileNameAsDisplayName,
                             )
                         }
+                    }
                     }
                 }
                 1 -> ShelvesScreen(shelves, onShelfClick, onShelfLongClick, selectedShelves)
@@ -1276,6 +1418,182 @@ private fun ShelfListItem(
         }
     }
 }
+
+/** Compact slider row inside the layout dropdown menu; the grid reflows live. */
+@Composable
+private fun WhiteBearLayoutMenuSlider(
+    label: String,
+    value: Float,
+    valueText: String,
+    range: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    onChange: (Float) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .width(280.dp)
+            .padding(horizontal = 16.dp, vertical = 2.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+            Text(
+                valueText,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Slider(
+            value = value,
+            onValueChange = onChange,
+            valueRange = range,
+            steps = steps,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(28.dp)
+        )
+    }
+}
+
+/** Author / Tag pull-down filters with a clear-filters icon on the left. */
+@Composable
+private fun WhiteBearLibraryFilterRow(
+    authors: List<String>,
+    allTags: List<TagEntity>,
+    selectedAuthor: String?,
+    selectedTagId: String?,
+    onAuthorSelected: (String?) -> Unit,
+    onTagSelected: (String?) -> Unit,
+    onClearFilters: () -> Unit
+) {
+    var authorMenuOpen by remember { mutableStateOf(false) }
+    var tagMenuOpen by remember { mutableStateOf(false) }
+    val filtersActive = selectedAuthor != null || selectedTagId != null
+    val sortedTags = remember(allTags) { allTags.sortedBy { it.name.lowercase() } }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onClearFilters, enabled = filtersActive) {
+            Icon(
+                painterResource(id = R.drawable.wb_filter_off),
+                contentDescription = "Show all",
+                tint = if (filtersActive) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            )
+        }
+        Box(modifier = Modifier.weight(1f)) {
+            TextButton(onClick = { authorMenuOpen = true }, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    selectedAuthor ?: "Author",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+            }
+            DropdownMenu(expanded = authorMenuOpen, onDismissRequest = { authorMenuOpen = false }) {
+                authors.forEach { author ->
+                    DropdownMenuItem(
+                        text = { Text(author, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        trailingIcon = if (author == selectedAuthor) {
+                            { Icon(Icons.Default.Check, contentDescription = null) }
+                        } else null,
+                        onClick = {
+                            onAuthorSelected(if (author == selectedAuthor) null else author)
+                            authorMenuOpen = false
+                        }
+                    )
+                }
+            }
+        }
+        Box(modifier = Modifier.weight(1f)) {
+            TextButton(onClick = { tagMenuOpen = true }, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    sortedTags.firstOrNull { it.id == selectedTagId }?.name ?: "Tag",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+            }
+            DropdownMenu(expanded = tagMenuOpen, onDismissRequest = { tagMenuOpen = false }) {
+                sortedTags.forEach { tag ->
+                    DropdownMenuItem(
+                        text = { Text(tag.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        trailingIcon = if (tag.id == selectedTagId) {
+                            { Icon(Icons.Default.Check, contentDescription = null) }
+                        } else null,
+                        onClick = {
+                            onTagSelected(if (tag.id == selectedTagId) null else tag.id)
+                            tagMenuOpen = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Grid cell: cover thumbnail with bold title and author under it; sizes are user-set. */
+@Composable
+private fun WhiteBearLibraryGridItem(
+    item: RecentFileItem,
+    isSelected: Boolean,
+    thumbnailHeightDp: Float,
+    titleFontSp: Float,
+    authorFontSp: Float,
+    onItemClick: () -> Unit,
+    onItemLongClick: () -> Unit,
+    usePdfFileNameAsDisplayName: Boolean
+) {
+    Column(
+        modifier = Modifier
+            .clip(MaterialTheme.shapes.medium)
+            .then(
+                if (isSelected) {
+                    Modifier.border(2.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.medium)
+                } else Modifier
+            )
+            .combinedClickable(onClick = onItemClick, onLongClick = onItemLongClick)
+            .padding(2.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(thumbnailHeightDp.dp)
+                .clip(MaterialTheme.shapes.medium)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.medium)
+        ) {
+            ThemedBookCover(
+                item = item,
+                contentDescription = item.displayName,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        Text(
+            item.cardTitle(usePdfFileNameAsDisplayName),
+            fontSize = titleFontSp.sp,
+            lineHeight = (titleFontSp * 1.15f).sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        Text(
+            item.cardAuthor(),
+            fontSize = authorFontSp.sp,
+            lineHeight = (authorFontSp * 1.15f).sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
 @Composable
 internal fun LibraryListItem(
     item: RecentFileItem,

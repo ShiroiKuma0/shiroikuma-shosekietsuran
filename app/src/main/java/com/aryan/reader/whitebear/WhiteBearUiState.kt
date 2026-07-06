@@ -17,7 +17,7 @@ import androidx.compose.runtime.setValue
 enum class WhiteBearSlot(val key: String, val label: String, val defaultArgb: Int) {
     BACKGROUND("wb_color_background", "Background", 0xFF000000.toInt()),
     SURFACE("wb_color_surface", "Surface (panels, cards)", 0xFF000000.toInt()),
-    SURFACE_HIGH("wb_color_surface_high", "Raised surface (bars, menus, dialogs)", 0xFF1C1C00.toInt()),
+    SURFACE_HIGH("wb_color_surface_high", "Raised surface (bars, menus, dialogs)", 0xFF000000.toInt()),
     TEXT("wb_color_text", "Text", 0xFFFFFF00.toInt()),
     ACCENT("wb_color_accent", "Accent", 0xFFFFFF00.toInt()),
     BORDER("wb_color_border", "Border", 0xFFFFFF00.toInt()),
@@ -44,6 +44,11 @@ class WhiteBearUiState private constructor(private val prefs: SharedPreferences)
         private set
 
     private val colorMap = mutableStateMapOf<WhiteBearSlot, Int>().apply {
+        // Migration: the raised-surface default used to be #FF1C1C00 (yellow-tinted black),
+        // which "Reset to defaults" may have persisted; pure black is the default now.
+        if (prefs.getInt(WhiteBearSlot.SURFACE_HIGH.key, 0) == 0xFF1C1C00.toInt()) {
+            prefs.edit().remove(WhiteBearSlot.SURFACE_HIGH.key).apply()
+        }
         WhiteBearSlot.entries.forEach { slot -> put(slot, prefs.getInt(slot.key, slot.defaultArgb)) }
     }
 

@@ -40,6 +40,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -344,6 +345,9 @@ fun SharedBookInfoDialog(
     tagChipsContent: (@Composable () -> Unit)? = null,
     coverEditorContent: (@Composable () -> Unit)? = null,
     embeddedEditLabel: String? = null,
+    // shiroikuma fork: extra icons in the dialog header (share the file, save a copy,
+    // enter multi-select).  Receives the edit state and a way to start editing.
+    headerActions: (@Composable RowScope.(isEditing: Boolean, startEditing: () -> Unit) -> Unit)? = null,
     onDismiss: () -> Unit,
     onSave: (BookItem) -> Unit,
     onSaveEmbeddedMetadata: ((BookItem) -> Unit)? = null,
@@ -413,6 +417,9 @@ fun SharedBookInfoDialog(
                         } else {
                             onDismiss()
                         }
+                    },
+                    actions = {
+                        headerActions?.invoke(this, isEditing) { isEditing = true }
                     }
                 )
 
@@ -587,7 +594,8 @@ fun SharedBookInfoDialog(
 private fun SharedBookInfoTopBar(
     title: String,
     subtitle: String,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    actions: @Composable RowScope.() -> Unit = {}
 ) {
     Row(
         modifier = Modifier
@@ -612,6 +620,7 @@ private fun SharedBookInfoTopBar(
                 overflow = TextOverflow.Ellipsis
             )
         }
+        actions()
     }
 }
 
