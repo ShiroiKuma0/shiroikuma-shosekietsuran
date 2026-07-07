@@ -6,6 +6,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
+/** How two parallel books share the screen: not at all, stacked, or side by side. */
+enum class WhiteBearSplitMode { NONE, VERTICAL, HORIZONTAL }
+
 /**
  * Fork-local (白い熊) parallel-reading set: 2–3 books ordered left → right. While a set is
  * active, a two-finger horizontal swipe in the reader flips to the neighbouring book (with
@@ -19,6 +22,17 @@ class WhiteBearParallelState private constructor(private val prefs: SharedPrefer
     /** Armed when "Add book for parallel reading" was tapped: the next library click adds. */
     var pickingArmed by mutableStateOf(false)
         private set
+
+    /** Same-screen display of two parallel books; persisted. */
+    var splitMode by mutableStateOf(
+        WhiteBearSplitMode.entries.getOrElse(prefs.getInt(KEY_SPLIT_MODE, 0)) { WhiteBearSplitMode.NONE }
+    )
+        private set
+
+    fun updateSplitMode(mode: WhiteBearSplitMode) {
+        splitMode = mode
+        prefs.edit().putInt(KEY_SPLIT_MODE, mode.ordinal).apply()
+    }
 
     fun armPicking() {
         pickingArmed = true
@@ -66,6 +80,7 @@ class WhiteBearParallelState private constructor(private val prefs: SharedPrefer
     companion object {
         private const val PREFS_NAME = "whitebear_parallel_prefs"
         private const val KEY_SET = "wb_parallel_set"
+        private const val KEY_SPLIT_MODE = "wb_parallel_split_mode"
 
         @Volatile
         private var instance: WhiteBearParallelState? = null

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
@@ -58,6 +59,8 @@ fun WhiteBearParallelTabBar(
     onRemove: (String) -> Unit,
     onInfo: (String) -> Unit,
     onAddBook: () -> Unit,
+    splitMode: WhiteBearSplitMode = WhiteBearSplitMode.NONE,
+    onSplitModeChange: (WhiteBearSplitMode) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -181,14 +184,62 @@ fun WhiteBearParallelTabBar(
                 }
             }
         }
-        if (tabs.size < 3) {
+        if (tabs.size == 2) {
+            // 白い熊 UI: same-screen split chooser replaces the "+" tab for a two-book set.
+            var splitMenuOpen by remember { mutableStateOf(false) }
+            Box(modifier = Modifier.weight(0.22f)) {
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = if (splitMode != WhiteBearSplitMode.NONE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                    contentColor = if (splitMode != WhiteBearSplitMode.NONE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+                    border = androidx.compose.foundation.BorderStroke(borderDp, MaterialTheme.colorScheme.outline),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { splitMenuOpen = true }
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            androidx.compose.ui.res.painterResource(id = com.aryan.reader.R.drawable.wb_split),
+                            contentDescription = "Split view",
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                DropdownMenu(
+                    expanded = splitMenuOpen,
+                    onDismissRequest = { splitMenuOpen = false },
+                    modifier = Modifier.border(borderDp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.extraSmall)
+                ) {
+                    listOf(
+                        WhiteBearSplitMode.VERTICAL to "Vertical (top / bottom)",
+                        WhiteBearSplitMode.HORIZONTAL to "Horizontal (side by side)",
+                        WhiteBearSplitMode.NONE to "None (one book)"
+                    ).forEach { (mode, label) ->
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            trailingIcon = if (mode == splitMode) {
+                                { Icon(Icons.Default.Check, contentDescription = null) }
+                            } else null,
+                            onClick = {
+                                splitMenuOpen = false
+                                onSplitModeChange(mode)
+                            }
+                        )
+                    }
+                }
+            }
+        } else if (tabs.size < 2) {
             Surface(
                 shape = MaterialTheme.shapes.small,
                 color = MaterialTheme.colorScheme.surface,
                 contentColor = MaterialTheme.colorScheme.primary,
                 border = androidx.compose.foundation.BorderStroke(borderDp, MaterialTheme.colorScheme.outline),
                 modifier = Modifier
-                    .weight(if (tabs.size <= 1) 1f else 0.25f)
+                    .weight(1f)
                     .clickable(onClick = onAddBook)
             ) {
                 Row(
@@ -197,7 +248,7 @@ fun WhiteBearParallelTabBar(
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                     Text(
-                        if (tabs.size <= 1) "  Add book for parallel reading" else "",
+                        "  Add book for parallel reading",
                         style = MaterialTheme.typography.labelLarge,
                         maxLines = 1
                     )
