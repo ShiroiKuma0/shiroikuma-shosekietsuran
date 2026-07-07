@@ -134,6 +134,7 @@ private class WebViewRuntimeApplierState {
     var styleSignature: String? = null
     var tocFragmentsJson: String? = null
     var highlightsJson: String? = null
+    var whiteBearWritingMode: String? = null
     private var unchangedUpdateCount = 0
     private var pendingUpdateCount = 0
     private var lastUnchangedUpdateLogAt = 0L
@@ -720,7 +721,12 @@ fun ChapterWebView(
     onInternalLinkClick: (String) -> Unit,
     onWebViewDisposed: (WebView) -> Unit = {},
     activeTextureId: String? = null,
-    activeTextureAlpha: Float = 0.55f
+    activeTextureAlpha: Float = 0.55f,
+    // 白い熊 UI: per-book writing direction ("auto"/"vertical"/"horizontal") plus a callback
+    // reporting whether the chapter effectively renders vertical-rl (tategaki).
+    whiteBearWritingMode: String = "auto",
+    whiteBearRubySpace: Boolean = true,
+    onWhiteBearVerticalDetected: (Boolean) -> Unit = {}
 ) {
     Timber.d(
         "RenderChapterViaWebView for '$chapterTitle', Key: $key, isDarkTheme: $isDarkTheme, initialScrollTarget: $initialScrollTarget"
@@ -1193,6 +1199,14 @@ fun ChapterWebView(
                                 null
                             )
 
+                            // 白い熊 UI: apply the writing direction, then report whether the
+                            // chapter effectively renders vertical (tategaki).
+                            view?.evaluateJavascript(
+                                "javascript:window.whiteBearApplyWritingMode('$whiteBearWritingMode', $whiteBearRubySpace);"
+                            ) { verticalResult ->
+                                onWhiteBearVerticalDetected(verticalResult?.trim('"') == "true")
+                            }
+
                             view?.evaluateJavascript(
                                 """
                                     javascript:setTimeout(function() {
@@ -1459,6 +1473,17 @@ fun ChapterWebView(
                             "javascript:window.updateReaderStyles($currentFontSize, $currentLineHeight, '$fontNameForJs', '${currentTextAlign.cssValue}', $currentParagraphGap, $currentImageSize, $currentHorizontalMargin, $currentVerticalMargin, $currentFontWeight, $currentLetterSpacing, $hideImages);",
                             null
                         )
+                    }
+
+                    // 白い熊 UI: keep the writing-direction override in sync (per-book toggle).
+                    val wbWritingSignature = whiteBearWritingMode + "|" + whiteBearRubySpace
+                    if (runtimeApplierState.whiteBearWritingMode != wbWritingSignature) {
+                        runtimeApplierState.whiteBearWritingMode = wbWritingSignature
+                        webView.evaluateJavascript(
+                            "javascript:window.whiteBearApplyWritingMode('$whiteBearWritingMode', $whiteBearRubySpace);"
+                        ) { verticalResult ->
+                            onWhiteBearVerticalDetected(verticalResult?.trim('"') == "true")
+                        }
                     }
 
                     if (highlightsChanged) {

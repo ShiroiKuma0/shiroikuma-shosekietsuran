@@ -104,6 +104,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.border
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -234,6 +235,10 @@ fun EpubReaderTopBar(
     onOpenThemeSettings: () -> Unit,
     onOpenBrightness: () -> Unit,
     onOpenVisualOptions: () -> Unit,
+    whiteBearTategakiActive: Boolean = false,
+    onWhiteBearWritingChange: (String) -> Unit = {},
+    whiteBearRubySpace: Boolean = true,
+    onWhiteBearRubySpaceChange: (Boolean) -> Unit = {},
     onOpenScreenOrientation: () -> Unit,
     onOpenSlider: () -> Unit,
     onOpenDrawer: () -> Unit,
@@ -383,6 +388,48 @@ fun EpubReaderTopBar(
                                 else -> Unit
                             }
                         }
+                    // 白い熊 UI: unified reading-mode chooser (page layout + writing direction).
+                    Box {
+                        var wbShowReadingModeMenu by remember { mutableStateOf(false) }
+                        val wbMenuContext = LocalContext.current
+                        val wbMenuFrame = remember { com.aryan.reader.whitebear.WhiteBearUiState.get(wbMenuContext) }
+                        TooltipIconButton(
+                            text = "Reading mode",
+                            description = "Choose page layout and writing direction",
+                            onClick = { wbShowReadingModeMenu = true }
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.wb_reading_mode),
+                                contentDescription = "Reading mode",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = wbShowReadingModeMenu,
+                            onDismissRequest = { wbShowReadingModeMenu = false },
+                            modifier = Modifier.border(
+                                wbMenuFrame.borderWidth.coerceAtLeast(1f).dp,
+                                MaterialTheme.colorScheme.outline,
+                                MaterialTheme.shapes.extraSmall
+                            )
+                        ) {
+                            WhiteBearReadingModeItems(
+                                currentRenderMode = currentRenderMode,
+                                useNativeVerticalRenderer = useNativeVerticalRenderer,
+                                isRightToLeftPagination = isRightToLeftPagination,
+                                isTtsActive = isTtsActive,
+                                tategakiActive = whiteBearTategakiActive,
+                                rubySpace = whiteBearRubySpace,
+                                onRubySpaceToggle = onWhiteBearRubySpaceChange
+                            ) { mode, native, rtl, writing ->
+                                wbShowReadingModeMenu = false
+                                onUseNativeVerticalRendererChange(native)
+                                onSetRightToLeftPagination(rtl)
+                                onWhiteBearWritingChange(writing)
+                                onChangeRenderMode(mode)
+                            }
+                        }
+                    }
                     Box {
                         val overflowMenuState = com.aryan.reader.shared.ui.rememberSharedReaderOverflowMenuState()
                         var showMoreMenu by overflowMenuState.menuExpanded
@@ -523,66 +570,21 @@ fun EpubReaderTopBar(
                                             }
                                         )
                                         if (showReadingModeExpanded) {
-                                            DropdownMenuItem(
-                                                text = { Text(stringResource(R.string.menu_reading_mode_vertical_webview)) },
-                                                enabled = !isTtsActive,
-                                                onClick = {
-                                                    onUseNativeVerticalRendererChange(false)
-                                                    showMoreMenu = false
-                                                    onChangeRenderMode(RenderMode.VERTICAL_SCROLL)
-                                                },
-                                                trailingIcon = {
-                                                    if (currentRenderMode == RenderMode.VERTICAL_SCROLL && !useNativeVerticalRenderer) Icon(
-                                                        Icons.Default.Check,
-                                                        contentDescription = stringResource(R.string.content_desc_selected)
-                                                    )
-                                                })
-                                            DropdownMenuItem(
-                                                text = { Text(stringResource(R.string.menu_reading_mode_vertical_native)) },
-                                                enabled = !isTtsActive,
-                                                onClick = {
-                                                    onUseNativeVerticalRendererChange(true)
-                                                    showMoreMenu = false
-                                                    onChangeRenderMode(RenderMode.VERTICAL_SCROLL)
-                                                },
-                                                trailingIcon = {
-                                                    if (currentRenderMode == RenderMode.VERTICAL_SCROLL && useNativeVerticalRenderer) Icon(
-                                                        Icons.Default.Check,
-                                                        contentDescription = stringResource(R.string.content_desc_selected)
-                                                    )
-                                                })
-                                            DropdownMenuItem(
-                                                text = { Text(stringResource(R.string.menu_reading_mode_paginated)) },
-                                                enabled = !isTtsActive,
-                                                onClick = {
-                                                    onSetRightToLeftPagination(false)
-                                                    showMoreMenu = false
-                                                    onChangeRenderMode(RenderMode.PAGINATED)
-                                                },
-                                                trailingIcon = {
-                                                    if (currentRenderMode == RenderMode.PAGINATED && !isRightToLeftPagination) {
-                                                        Icon(
-                                                            Icons.Default.Check,
-                                                            contentDescription = stringResource(R.string.content_desc_selected)
-                                                        )
-                                                    }
-                                                })
-                                            DropdownMenuItem(
-                                                text = { Text(stringResource(R.string.menu_right_to_left_pagination)) },
-                                                enabled = !isTtsActive,
-                                                onClick = {
-                                                    onSetRightToLeftPagination(true)
-                                                    showMoreMenu = false
-                                                    onChangeRenderMode(RenderMode.PAGINATED)
-                                                },
-                                                trailingIcon = {
-                                                    if (currentRenderMode == RenderMode.PAGINATED && isRightToLeftPagination) {
-                                                        Icon(
-                                                            Icons.Default.Check,
-                                                            contentDescription = stringResource(R.string.content_desc_selected)
-                                                        )
-                                                    }
-                                                })
+                                        WhiteBearReadingModeItems(
+                                            currentRenderMode = currentRenderMode,
+                                            useNativeVerticalRenderer = useNativeVerticalRenderer,
+                                            isRightToLeftPagination = isRightToLeftPagination,
+                                            isTtsActive = isTtsActive,
+                                            tategakiActive = whiteBearTategakiActive,
+                                            rubySpace = whiteBearRubySpace,
+                                            onRubySpaceToggle = onWhiteBearRubySpaceChange
+                                        ) { mode, native, rtl, writing ->
+                                            showMoreMenu = false
+                                            onUseNativeVerticalRendererChange(native)
+                                            onSetRightToLeftPagination(rtl)
+                                            onWhiteBearWritingChange(writing)
+                                            onChangeRenderMode(mode)
+                                        }
                                         }
                                     }
                                     EpubOverflowMenuSection.BOOKMARK -> {
@@ -2269,4 +2271,79 @@ fun TtsOverlayControls(
             }
         }
     }
+}
+
+/**
+ * 白い熊 UI: the unified reading-mode entries — page layout and writing direction are one
+ * choice. "Vertical text 縦書き" is the Japanese tategaki rendering (WebView only): columns
+ * top → down, flowing right → left, left tap pages forward.
+ */
+@Composable
+private fun WhiteBearReadingModeItems(
+    currentRenderMode: RenderMode,
+    useNativeVerticalRenderer: Boolean,
+    isRightToLeftPagination: Boolean,
+    isTtsActive: Boolean,
+    tategakiActive: Boolean,
+    rubySpace: Boolean = true,
+    onRubySpaceToggle: (Boolean) -> Unit = {},
+    onPick: (RenderMode, Boolean, Boolean, String) -> Unit
+) {
+    val webViewScroll = currentRenderMode == RenderMode.VERTICAL_SCROLL && !useNativeVerticalRenderer
+    DropdownMenuItem(
+        text = { Text("Scroll (horizontal text)") },
+        enabled = !isTtsActive,
+        onClick = { onPick(RenderMode.VERTICAL_SCROLL, false, isRightToLeftPagination, "horizontal") },
+        trailingIcon = {
+            if (webViewScroll && !tategakiActive) Icon(Icons.Default.Check, contentDescription = null)
+        }
+    )
+    DropdownMenuItem(
+        text = { Text("Vertical text 縦書き (columns right → left)") },
+        enabled = !isTtsActive,
+        onClick = { onPick(RenderMode.VERTICAL_SCROLL, false, isRightToLeftPagination, "vertical") },
+        trailingIcon = {
+            if (webViewScroll && tategakiActive) Icon(Icons.Default.Check, contentDescription = null)
+        }
+    )
+    DropdownMenuItem(
+        text = { Text("Scroll — native renderer (beta)") },
+        enabled = !isTtsActive,
+        onClick = { onPick(RenderMode.VERTICAL_SCROLL, true, isRightToLeftPagination, "horizontal") },
+        trailingIcon = {
+            if (currentRenderMode == RenderMode.VERTICAL_SCROLL && useNativeVerticalRenderer) {
+                Icon(Icons.Default.Check, contentDescription = null)
+            }
+        }
+    )
+    DropdownMenuItem(
+        text = { Text("Pages (left → right)") },
+        enabled = !isTtsActive,
+        onClick = { onPick(RenderMode.PAGINATED, useNativeVerticalRenderer, false, "horizontal") },
+        trailingIcon = {
+            if (currentRenderMode == RenderMode.PAGINATED && !isRightToLeftPagination) {
+                Icon(Icons.Default.Check, contentDescription = null)
+            }
+        }
+    )
+    DropdownMenuItem(
+        text = { Text("Pages (right → left)") },
+        enabled = !isTtsActive,
+        onClick = { onPick(RenderMode.PAGINATED, useNativeVerticalRenderer, true, "horizontal") },
+        trailingIcon = {
+            if (currentRenderMode == RenderMode.PAGINATED && isRightToLeftPagination) {
+                Icon(Icons.Default.Check, contentDescription = null)
+            }
+        }
+    )
+    HorizontalDivider()
+    // 縦書き ruby accommodation: ON gives ruby lines extra column spacing; OFF keeps a
+    // strictly uniform column pitch (ruby may overpaint in tight gaps).
+    DropdownMenuItem(
+        text = { Text("振り仮名の余白 (furigana spacing)") },
+        onClick = { onRubySpaceToggle(!rubySpace) },
+        trailingIcon = {
+            if (rubySpace) Icon(Icons.Default.Check, contentDescription = null)
+        }
+    )
 }
