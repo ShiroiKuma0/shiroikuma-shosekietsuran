@@ -89,6 +89,8 @@ open class MainActivity : AppCompatActivity() {
     @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
+        // 白い熊: allow chrome://inspect debugging of the reader WebView over adb.
+        android.webkit.WebView.setWebContentsDebuggingEnabled(true)
         // Splash stays until the library DB emits (first projected library
         // available) or a 3s timeout, whichever comes first. Removes the
         // empty-Home flash at the cost of a slightly longer splash on slow DBs.
