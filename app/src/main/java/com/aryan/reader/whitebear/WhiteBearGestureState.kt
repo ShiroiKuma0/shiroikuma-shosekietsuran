@@ -34,6 +34,15 @@ class WhiteBearGestureState private constructor(private val prefs: SharedPrefere
     var pageTurnStepPercent by mutableIntStateOf(prefs.getInt(KEY_PAGE_TURN_STEP, 100))
         private set
 
+    /** Font-size multiplier of the split companion pane (right/bottom book). */
+    var companionFontScale by mutableStateOf(prefs.getFloat(KEY_COMPANION_FONT_SCALE, 1.0f))
+        private set
+
+    fun updateCompanionFontScale(value: Float) {
+        companionFontScale = value.coerceIn(0.5f, 3.0f)
+        prefs.edit().putFloat(KEY_COMPANION_FONT_SCALE, companionFontScale).apply()
+    }
+
     fun updatePageTurnSound(value: Int) {
         pageTurnSound = value
         prefs.edit().putInt(KEY_PAGE_TURN_SOUND, value).apply()
@@ -72,6 +81,7 @@ class WhiteBearGestureState private constructor(private val prefs: SharedPrefere
         private const val KEY_LEFT_SWIPE_BRIGHTNESS = "wb_left_swipe_brightness"
         private const val KEY_PAGE_TURN_SOUND = "wb_page_turn_sound"
         private const val KEY_PAGE_TURN_STEP = "wb_page_turn_step"
+        private const val KEY_COMPANION_FONT_SCALE = "wb_companion_font_scale"
 
         @Volatile
         private var instance: WhiteBearGestureState? = null

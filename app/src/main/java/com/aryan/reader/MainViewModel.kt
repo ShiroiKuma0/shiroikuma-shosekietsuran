@@ -9205,6 +9205,33 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
             )
         }
 
+    /** 白い熊 UI: parses the companion book for the same-screen split pane (EPUB/MOBI/FB2). */
+    suspend fun loadWhiteBearCompanionBook(item: RecentFileItem): com.aryan.reader.epub.EpubBook? {
+        val uri = item.uriString?.toUri() ?: return null
+        return runCatching {
+            restoreEpubReaderBook(item.type, item.bookId, item.displayName, uri)
+        }.onFailure { error ->
+            Timber.tag("WhiteBearSplit").w(error, "Companion book load failed for ${item.displayName}")
+        }.getOrNull()
+    }
+
+    /** 白い熊 UI: persists the split pane's reading position when the pane goes away. */
+    fun saveWhiteBearCompanionPosition(item: RecentFileItem, locator: Locator) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val uriString = item.uriString ?: return@launch
+            runCatching {
+                recentFilesRepository.updateEpubReadingPosition(
+                    uriString = uriString,
+                    locator = locator,
+                    cfiForWebView = null,
+                    progress = item.progressPercentage ?: 0f
+                )
+            }.onFailure { error ->
+                Timber.tag("WhiteBearSplit").w(error, "Companion position save failed for ${item.bookId}")
+            }
+        }
+    }
+
     /** 白い熊 UI: parallel-reading flip — open the neighbouring book at its saved position. */
     fun openBookForParallelFlip(targetBookId: String) {
         viewModelScope.launch {
