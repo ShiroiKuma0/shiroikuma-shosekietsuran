@@ -567,7 +567,13 @@ class MetadataExtractionWorker(
                 PdfiumEngineProvider.withPdfium {
                     PdfiumCoreProvider.core.newDocument(pfd).use { pdfDocument ->
                         val meta = pdfDocument.getDocumentMeta()
-                        TextMetadata(title = meta.title, author = meta.author)
+                        // 白い熊 UI: PDF Keywords become library tags, Subject the summary.
+                        TextMetadata(
+                            title = meta.title,
+                            author = meta.author,
+                            description = meta.subject?.trim()?.takeIf { it.isNotBlank() },
+                            subjects = pdfKeywordsToSubjects(meta.keywords)
+                        )
                     }
                 }
             } ?: TextMetadata()
@@ -575,6 +581,15 @@ class MetadataExtractionWorker(
             Timber.tag("MetadataWorker").e(e, "Failed to extract PDF text metadata")
             TextMetadata()
         }
+    }
+
+    private fun pdfKeywordsToSubjects(keywords: String?): List<String> {
+        return keywords
+            ?.split(',', ';')
+            ?.map { it.trim() }
+            ?.filter { it.isNotEmpty() }
+            ?.distinct()
+            .orEmpty()
     }
 
     private fun parseXmlTextMetadata(xml: String): TextMetadata {

@@ -8,5 +8,7 @@ data class BookMetadataEdit(
     val description: String?,
     val coverImageUri: String? = null,
     val restoreOriginalCover: Boolean = false,
-    val publicationDate: String? = null
+    val publicationDate: String? = null,
+    /** Library tags, written back to the file as EPUB dc:subject / PDF Keywords. */
+    val tags: List<String>? = null
 )

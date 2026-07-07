@@ -338,6 +338,8 @@ dependencies {
     implementation("androidx.browser:browser:1.8.0")
 
     implementation("io.legere:pdfiumandroid:2.0.0")
+    // 白い熊 UI: PDF metadata WRITING (document info dictionary); pdfium is read-only.
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
     implementation("org.zwobble.mammoth:mammoth:1.4.2")
 
     implementation("com.materialkolor:material-kolor:5.0.0-alpha07")

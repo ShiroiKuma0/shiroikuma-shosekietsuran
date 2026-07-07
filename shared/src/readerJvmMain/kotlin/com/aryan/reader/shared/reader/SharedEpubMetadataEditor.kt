@@ -21,7 +21,9 @@ data class SharedEpubMetadataUpdate(
     val seriesName: String?,
     val seriesIndex: Double?,
     val cover: SharedEpubCoverUpdate? = null,
-    val publicationDate: String? = null
+    val publicationDate: String? = null,
+    /** Full replacement set of dc:subject values; null = leave existing subjects untouched. */
+    val subjects: List<String>? = null
 )
 
 data class SharedEpubMetadataSnapshot(
@@ -170,6 +172,8 @@ private fun rewriteOpf(opf: String, update: SharedEpubMetadataUpdate, coverHref:
     metadata.upsertMetaContent("calibre:series_index", update.seriesIndex?.formatSeriesIndex())
     // 白い熊 UI: only touch dc:date when a value is supplied, so blank input never wipes it.
     update.publicationDate?.takeIf { it.isNotBlank() }?.let { metadata.upsertDcText("date", it) }
+    // 白い熊 UI: replace the dc:subject list with the book's library tags (null = leave as-is).
+    update.subjects?.let { metadata.replaceDcSubjects(it) }
     if (coverHref != null) {
         val manifest = document.getAllElements().firstOrNull { it.localNameEquals("manifest") }
             ?: error("EPUB package manifest section is missing.")
@@ -232,6 +236,19 @@ private fun Element.upsertDcText(localName: String, value: String?) {
     val target = existing.firstOrNull() ?: Element(Tag.valueOf("dc:$localName"), "").also { appendChild(it) }
     target.text(normalized)
     existing.drop(1).forEach { it.remove() }
+}
+
+private fun Element.replaceDcSubjects(subjects: List<String>) {
+    children().filter { it.localNameEquals("subject") }.forEach { it.remove() }
+    subjects
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .distinct()
+        .forEach { subject ->
+            val element = Element(Tag.valueOf("dc:subject"), "")
+            element.text(subject)
+            appendChild(element)
+        }
 }
 
 private fun Element.upsertMetaContent(name: String, value: String?) {
