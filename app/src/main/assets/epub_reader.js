@@ -963,6 +963,227 @@
         });
     }
 
+    // 白い熊 UI: writing-direction support for Japanese tategaki books. "auto" respects the
+    // book's own CSS; "horizontal" forces horizontal-tb; "vertical" forces vertical-rl.
+    // Blink reserves an annotation strip inside every <ruby> inline box no matter what
+    // CSS is applied (measured 62px vs the 43px pitch) — a uniform grid needs the DOM
+    // rebuilt: base text becomes a plain span, the 振り仮名 an absolutely-positioned
+    // satellite painted beside the column.
+    window.whiteBearTransformRubies = function () {
+        var rubies = document.querySelectorAll("#content-container ruby");
+        for (var i = 0; i < rubies.length; i++) {
+            var rb = rubies[i];
+            var original = rb.outerHTML;
+            var rt = rb.querySelector("rt");
+            var annotation = rt ? rt.textContent : "";
+            var extras = rb.querySelectorAll("rt, rp");
+            for (var j = 0; j < extras.length; j++) extras[j].remove();
+            var wrap = document.createElement("span");
+            wrap.className = "wb-furigana-base";
+            wrap.setAttribute("data-wb-ruby", original);
+            while (rb.firstChild) wrap.appendChild(rb.firstChild);
+            if (annotation) {
+                var ann = document.createElement("span");
+                ann.className = "wb-furigana";
+                ann.textContent = annotation;
+                wrap.appendChild(ann);
+            }
+            rb.parentNode.replaceChild(wrap, rb);
+        }
+        return rubies.length;
+    };
+
+    window.whiteBearRestoreRubies = function () {
+        var wraps = document.querySelectorAll(".wb-furigana-base[data-wb-ruby]");
+        for (var i = 0; i < wraps.length; i++) {
+            var tmp = document.createElement("div");
+            tmp.innerHTML = wraps[i].getAttribute("data-wb-ruby");
+            if (tmp.firstChild) wraps[i].parentNode.replaceChild(tmp.firstChild, wraps[i]);
+        }
+        return wraps.length;
+    };
+
+    // Vertical-rl usually sits on INNER divs (calibre wraps each chapter), so detection
+    // must look into the chunk children, not just html/body.
+    window.whiteBearDetectVerticalContent = function () {
+        try {
+            var nodes = [document.documentElement, document.body];
+            var chunks = document.querySelectorAll(".chunk-container > *");
+            for (var i = 0; i < chunks.length && i < 4; i++) nodes.push(chunks[i]);
+            for (var j = 0; j < nodes.length; j++) {
+                if (!nodes[j]) continue;
+                var wm = getComputedStyle(nodes[j]).writingMode || "";
+                if (wm.indexOf("vertical") === 0) return true;
+            }
+        } catch (e) {}
+        return false;
+    };
+
+    // Returns true when the chapter effectively renders vertical (tategaki). The document
+    // ROOT stays horizontal; #content-container becomes the vertical-rl flow (an orthogonal
+    // flow sizes its columns to the viewport), and the reader's own containment CSS
+    // (overflow-x hidden + width clamps) is lifted so the stream can extend and scroll
+    // horizontally. Verified against 一九八四年［新訳版］ in headless Chromium.
+    window.whiteBearEffectiveVertical = false;
+    window.whiteBearApplyWritingMode = function (mode, rubySpace) {
+        var id = "whiteBearWritingModeStyle";
+        var el = document.getElementById(id);
+        if (!el) {
+            el = document.createElement("style");
+            el.id = id;
+            document.head.appendChild(el);
+        }
+        var wasVertical = window.whiteBearEffectiveVertical === true;
+        if (window.whiteBearSavedViewport && mode !== "vertical") {
+            var wbVpRestore = document.querySelector("meta[name=viewport]");
+            var wbStillVertical = (mode === "auto") && window.whiteBearDetectVerticalContent();
+            if (!wbStillVertical && wbVpRestore) {
+                wbVpRestore.setAttribute("content", window.whiteBearSavedViewport);
+                window.whiteBearSavedViewport = null;
+            }
+        }
+        if (mode === "horizontal") {
+            el.innerHTML =
+                "html, body { writing-mode: horizontal-tb !important; -epub-writing-mode: horizontal-tb !important; -webkit-writing-mode: horizontal-tb !important; }" +
+                " body div, body p, body span, body h1, body h2, body h3, body h4, body h5, body h6 { writing-mode: horizontal-tb !important; -epub-writing-mode: horizontal-tb !important; -webkit-writing-mode: horizontal-tb !important; }";
+            window.whiteBearEffectiveVertical = false;
+            return false;
+        }
+        var verticalContent = (mode === "vertical") || window.whiteBearDetectVerticalContent();
+        if (verticalContent) {
+            // Android WebView resolves %/vh heights on the root to 0 (the view is measured
+            // unspecified), so the viewport height must be written in PIXELS. body must stay
+            // overflow:visible or it becomes its own scroll container and window.scrollTo
+            // stops working. Verified live over CDP on-device.
+            // Lock the viewport scale: the wide horizontal stream otherwise triggers the
+            // WebView's overview zoom-out, which balloons the layout viewport and clips the
+            // columns after any reflow (font-size change). Verified live over CDP.
+            var wbViewport = document.querySelector("meta[name=viewport]");
+            if (wbViewport) {
+                if (!window.whiteBearSavedViewport) {
+                    window.whiteBearSavedViewport = wbViewport.getAttribute("content");
+                }
+                wbViewport.setAttribute(
+                    "content",
+                    "width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
+                );
+            }
+            var wbVh = window.innerHeight || document.documentElement.clientHeight || 0;
+            var wbPitch = Math.max(0.8, window.__wbLineHeight || 1.0);
+            el.innerHTML =
+                "html { overflow-x: auto !important; overflow-y: hidden !important; width: auto !important; max-width: none !important; height: " + wbVh + "px !important; }" +
+                " body { overflow: visible !important; width: auto !important; max-width: none !important; height: " + wbVh + "px !important; box-sizing: border-box !important; }" +
+                " #content-container { writing-mode: vertical-rl !important; -epub-writing-mode: vertical-rl !important; -webkit-writing-mode: vertical-rl !important; overflow: visible !important; width: auto !important; max-width: none !important; height: 100% !important; }" +
+                " #content-container * { max-width: none !important; }" +
+                " body > * { max-width: none !important; }" +
+                // Physical top/bottom margins shorten a block's columns and stagger their
+                // tops in vertical flow — zero them; the 1-character text-indent keeps
+                // paragraph starts visible, as in print tategaki.
+                " #content-container p, #content-container div, #content-container blockquote, #content-container h1, #content-container h2, #content-container h3, #content-container h4, #content-container h5, #content-container h6, #content-container ul, #content-container ol, #content-container li { margin-top: 0 !important; margin-bottom: 0 !important; padding-top: 0 !important; padding-bottom: 0 !important; }" +
+                // Grid first: CJK justification stretches BETWEEN characters (no spaces to
+                // widen), which knocks every column onto its own spacing and wrecks the
+                // shared row grid. Keep exact 1em advances; kinsoku may leave an occasional
+                // column one character short — print-accurate trade-off. Also beats the
+                // user's horizontal text-align setting here.
+                " #content-container, #content-container p, #content-container div, #content-container blockquote, #content-container li { text-align: start !important; text-justify: none !important; line-break: strict !important; text-spacing-trim: space-first !important; }" +
+                // Japanese books indent paragraphs with a literal full-width space in the
+                // text itself; any CSS text-indent on top DOUBLES the drop and staggers
+                // the column tops. Zero it and let the book's own spaces do the 字下げ.
+                " #content-container p { text-indent: 0 !important; }" +
+                // Column pitch: the format slider DISPLAYS lineHeight/1.45 (the app's
+                // horizontal base), so map the stored value back — displayed 1.0 must mean
+                // pitch 1.0em = columns touching.
+                " #content-container, #content-container p, #content-container div, #content-container span, #content-container li, #content-container blockquote { line-height: " + wbPitch.toFixed(3) + " !important; }" +
+                // 振り仮名 accommodation. ON: native <ruby> layout — Blink reserves the
+                // annotation strip on the reading's side only, so exactly the furigana
+                // lines get their gap. OFF: rubies are rebuilt into plain base spans with
+                // absolutely-positioned reading satellites — strictly uniform pitch, the
+                // furigana overpaints when the gap is too small. (ID-prefixed selectors,
+                // or the general pitch rule wins the specificity war.)
+                (rubySpace === false
+                    ? " #content-container .wb-furigana-base { position: relative !important; line-height: " + wbPitch.toFixed(3) + " !important; }" +
+                      " #content-container .wb-furigana { position: absolute !important; top: 0 !important; left: 100% !important; font-size: 0.45em !important; line-height: 1 !important; width: auto !important; white-space: nowrap !important; }"
+                    : " #content-container ruby { line-height: " + wbPitch.toFixed(3) + " !important; display: inline !important; }" +
+                      " #content-container rt { position: absolute !important; top: 0 !important; left: 100% !important; font-size: 0.45em !important; line-height: 1 !important; width: auto !important; white-space: nowrap !important; }");
+            if (rubySpace === false) {
+                window.whiteBearTransformRubies();
+            } else {
+                window.whiteBearRestoreRubies();
+            }
+            if (!window.whiteBearRubyObserver && window.MutationObserver) {
+                var wbCc = document.getElementById("content-container");
+                if (wbCc) {
+                    window.whiteBearRubyObserver = new MutationObserver(function () {
+                        if (!window.whiteBearEffectiveVertical) return;
+                        if (window.whiteBearLastRubySpace === false) window.whiteBearTransformRubies();
+                    });
+                    window.whiteBearRubyObserver.observe(wbCc, { childList: true, subtree: true });
+                }
+            }
+            if (!window.whiteBearResizeListener) {
+                window.whiteBearResizeListener = true;
+                window.addEventListener("resize", function () {
+                    if (window.whiteBearEffectiveVertical) {
+                        window.whiteBearApplyWritingMode(window.whiteBearLastMode || "auto", window.whiteBearLastRubySpace);
+                    }
+                });
+                // The scale lock settles asynchronously; keep the pixel height honest.
+                setInterval(function () {
+                    if (!window.whiteBearEffectiveVertical) return;
+                    var elNow = document.getElementById("whiteBearWritingModeStyle");
+                    if (!elNow) return;
+                    var m = elNow.innerHTML.match(/height: (\d+)px !important/);
+                    var vhNow = window.innerHeight || 0;
+                    if (m && vhNow > 0 && Math.abs(parseInt(m[1], 10) - vhNow) > 2) {
+                        elNow.innerHTML = elNow.innerHTML.replace(/height: \d+px !important/g, "height: " + vhNow + "px !important");
+                        console.log("WhiteBearWriting: heightRefresh " + m[1] + " -> " + vhNow);
+                    }
+                }, 700);
+            }
+            window.whiteBearLastMode = mode;
+            window.whiteBearLastRubySpace = rubySpace;
+            window.whiteBearEffectiveVertical = true;
+            console.log("WhiteBearWriting: vertical ON mode=" + mode + " sw=" +
+                ((document.scrollingElement || document.documentElement).scrollWidth) +
+                " vw=" + window.innerWidth + " ch=" + document.querySelectorAll(".chunk-container").length);
+            if (!wasVertical) {
+                window.whiteBearUserNavigated = false;
+                if (!window.whiteBearNavListener) {
+                    window.whiteBearNavListener = true;
+                    document.addEventListener("touchstart", function () {
+                        window.whiteBearUserNavigated = true;
+                    }, { passive: true, capture: true });
+                }
+                // The stream starts at its RIGHT edge; the reader's own position restore
+                // resets x to 0 (the stream END), so re-assert until the user interacts.
+                [60, 400, 1200].forEach(function (delay) {
+                    setTimeout(function () {
+                        if (window.whiteBearUserNavigated || !window.whiteBearEffectiveVertical) return;
+                        var se = document.scrollingElement || document.documentElement;
+                        var target = Math.max(0, se.scrollWidth - window.innerWidth);
+                        window.scrollTo({ left: target, top: 0, behavior: "auto" });
+                        console.log("WhiteBearWriting: assertStart x=" + Math.round(window.scrollX) +
+                            " target=" + target + " sw=" + se.scrollWidth);
+                    }, delay);
+                });
+            }
+            return true;
+        }
+        el.innerHTML = "";
+        window.whiteBearEffectiveVertical = false;
+        return false;
+    };
+
+    window.whiteBearIsVertical = function () {
+        try {
+            var rootMode = getComputedStyle(document.documentElement).writingMode || "";
+            var bodyMode = getComputedStyle(document.body).writingMode || "";
+            return rootMode.indexOf("vertical") === 0 || bodyMode.indexOf("vertical") === 0;
+        } catch (e) {
+            return false;
+        }
+    };
+
     // 白い熊 UI: after scrolling, nudge up so the top line is never cut — the partial line at
     // the previous page's fold becomes the first FULL line of the new page.
     window.whiteBearSnapTopToLine = function () {
@@ -994,9 +1215,32 @@
     // no overlap), then snaps the top line whole. Returns "moved", or "end"/"start" when
     // already at the chapter boundary so the app can flip to the neighbouring chapter.
     window.whiteBearTurnPage = function (direction, fraction) {
+        var frac = (typeof fraction === "number" && fraction > 0) ? fraction : 1.0;
+
+        if (window.whiteBearEffectiveVertical) {
+            window.whiteBearUserNavigated = true;
+            // Tategaki: content flows right → left inside a horizontal-scrolling document.
+            // Start = right edge (x = max), end = left edge (x = 0). A LEFT-side tap
+            // arrives as direction -1 and must page FORWARD (scroll left) here.
+            var vw = window.innerWidth || document.documentElement.clientWidth || 0;
+            if (vw <= 0) return "moved";
+            var hStep = Math.max(1, Math.round(vw * frac));
+            var scroller = document.scrollingElement || document.documentElement;
+            var maxScrollX = Math.max(0, (scroller.scrollWidth || 0) - vw);
+            var currentX = Math.round(window.scrollX || window.pageXOffset || 0);
+            var forward = direction < 0 ? 1 : -1; // logical reading direction
+            if (forward > 0 && currentX <= 1) return "end";
+            if (forward < 0 && currentX >= maxScrollX - 1) return "start";
+            var targetX = Math.min(maxScrollX, Math.max(0, currentX - forward * hStep));
+            window.scrollTo({ left: targetX, behavior: "auto" });
+            if (window.reportScrollState) {
+                setTimeout(function () { window.reportScrollState(); }, 30);
+            }
+            return "moved";
+        }
+
         var vh = window.innerHeight || document.documentElement.clientHeight || 0;
         if (vh <= 0) return "moved";
-        var frac = (typeof fraction === "number" && fraction > 0) ? fraction : 1.0;
         var step = Math.max(1, Math.round(vh * frac));
         var docHeight = document.body.scrollHeight || document.documentElement.scrollHeight || 0;
         var maxScroll = Math.max(0, docHeight - vh);
@@ -1090,6 +1334,11 @@
         var scrollYBeforeStyle = Math.round(window.scrollY || window.pageYOffset || 0);
         var scrollHeightBeforeStyle = Math.round(Math.max(document.body.scrollHeight, document.documentElement.scrollHeight));
         window.__readerStyleSignature = styleSignature;
+        window.__wbLineHeight = newLineHeight;
+        if (window.whiteBearEffectiveVertical) {
+            // Keep the tategaki pitch in sync with the slider on every style change.
+            window.whiteBearApplyWritingMode(window.whiteBearLastMode || "auto", window.whiteBearLastRubySpace);
+        }
         rememberReaderImageAnchors();
 
         var fontCss = "";
@@ -3056,8 +3305,19 @@
                                 }
                             } else if (div.innerHTML === "") {
                                 let oldHeight = div.getBoundingClientRect().height;
+                                let wbWidthBefore = window.whiteBearEffectiveVertical
+                                    ? (document.scrollingElement || document.documentElement).scrollWidth
+                                    : 0;
+                                let wbWasLater = window.whiteBearEffectiveVertical &&
+                                    div.getBoundingClientRect().right <= 0;
                                 div.innerHTML = this.chunksData[idx];
                                 div.style.height = "";
+                                div.style.width = "";
+
+                                if (window.whiteBearEffectiveVertical && !wbWasLater) {
+                                    let wbDelta = (document.scrollingElement || document.documentElement).scrollWidth - wbWidthBefore;
+                                    if (wbDelta !== 0) window.scrollBy(wbDelta, 0);
+                                }
 
                                 let newHeight = div.getBoundingClientRect().height;
                                 this.chunkHeights[idx] = newHeight;
@@ -3090,6 +3350,10 @@
                                 let oldHeight = div.getBoundingClientRect().height;
                                 this.chunkHeights[idx] = oldHeight;
                                 div.style.height = oldHeight + "px";
+                                if (window.whiteBearEffectiveVertical) {
+                                    // Horizontal flow: the placeholder must hold the WIDTH.
+                                    div.style.width = div.getBoundingClientRect().width + "px";
+                                }
                                 div.innerHTML = "";
                                 domChanged = true;
                                 logVerticalJitter(
@@ -3121,7 +3385,7 @@
                         setTimeout(window.reportScrollState, 50);
                     }
                 },
-                { rootMargin: "2500px 0px" }
+                { rootMargin: "2500px 2500px" }
             );
 
             document.querySelectorAll(".chunk-container").forEach((div) => {
@@ -3148,8 +3412,18 @@
 
             if (div && div.innerHTML === "") {
                 let oldHeight = div.getBoundingClientRect().height;
+                let wbWidthBefore = window.whiteBearEffectiveVertical
+                    ? (document.scrollingElement || document.documentElement).scrollWidth
+                    : 0;
                 div.innerHTML = htmlContent;
                 div.style.height = "";
+                div.style.width = "";
+
+                if (window.whiteBearEffectiveVertical) {
+                    // The stream grows leftward from a right-edge anchor: keep the view still.
+                    let wbDelta = (document.scrollingElement || document.documentElement).scrollWidth - wbWidthBefore;
+                    if (wbDelta !== 0) window.scrollBy(wbDelta, 0);
+                }
 
                 let newHeight = div.getBoundingClientRect().height;
                 if (Array.isArray(this.chunkHeights)) {

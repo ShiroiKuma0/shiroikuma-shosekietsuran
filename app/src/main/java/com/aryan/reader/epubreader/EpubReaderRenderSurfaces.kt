@@ -267,6 +267,10 @@ private const val TAG_PAGINATED_HIGHLIGHT_DIAG = "PaginatedHighlightDiag"
 @Suppress("UNUSED_PARAMETER", "LargeClass", "UnusedVariable")
 @Composable
 internal fun EpubReaderRenderSurfaces(
+    // 白い熊 UI: tategaki 縦書き — per-book writing direction and the 振り仮名 spacing mode.
+    whiteBearWritingMode: String,
+    whiteBearRubySpace: Boolean,
+    onWhiteBearVerticalDetected: (Boolean) -> Unit,
     addBookmarkRequestState: MutableState<Boolean>,
     bookReplacementPreferencesState: MutableState<ReaderBookReplacementPreferences>,
     bookmarksState: MutableState<Set<Bookmark>>,
@@ -813,6 +817,9 @@ internal fun EpubReaderRenderSurfaces(
                                         @Suppress("ControlFlowWithEmptyBody")
                                         ChapterWebView(
                                             key = chapterKeyForWebView,
+                                            whiteBearWritingMode = whiteBearWritingMode,
+                                            whiteBearRubySpace = whiteBearRubySpace,
+                                            onWhiteBearVerticalDetected = onWhiteBearVerticalDetected,
                                             chapterTitle = chapterToRender.title,
                                             isDarkTheme = isDarkTheme,
                                             effectiveBg = effectiveBg,
