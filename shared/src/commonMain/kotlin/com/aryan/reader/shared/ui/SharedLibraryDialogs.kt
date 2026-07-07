@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -354,6 +355,8 @@ fun SharedBookInfoDialog(
     authorFieldContent: (@Composable (String, (String) -> Unit) -> Unit)? = null,
     editFieldsAfterSeries: (@Composable () -> Unit)? = null,
     editFieldsAfterSummary: (@Composable () -> Unit)? = null,
+    embeddedEditTitle: String? = null,
+    onDeleteBook: (() -> Unit)? = null,
     onDismiss: () -> Unit,
     onSave: (BookItem) -> Unit,
     onSaveEmbeddedMetadata: ((BookItem) -> Unit)? = null,
@@ -409,7 +412,8 @@ fun SharedBookInfoDialog(
                 SharedBookInfoTopBar(
                     title = if (isEditing) {
                         if (canEditEmbeddedMetadata) {
-                            readerString("desktop_edit_epub_metadata", "Edit EPUB metadata")
+                            embeddedEditTitle
+                                ?: readerString("desktop_edit_epub_metadata", "Edit EPUB metadata")
                         } else {
                             readerString("desktop_rename_in_app", "Rename in app")
                         }
@@ -516,6 +520,7 @@ fun SharedBookInfoDialog(
 
                 SharedBookInfoBottomBar(
                     isEditing = isEditing,
+                    onDelete = if (!isEditing) onDeleteBook else null,
                     canEdit = canEditEmbeddedMetadata || canRenameDisplayName,
                     canRestore = canRestoreEmbeddedMetadata && hasOriginalMetadata && (effectiveMetadataChanges || isEditing),
                     editLabel = if (canEditEmbeddedMetadata) {
@@ -941,6 +946,7 @@ private fun SharedBookDisplayNameEditContent(
 @Composable
 private fun SharedBookInfoBottomBar(
     isEditing: Boolean,
+    onDelete: (() -> Unit)? = null,
     canEdit: Boolean,
     canRestore: Boolean,
     editLabel: String,
@@ -957,6 +963,17 @@ private fun SharedBookInfoBottomBar(
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // shiroikuma fork: delete the book, far left, behind a confirmation.
+        if (onDelete != null) {
+            OutlinedButton(
+                onClick = onDelete,
+                modifier = Modifier.padding(end = 8.dp)
+            ) {
+                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(readerString("action_delete", "Delete"))
+            }
+        }
         if (canRestore) {
             OutlinedButton(
                 onClick = onRestore,

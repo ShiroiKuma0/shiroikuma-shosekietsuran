@@ -272,6 +272,9 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
     private val pdfTextBoxRepository get() = appGraph.pdfTextBoxRepository
     private val pdfHighlightRepository get() = appGraph.pdfHighlightRepository
     private val pdfAnnotationRepository get() = appGraph.pdfAnnotationRepository
+    // 白い熊: the concrete repository (tag helpers) and the PDF metadata writer.
+    private val recentFilesRepository = appGraph.recentFilesRepository
+    private val pdfMetadataFileEditor by lazy { PdfMetadataFileEditor(appContext) }
 
     private val prefs: SharedPreferences =
         application.getSharedPreferences("reader_user_prefs", Context.MODE_PRIVATE)
@@ -1695,7 +1698,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
                 val candidates = recentFilesRepository.getAllFilesForSync().filter { item ->
                     !item.isDeleted &&
                         item.bookId !in processed &&
-                        item.type in setOf(FileType.EPUB, FileType.MOBI, FileType.FB2) &&
+                        item.type in setOf(FileType.EPUB, FileType.MOBI, FileType.FB2, FileType.PDF) &&
                         item.uriString != null &&
                         item.uriString?.startsWith("opds") != true
                 }
@@ -1709,12 +1712,28 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
                 candidates.forEach { item ->
                     runCatching {
                         val uri = item.uriString!!.toUri()
-                        val subjects = EmbeddedEbookMetadataExtractor.extract(
-                            type = item.type,
-                            displayName = item.displayName,
-                            openStream = { appContext.contentResolver.openInputStream(uri) },
-                            extractCover = false
-                        ).subjects
+                        val subjects = if (item.type == FileType.PDF) {
+                            // PDF Keywords → library tags.
+                            appContext.contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
+                                com.aryan.reader.pdf.PdfiumEngineProvider.withPdfium {
+                                    com.aryan.reader.pdf.PdfiumCoreProvider.core.newDocument(pfd).use { pdfDocument ->
+                                        pdfDocument.getDocumentMeta().keywords
+                                            ?.split(',', ';')
+                                            ?.map { it.trim() }
+                                            ?.filter { it.isNotEmpty() }
+                                            ?.distinct()
+                                            .orEmpty()
+                                    }
+                                }
+                            }.orEmpty()
+                        } else {
+                            EmbeddedEbookMetadataExtractor.extract(
+                                type = item.type,
+                                displayName = item.displayName,
+                                openStream = { appContext.contentResolver.openInputStream(uri) },
+                                extractCover = false
+                            ).subjects
+                        }
                         if (subjects.isNotEmpty()) {
                             recentFilesRepository.assignEmbeddedSubjectTags(item.bookId, subjects)
                         }
@@ -2514,15 +2533,48 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun deleteBookPermanently(bookId: String, onDeleted: () -> Unit = {}) {
         viewModelScope.launch {
-            @Suppress("UnusedVariable", "Unused") val item = bookStore.getFileByBookId(bookId) ?: return@launch
+            val item = bookStore.getFileByBookId(bookId) ?: return@launch
 
             Timber.d("Deleting book permanently from reader: $bookId")
 
-            cleanupBookDataLocally(bookId)
-            bookStore.deleteFilePermanently(listOf(bookId))
+            val deletedPath = item.resolveDisplayPath(appContext, isOpdsStream = false)
 
+            // 白い熊 UI: remove the DB row FIRST so the library list updates instantly;
+            // the (slow) physical/SAF cleanup follows in the background.
+            withContext(Dispatchers.IO) {
+                recentFilesRepository.deleteFilePermanently(listOf(bookId))
+            }
+
+            showBanner("Deleted: $deletedPath")
             withContext(Dispatchers.Main) {
                 onDeleted()
+            }
+
+            withContext(Dispatchers.IO) {
+                cleanupBookDataLocally(bookId)
+                clearImportedFileCache(bookId)
+
+                // Folder-synced books live outside app storage — delete the real file via
+                // SAF (plus the sync sidecar), or the next folder scan re-imports it.
+                if (item.sourceFolderUri != null) {
+                    if (item.uriString != null) {
+                        try {
+                            val fileDoc = DocumentFile.fromSingleUri(appContext, item.uriString.toUri())
+                            if (fileDoc != null && fileDoc.exists() && !fileDoc.delete()) {
+                                Timber.e("Failed to delete folder file via SAF: ${item.displayName}")
+                            }
+                        } catch (e: Exception) {
+                            Timber.e(e, "Error deleting physical file for $bookId")
+                        }
+                    }
+                    try {
+                        val rootDoc = DocumentFile.fromTreeUri(appContext, item.sourceFolderUri.toUri())
+                        rootDoc?.findFile(".${item.bookId}.json")?.delete()
+                        rootDoc?.findFile("${item.bookId}.json")?.delete()
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error deleting metadata sidecar for $bookId")
+                    }
+                }
             }
         }
     }
@@ -9153,15 +9205,39 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
             )
         }
 
+    /** 白い熊 UI: parallel-reading flip — open the neighbouring book at its saved position. */
+    fun openBookForParallelFlip(targetBookId: String) {
+        viewModelScope.launch {
+            val item = recentFilesRepository.getFileByBookId(targetBookId)
+            if (item == null) {
+                showBanner("Parallel book is no longer in the library.", isError = true)
+                return@launch
+            }
+            showBanner("▶ ${item.cardTitle(false)}")
+            onRecentFileClicked(item)
+        }
+    }
+
     fun updateBookMetadata(bookId: String, metadata: BookMetadataEdit) {
         viewModelScope.launch {
             val currentItem = bookStore.getFileByBookId(bookId) ?: return@launch
+            // 白い熊 UI: write the book's CURRENT library tags into the file (dc:subject /
+            // PDF Keywords) — fetched fresh so tag-sheet edits are always included.
+            val metadataWithTags = if (metadata.tags == null) {
+                metadata.copy(tags = recentFilesRepository.getTagNamesForBook(bookId))
+            } else {
+                metadata
+            }
+            if (currentItem.type == FileType.PDF) {
+                updatePdfBookMetadata(currentItem, metadataWithTags)
+                return@launch
+            }
             if (currentItem.type != FileType.EPUB) {
-                showBanner("Only EPUB files support embedded metadata editing right now.", isError = true)
+                showBanner("Only EPUB and PDF files support embedded metadata editing right now.", isError = true)
                 return@launch
             }
 
-            val editResult = epubMetadataFileEditor.writeMetadata(currentItem, metadata)
+            val editResult = epubMetadataFileEditor.writeMetadata(currentItem, metadataWithTags)
             editResult.onFailure { error ->
                 Timber.e(error, "Failed to update EPUB metadata for $bookId")
                 showBanner("Could not update EPUB metadata.", isError = true)
@@ -9192,6 +9268,32 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
                 }
                 showBanner("EPUB metadata updated.")
             }
+        }
+    }
+
+    /** 白い熊 UI: writes edited metadata into the PDF file and mirrors it to the library DB. */
+    private suspend fun updatePdfBookMetadata(currentItem: RecentFileItem, metadata: BookMetadataEdit) {
+        val bookId = currentItem.bookId
+        val editResult = pdfMetadataFileEditor.writeMetadata(currentItem, metadata)
+        editResult.onFailure { error ->
+            Timber.e(error, "Failed to update PDF metadata for $bookId")
+            val reason = error.message?.takeIf { it.isNotBlank() }
+            showBanner(reason ?: "Could not update PDF metadata.", isError = true)
+        }.onSuccess { result ->
+            val savedMetadata = BookMetadataEdit(
+                title = result.title ?: metadata.title,
+                author = result.author,
+                seriesName = metadata.seriesName,
+                seriesIndex = metadata.seriesIndex,
+                description = result.description
+            )
+            recentFilesRepository.updateUserEditableMetadata(
+                bookId = bookId,
+                metadata = savedMetadata,
+                fileSize = result.fileSize,
+                fileContentModifiedTimestamp = result.fileContentModifiedTimestamp
+            )
+            showBanner("PDF metadata updated.")
         }
     }
 

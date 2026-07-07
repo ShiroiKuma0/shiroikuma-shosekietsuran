@@ -151,6 +151,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalContext
 import androidx.media3.common.util.UnstableApi
 import com.aryan.reader.shared.AiDefinitionResult
+import com.aryan.reader.cardTitle
 import com.aryan.reader.BuildConfig
 import com.aryan.reader.copyPlainTextToClipboard
 import com.aryan.reader.BookWordReplacementsSheet
@@ -443,6 +444,8 @@ fun EpubReaderHost(
     // 白い熊 UI: reading gesture config (tap thirds turn pages; side vertical swipes change
     // font size / brightness). Stepping helpers close over the reader state below.
     val whiteBearGestures = remember { com.aryan.reader.whitebear.WhiteBearGestureState.get(context) }
+    val whiteBearParallel = remember { com.aryan.reader.whitebear.WhiteBearParallelState.get(context) }
+    var wbTabInfoBookId by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         // Preload page-turn sounds so the first tap isn't silent.
         if (whiteBearGestures.pageTurnSound in 1..com.aryan.reader.whitebear.WhiteBearSound.SOUND_COUNT) {
@@ -4246,6 +4249,15 @@ fun EpubReaderHost(
                     whiteBearPlayPageSound()
                 }
             }
+            // 白い熊 UI: parallel-reading flip (two-finger horizontal swipe) — jump to the
+            // neighbouring book of the active set, wrap-around, at its saved position.
+            fun whiteBearParallelFlip(dir: Int) {
+                val currentId = uiState.selectedBookId?.removeSuffix("_reflow") ?: bookId
+                val target = whiteBearParallel.neighborOf(currentId, dir) ?: return
+                whiteBearOverlayLabel = whiteBearParallel.positionLabel(target)?.let { "本 $it" }
+                whiteBearOverlayTick++
+                viewModel.openBookForParallelFlip(target)
+            }
 
             fun navigateReaderBoundary(first: Boolean) {
                 when {
@@ -4272,16 +4284,19 @@ fun EpubReaderHost(
             val whiteBearLeftSwipeBrightness = whiteBearGestures.enabled && whiteBearGestures.leftSwipeBrightness
             // Disable the gesture layer while the top/bottom bars are shown, so their icons
             // stay tappable (the layer intercepts in the Initial pass, ahead of the bars).
+            val whiteBearParallelOn = whiteBearParallel.bookIds.size >= 2
             val whiteBearGestureModifier = if (
                 whiteBearScreenWidthPx > 0f &&
                 !showBars && !navigation.showFormatAdjustmentBars &&
-                (whiteBearTapTurn || whiteBearRightSwipeFont || whiteBearLeftSwipeBrightness)
+                (whiteBearTapTurn || whiteBearRightSwipeFont || whiteBearLeftSwipeBrightness || whiteBearParallelOn)
             ) {
                 Modifier.pointerInput(
-                    whiteBearTapTurn, whiteBearRightSwipeFont, whiteBearLeftSwipeBrightness, whiteBearScreenWidthPx
+                    whiteBearTapTurn, whiteBearRightSwipeFont, whiteBearLeftSwipeBrightness,
+                    whiteBearParallelOn, whiteBearScreenWidthPx
                 ) {
                     val third = whiteBearScreenWidthPx / 3f
                     val stepPx = 48.dp.toPx()
+                    val flipThresholdPx = 56.dp.toPx()
                     val slop = viewConfiguration.touchSlop
                     awaitEachGesture {
                         val down = awaitFirstDown(
@@ -4294,21 +4309,52 @@ fun EpubReaderHost(
                             down.position.x > whiteBearScreenWidthPx - third -> 1
                             else -> 0
                         }
-                        if (zone == 0) return@awaitEachGesture
+                        if (zone == 0 && !whiteBearParallelOn) return@awaitEachGesture
                         var verticalDrag = false
                         var bailed = false
                         var accumulated = 0f
                         var lastY = down.position.y
+                        var multiTouch = false
+                        var flipFired = false
+                        var centroidStartX = 0f
+                        var centroidStartY = 0f
                         while (true) {
                             val event = awaitPointerEvent(
                                 androidx.compose.ui.input.pointer.PointerEventPass.Initial
                             )
+                            val pressed = event.changes.filter { it.pressed }
+                            // 白い熊 UI: two-finger horizontal swipe = parallel book flip.
+                            if (whiteBearParallelOn && !multiTouch && pressed.size >= 2) {
+                                multiTouch = true
+                                bailed = true
+                                centroidStartX = pressed.map { it.position.x }.average().toFloat()
+                                centroidStartY = pressed.map { it.position.y }.average().toFloat()
+                            }
+                            if (multiTouch) {
+                                if (pressed.isEmpty()) break
+                                val cx = pressed.map { it.position.x }.average().toFloat()
+                                val cy = pressed.map { it.position.y }.average().toFloat()
+                                val fdx = cx - centroidStartX
+                                val fdy = cy - centroidStartY
+                                if (!flipFired &&
+                                    kotlin.math.abs(fdx) > flipThresholdPx &&
+                                    kotlin.math.abs(fdx) > kotlin.math.abs(fdy)
+                                ) {
+                                    flipFired = true
+                                    event.changes.forEach { it.consume() }
+                                    // Swipe left = next (right) book; swipe right = previous.
+                                    whiteBearParallelFlip(if (fdx < 0) 1 else -1)
+                                } else if (flipFired) {
+                                    event.changes.forEach { it.consume() }
+                                }
+                                continue
+                            }
                             val change = event.changes.firstOrNull { it.id == down.id } ?: break
                             if (!change.pressed) {
                                 // Only a quick release counts as a page-turn tap; a long press
                                 // is left alone so text selection still works.
                                 val quickTap = (change.uptimeMillis - down.uptimeMillis) < 350L
-                                if (!verticalDrag && !bailed && whiteBearTapTurn && quickTap) {
+                                if (!verticalDrag && !bailed && whiteBearTapTurn && quickTap && zone != 0) {
                                     change.consume()
                                     whiteBearTurnPage(if (zone < 0) -1 else 1)
                                 }
@@ -4318,7 +4364,18 @@ fun EpubReaderHost(
                             val dy = change.position.y - down.position.y
                             if (!verticalDrag && !bailed) {
                                 if (kotlin.math.abs(dx) > slop && kotlin.math.abs(dx) >= kotlin.math.abs(dy)) {
-                                    bailed = true // horizontal → let the pager / children handle it
+                                    // 白い熊 UI: with a parallel set active, a one-finger
+                                    // horizontal swipe flips books (consumed so the pager
+                                    // doesn't also turn the page). Otherwise pass through.
+                                    if (whiteBearParallelOn) {
+                                        change.consume()
+                                        if (kotlin.math.abs(dx) > flipThresholdPx) {
+                                            bailed = true
+                                            whiteBearParallelFlip(if (dx < 0) 1 else -1)
+                                        }
+                                    } else {
+                                        bailed = true // horizontal → let the pager / children handle it
+                                    }
                                 } else if (kotlin.math.abs(dy) > slop) {
                                     val featureOn = (zone == 1 && whiteBearRightSwipeFont) ||
                                         (zone == -1 && whiteBearLeftSwipeBrightness)
@@ -5418,6 +5475,38 @@ fun EpubReaderHost(
                     } else null,
                     onDeleteReflow = onDeleteReflow,
                     readerMotionPolicy = motionPolicy,
+                    belowBarContent = {
+                        // 白い熊 UI: parallel-reading tab bar (also for a single book, where
+                        // it offers "Add book for parallel reading").
+                        val wbCurrentId = uiState.selectedBookId?.removeSuffix("_reflow") ?: bookId
+                        val wbSetIds = whiteBearParallel.bookIds
+                        val wbTabIds = if (wbCurrentId in wbSetIds) wbSetIds else listOf(wbCurrentId) + wbSetIds.take(2)
+                        val wbTabs = wbTabIds.map { id ->
+                            val title = uiState.rawLibraryFiles.firstOrNull { it.bookId == id }
+                                ?.cardTitle(uiState.usePdfFileNameAsDisplayName)
+                                ?: if (id == wbCurrentId) epubBook.title else id
+                            id to title
+                        }
+                        com.aryan.reader.whitebear.WhiteBearParallelTabBar(
+                            tabs = wbTabs,
+                            currentBookId = wbCurrentId,
+                            onSwitch = { targetId ->
+                                if (targetId != wbCurrentId) viewModel.openBookForParallelFlip(targetId)
+                            },
+                            onReorder = { whiteBearParallel.updateSet(it) },
+                            onRemove = { whiteBearParallel.removeBook(it) },
+                            onInfo = { wbTabInfoBookId = it },
+                            onAddBook = {
+                                if (wbCurrentId !in whiteBearParallel.bookIds) {
+                                    whiteBearParallel.updateSet(listOf(wbCurrentId) + whiteBearParallel.bookIds)
+                                }
+                                whiteBearParallel.armPicking()
+                                viewModel.setMainScreenPage(1)
+                                viewModel.showBanner("Pick a book in the library to read in parallel.")
+                                triggerSaveAndExit()
+                            }
+                        )
+                    }
                 )
 
                 val autoScrollPadding by animateDpAsState(
@@ -5991,11 +6080,14 @@ fun EpubReaderHost(
         )
 
         ReaderFileInfoDialogs(
-            isFileInfoVisible = navigation.showFileInfoDialog,
-            onFileInfoVisibleChange = { navigation.showFileInfoDialog = it },
+            isFileInfoVisible = navigation.showFileInfoDialog || wbTabInfoBookId != null,
+            onFileInfoVisibleChange = { visible ->
+                navigation.showFileInfoDialog = visible
+                if (!visible) wbTabInfoBookId = null
+            },
             uiState = uiState,
-            primaryBookId = uiState.selectedBookId ?: stableBookId,
-            uriString = uiState.selectedEpubUri?.toString(),
+            primaryBookId = wbTabInfoBookId ?: uiState.selectedBookId ?: stableBookId,
+            uriString = if (wbTabInfoBookId == null) uiState.selectedEpubUri?.toString() else null,
             viewModel = viewModel
         )
 

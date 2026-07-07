@@ -732,9 +732,10 @@ fun ReaderTextFormatPanel(
                 { onLetterSpacingChange(stepFormatValue(currentLetterSpacing, 0.01f, -0.10f, 0.50f, 100f)) }) { activeAdjustment = ReaderFormatAdjustment.LETTER_SPACING }
         },
         layoutControls = {
-            FormatStepperRow(stringResource(R.string.label_line_height), formatMultiplier(currentLineHeight),
-                { onLineHeightChange(stepFormatValue(currentLineHeight, -0.1f, 0.3f, 3f)) },
-                { onLineHeightChange(stepFormatValue(currentLineHeight, 0.1f, 0.3f, 3f)) }) { activeAdjustment = ReaderFormatAdjustment.LINE_HEIGHT }
+            // 白い熊 UI: line height steps by 0.05 and shows two decimals.
+            FormatStepperRow(stringResource(R.string.label_line_height), formatLineHeightMultiplier(currentLineHeight),
+                { onLineHeightChange(stepFormatValue(currentLineHeight, -0.05f, 0.3f, 3f, precision = 100f)) },
+                { onLineHeightChange(stepFormatValue(currentLineHeight, 0.05f, 0.3f, 3f, precision = 100f)) }) { activeAdjustment = ReaderFormatAdjustment.LINE_HEIGHT }
             FormatStepperRow(stringResource(R.string.label_paragraph_gap), formatMultiplier(currentParagraphGap),
                 { onParagraphGapChange(stepFormatValue(currentParagraphGap, -0.1f, 0f, 3f)) },
                 { onParagraphGapChange(stepFormatValue(currentParagraphGap, 0.1f, 0f, 3f)) }) { activeAdjustment = ReaderFormatAdjustment.PARAGRAPH_GAP }
@@ -827,7 +828,7 @@ private fun ReaderFormatAdjustmentDialog(
             ReaderFormatAdjustment.FONT_SIZE -> onFontSizeChange(stepFormatValue(raw, 0f, 0.5f, 3f))
             ReaderFormatAdjustment.FONT_WEIGHT -> onFontWeightChange(((raw / 100f).roundToInt() * 100).coerceIn(100, 1000))
             ReaderFormatAdjustment.LETTER_SPACING -> onLetterSpacingChange(stepFormatValue(raw, 0f, -0.10f, 0.50f, 100f))
-            ReaderFormatAdjustment.LINE_HEIGHT -> onLineHeightChange(stepFormatValue(raw, 0f, 0.3f, 3f))
+            ReaderFormatAdjustment.LINE_HEIGHT -> onLineHeightChange(stepFormatValue(raw, 0f, 0.3f, 3f, precision = 100f))
             ReaderFormatAdjustment.PARAGRAPH_GAP -> onParagraphGapChange(stepFormatValue(raw, 0f, 0f, 3f))
             ReaderFormatAdjustment.IMAGE_SIZE -> onImageSizeChange(stepFormatValue(raw, 0f, 0.5f, 2f))
             ReaderFormatAdjustment.HORIZONTAL_MARGIN -> onHorizontalMarginChange(stepFormatValue(raw, 0f, 0f, 3f))
@@ -884,6 +885,10 @@ internal fun formatLetterSpacing(value: Float): String =
     if (kotlin.math.abs(value) < 0.001f) "Original" else "%+.2fem".format(value)
 internal fun formatMultiplier(value: Float): String =
     if (value in 0.99f..1.01f) "Original" else "%.1fx".format(value)
+
+/** 白い熊 UI: the line-height stepper moves in 0.05 steps, so it needs two decimals. */
+internal fun formatLineHeightMultiplier(value: Float): String =
+    if (value in 0.99f..1.01f) "Original" else "%.2fx".format(value)
 internal fun formatMargin(value: Float): String =
     when {
         value <= 0.01f -> "None"
@@ -1264,7 +1269,7 @@ fun FormatSlider(
             IconButton(
                 onClick = {
                     val newValue = (value - stepSize).coerceAtLeast(valueRange.start)
-                    onValueChange((newValue * 10f).roundToInt() / 10f)
+                    onValueChange((newValue * 100f).roundToInt() / 100f)
                 },
                 modifier = Modifier.size(32.dp) // Slimmer buttons
             ) {
@@ -1282,7 +1287,7 @@ fun FormatSlider(
             IconButton(
                 onClick = {
                     val newValue = (value + stepSize).coerceAtMost(valueRange.endInclusive)
-                    onValueChange((newValue * 10f).roundToInt() / 10f)
+                    onValueChange((newValue * 100f).roundToInt() / 100f)
                 },
                 modifier = Modifier.size(32.dp) // Slimmer buttons
             ) {

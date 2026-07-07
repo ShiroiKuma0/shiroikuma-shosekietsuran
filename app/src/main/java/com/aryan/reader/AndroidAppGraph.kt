@@ -30,7 +30,9 @@ import java.util.UUID
 /** Android composition root. Feature bindings move here as their shared controllers become production-owned. */
 internal class AndroidAppGraph(context: Context) {
     val authRepository = AuthRepository(context)
-    private val recentFilesRepository = RecentFilesRepository(context)
+    // 白い熊 fork: the concrete repository carries our tag helpers, which the
+    // narrow store interfaces above do not expose.
+    val recentFilesRepository = RecentFilesRepository(context)
     val bookStore: AndroidBookStore = recentFilesRepository
     val folderMirrorStore: AndroidFolderMirrorStore = recentFilesRepository
     val bookArtifactStore: AndroidBookArtifactStore = recentFilesRepository

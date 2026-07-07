@@ -454,9 +454,11 @@ fun SharedReaderFormatControls(
                     onValueChange = { value ->
                         onReaderAction(ReaderAction.SettingsChanged(settings.copy(lineSpacing = value)))
                     },
-                    valueRange = 1.1f..2.1f,
-                    valueLabel = "${settings.lineSpacing.formatTwoDecimals()}x",
-                    formatValue = { "${it.formatTwoDecimals()}x" }
+                    // 白い熊 UI: shown as a multiplier of the 1.45 base (1.00x = default),
+                    // reaching down to 0.30x like the in-reader Line Height slider.
+                    valueRange = 0.435f..2.9f,
+                    valueLabel = "${(settings.lineSpacing / 1.45f).formatTwoDecimals()}x",
+                    formatValue = { "${(it / 1.45f).formatTwoDecimals()}x" }
                 )
                 SharedReaderSettingSlider(
                     label = readerString("label_paragraph_gap", "Paragraph gap"),
