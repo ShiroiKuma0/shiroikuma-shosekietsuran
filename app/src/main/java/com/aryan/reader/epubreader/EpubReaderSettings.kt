@@ -247,7 +247,10 @@ private const val VERTICAL_MARGIN_KEY = "reader_vertical_margin"
 
 fun loadFormatIsLocal(context: Context, bookId: String): Boolean {
     val prefs = context.getSharedPreferences(SETTINGS_PREFS_NAME, Context.MODE_PRIVATE)
-    return prefs.getBoolean(FORMAT_IS_LOCAL_PREFIX + bookId, false)
+    // 白い熊: format settings (font, size, margins…) are book-unique by DEFAULT — changes
+    // in one book must not carry over to another. Until a book's first change it shows
+    // the global defaults; the format sheet's Global/Local dropdown can still opt out.
+    return prefs.getBoolean(FORMAT_IS_LOCAL_PREFIX + bookId, true)
 }
 
 fun saveFormatIsLocal(context: Context, bookId: String, isLocal: Boolean) {
