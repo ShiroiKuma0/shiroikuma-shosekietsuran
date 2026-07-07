@@ -1,138 +1,52 @@
 <div align="center">
 
-  <h1>
-    <img src="docs/ICON.png" height="48" width="48" align="absmiddle" alt="Episteme Reader Icon"/>
-    <span>&nbsp;Episteme Reader</span>
-  </h1>
+<img src="app/src/main/ic_launcher-playstore.png" width="120" alt="白い熊 書籍閲覧 icon" />
 
-  <p>A modern, offline-first, privacy-focused document and e-book reader for Android and desktop, built with Kotlin Multiplatform and Compose.</p>
+# 白い熊 書籍閲覧
 
-  <a href="https://epistemereader.com"><img alt="Download from epistemereader.com" src="https://img.shields.io/badge/Download-epistemereader.com-2f6f5e?style=for-the-badge" height="44" align="absmiddle"/></a>&nbsp;&nbsp;<a href="https://f-droid.org/packages/com.aryan.reader.oss/"><img alt="Get it on F-Droid" src="https://f-droid.org/badge/get-it-on.png" height="66" align="absmiddle"/></a>&nbsp;<a href="https://play.google.com/store/apps/details?id=com.aryan.reader"><img alt="Get it on Google Play" src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" height="44" align="absmiddle"/></a>&nbsp;&nbsp;&nbsp;<a href="https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/Aryan-Raj3112/episteme"><img alt="Get it on Obtainium" src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" height="64" align="absmiddle"/></a>
+**A black-and-yellow e-book reader that reads Japanese the way Japan prints it.**
+
+A fork of [Episteme](https://github.com/Aryan-Raj3112/episteme) with **major additions**: tategaki 縦書き vertical-text rendering, parallel reading of two books side by side, a fully themeable black×yellow UI, tap/swipe reading gestures with page-turn sound, a remade library, and metadata that writes back into the book files.
+
+Installs **side-by-side** with Episteme (app id `shiroikuma.shosekietsuran`).
+
+**📥 Latest release: [`1.0.51+51`](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases/latest)** — [all releases & APK downloads »](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases)
 
 </div>
 
-<br/>
+---
 
-<table>
-  <tr>
-    <td width="50%" align="center">
-      <img src="docs/EPISTEME.png" alt="Episteme Reader on Android"/>
-      <br/>
-      <sub>Android</sub>
-    </td>
-    <td width="50%" align="center">
-      <img src="docs/EPISTEME_desktop.png" alt="Episteme Reader on desktop"/>
-      <br/>
-      <sub>Desktop</sub>
-    </td>
-  </tr>
-</table>
+## 📜 Tategaki 縦書き — real Japanese vertical text
+Vertical-writing EPUBs render as true tategaki: columns flow top-to-bottom, right-to-left, on an exact character grid with print typography — strict kinsoku line breaking, one-character paragraph indents, and a 振り仮名の余白 toggle that either gives furigana-bearing lines their annotation gap (print style) or keeps a strictly uniform column pitch. Left tap pages forward, the way a Japanese book turns. A unified reading-mode menu (with its own toolbar icon) offers Scroll, 縦書き, native scroll, and both page-flip directions — one choice sets layout and writing direction, remembered per book.
 
-## Overview
+## 📖📖 Parallel reading — two books at once
+Pick two or three books (the same novel in two languages, say), and flip between them with a one-finger swipe, each keeping its own position. Or split the screen — top/bottom or side-by-side — and read both simultaneously: the second pane has full gesture parity (scroll, tap page turns, font and brightness swipes) and follows the same format settings live. A tab bar in the reader switches, reorders (drag with a haptic), and manages the set.
 
-Episteme Reader is a customizable reader for documents, e-books, comics, and text-heavy files. The app is designed around local-first reading, deep typography controls, flexible layouts, and a consistent Kotlin Multiplatform core across Android and desktop.
+## 🐻 白い熊 UI — black and yellow, all the way down
+Pure-black surfaces, pure-yellow text, accents and borders — and every one of those colors adjustable from a dedicated settings page with RGBA pickers, recent-color memory and live preview. Typography scale and weight, corner roundness, and border thickness are sliders; the yellow frame follows you into every dialog, sheet, menu and banner in the app.
 
-The same core reading experience is available across editions. The main differences are distribution channel, network access, and whether proprietary online services are included.
+## 👆 Reading gestures — tap zones, swipe control, page-turn sound
+Side-third taps turn real pages in every render mode (instant full-viewport jumps that snap the top line whole and cross chapter boundaries); a right-third vertical swipe steps font size and a left-third swipe steps screen brightness, with a live on-page readout; page turns click with a choice of five bundled sounds. Every gesture has its own toggle.
 
-## Core Features
+## 🗄️ Library, remade
+A grid layout with live-adjustable thumbnail, title and author sizes; author and tag pull-down filters (with search-as-you-type and first/last-name sorting); a three-dot menu on every cover for parallel reading, file info, tags, sharing and deletion; and deletion that actually deletes — folder-synced files included — confirmed by a yellow-framed dialog and an instant library update.
 
-Available across supported editions unless noted in the edition table:
+## 🏷️ Metadata that round-trips into your files
+Embedded subjects (EPUB `dc:subject`, MOBI EXTH, FB2 genres, PDF Keywords) become library tags on import, and tag edits write back into the files — EPUB OPF rewriting and PDF info-dictionary editing included. Publication date, publisher, language, rating and ISBN are read live from the file; author, title, summary and date are editable for EPUBs and PDFs alike.
 
-* **Formats:** PDF, EPUB, MOBI/AZW3, FB2, DOCX, ODT/FODT, TXT, Markdown, HTML, and comic archives.
-* **Reading modes:** Paginated reading, vertical scroll, PDF multi-tab reading, PDF reflow, auto-scroll, and musician mode.
-* **PDF tools:** Ink annotations, highlighting, erasing, text annotations, and reading-focused PDF controls.
-* **Customization:** App themes, reader themes, custom local fonts, typography controls, spacing, margins, and layout tuning.
-* **Library tools:** Local folder sync, library organization, bookmarks, progress tracking, and file management.
-* **Accessibility:** System text-to-speech, app language selection, and reader settings that adapt to different reading preferences.
+## 🔠 Per-book format settings & external fonts
+Font, size, line height, margins and alignment are book-unique by default — set a mincho for the Japanese novels without touching anything else. Import any ttf/otf; the font picker groups families, detects variable weights, and previews every entry in its own glyphs.
 
-## Editions
+---
 
-| Edition | Platform | Network access | Distribution | Notes |
-|---|---|---|---|---|
-| **Play Store** | Android | Online-capable | [Google Play](https://play.google.com/store/apps/details?id=com.aryan.reader) | Full Android release with proprietary extras such as ML Kit OCR, cloud sync, AI tools, cloud TTS, and PDF bubble zoom. |
-| **OSS** | Android | Online-capable | [epistemereader.com](https://epistemereader.com), [GitHub](https://github.com/Aryan-Raj3112/episteme/releases), [F-Droid](https://f-droid.org/packages/com.aryan.reader.oss/), [Obtainium](https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/Aryan-Raj3112/episteme) | Fully open-source Android build with OPDS, downloadable fonts, and BYOK access to AI and cloud features. |
-| **OSS Offline** | Android | Offline-only | [epistemereader.com](https://epistemereader.com), [GitHub](https://github.com/Aryan-Raj3112/episteme/releases), [Obtainium](https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/Aryan-Raj3112/episteme) | Open-source Android build with network permissions removed. |
-| **Standard** | Desktop (Linux, Windows) | Online-capable | [epistemereader.com](https://epistemereader.com), [GitHub](https://github.com/Aryan-Raj3112/episteme/releases) | Full-featured desktop release with the shared KMP reader core and online-capable services. |
-| **Offline** | Desktop (Linux, Windows) | Offline-only | [epistemereader.com](https://epistemereader.com), [GitHub](https://github.com/Aryan-Raj3112/episteme/releases) | Desktop build focused on local reading with online services disabled. |
+## Built on Episteme
+A fork of [Episteme](https://github.com/Aryan-Raj3112/episteme) (app id `shiroikuma.shosekietsuran`, so it coexists with the official build). Episteme is a beautiful multi-format document and e-book reader for Android; this fork stands on that foundation and keeps its code namespace intact for clean rebases. The code remains under AGPL-3.0.
 
-Future desktop platforms can use the same Standard and Offline model as support expands.
-
-## Translations
-
-Episteme Reader translations are managed through our [self-hosted Weblate instance](https://translate.epistemereader.com/). Sign in with GitHub to contribute.
-
-<a href="https://translate.epistemereader.com/engage/episteme/"><img src="https://translate.epistemereader.com/widget/episteme/matrix-auto.svg" alt="Translation status"></a>
-
-Translation contributors are required to accept the Episteme Contributor License Agreement before submitting changes.
-
-## Building from Source
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/Aryan-Raj3112/episteme.git
-   cd episteme
-   ```
-
-2. Build Android:
-   * Open in Android Studio and run the `ossDebug` or `ossOfflineDebug` variant, or
-   * Build from the command line:
-     ```bash
-     ./gradlew assembleOssDebug
-     ```
-   The APK will be generated at:
-   `app/build/outputs/apk/oss/debug/Episteme-oss-v{version}-oss-debug.apk`
-
-3. Build desktop:
-   ```bash
-   ./gradlew :desktopApp:packageReleaseDistributionForCurrentOS
-   ```
-   For the offline desktop build, pass:
-   ```bash
-   ./gradlew :desktopApp:packageReleaseDistributionForCurrentOS -PdesktopFlavor=oss
-   ```
-
-## Open Source Libraries
-
-Powered by the Kotlin, Android, and desktop OSS ecosystem:
-
-* **Core and UI:** Kotlin Multiplatform, Compose Multiplatform, AndroidX, Jetpack Compose, Kotlinx Serialization
-* **Document engines:** PdfiumAndroidKt, PDFium, libmobi
-* **Parsers:** Jsoup, Flexmark, Apache Commons Compress
-* **Media and image loading:** Coil, Media3
-* **Utilities:** Room, Timber, JNA
-
-## Contributors
-
-| Contributor | Contribution |
-|---|---|
-| <img src="https://github.com/CCerrer.png?size=48" width="24" height="24" valign="middle" alt="CCerrer avatar"> [CCerrer](https://github.com/CCerrer) | Testing and QA |
-| <img src="https://github.com/ottozumkeller.png?size=48" width="24" height="24" valign="middle" alt="ottozumkeller avatar"> [ottozumkeller](https://github.com/ottozumkeller) | German translation |
-| <img src="https://github.com/TURBOKANTR.png?size=48" width="24" height="24" valign="middle" alt="TURBOKANTR avatar"> [TURBOKANTR](https://github.com/TURBOKANTR) | Turkish translation |
-| <img src="https://github.com/eyadalkordy24.png?size=48" width="24" height="24" valign="middle" alt="eyadalkordy24 avatar"> [eyadalkordy24](https://github.com/eyadalkordy24) | Arabic translation |
-| <img src="https://github.com/berebara.png?size=48" width="24" height="24" valign="middle" alt="berebara avatar"> [berebara](https://github.com/berebara) | Russian translation |
-| <img src="https://github.com/mh4ckt3mh4ckt1c4s.png?size=48" width="24" height="24" valign="middle" alt="mh4ckt3mh4ckt1c4s avatar"> [mh4ckt3mh4ckt1c4s](https://github.com/mh4ckt3mh4ckt1c4s) | French translation |
-
-## Supporters
-
-Thank you to the people helping keep Episteme Reader moving:
-
-| Supporter | Platform |
-|---|---|
-| <img src="https://github.com/Myshadowslullaby.png?size=48" width="24" height="24" valign="middle" alt="Myshadowslullaby avatar"> [ProgrammerWhoPrograms](https://github.com/ProgrammerWhoPrograms) | GitHub Sponsors |
-
-## Support the Project
-
-Help make Episteme Reader better:
-
-* [Sponsor on GitHub](https://github.com/sponsors/Aryan-Raj3112)
-* [Support on Patreon](https://www.patreon.com/c/epistemereader)
-* Star the repository to help visibility
-* Report bugs or request features via [GitHub Issues](https://github.com/Aryan-Raj3112/episteme/issues/new/choose)
-* Help translate [Episteme Reader](https://translate.epistemereader.com/engage/episteme/)
-* Share feedback in [Discussions](https://github.com/Aryan-Raj3112/episteme/discussions)
-* Leave a review on the [Google Play Store](https://play.google.com/store/apps/details?id=com.aryan.reader)
-* Tell a friend
-
-## License
-
-Licensed under the GNU Affero General Public License v3.0 only (AGPL-3.0-only). See the [LICENSE](../LICENSE) file.
+## Building
+```bash
+git clone git@github.com:ShiroiKuma0/shiroikuma-shosekietsuran.git
+cd shiroikuma-shosekietsuran
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ANDROID_HOME=~/android-sdk
+./gradlew :app:assembleOssRelease        # or the buildApk convenience task
+```
+Signing expects a `keystore.properties` mapping onto Episteme's `MYAPP_RELEASE_*` mechanism; without one, build `:app:assembleOssDebug`.
