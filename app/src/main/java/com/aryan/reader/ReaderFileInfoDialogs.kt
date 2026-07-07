@@ -106,7 +106,8 @@ internal fun HydratedFileInfoDialog(
     onOpenTags: (String) -> Unit,
     onShareFile: (() -> Unit)? = null,
     onSaveCopy: (() -> Unit)? = null,
-    onSelectForActions: (() -> Unit)? = null
+    onSelectForActions: (() -> Unit)? = null,
+    onDeleteBook: (() -> Unit)? = null
 ) {
     var fileInfoItem by remember(item?.bookId) { mutableStateOf(item) }
     var hasResolvedFullItem by remember(item?.bookId) { mutableStateOf(false) }
@@ -157,7 +158,8 @@ internal fun HydratedFileInfoDialog(
             onSaveCopy = onSaveCopy,
             onSelectForActions = onSelectForActions,
             extraMetadata = extraMetadata,
-            libraryAuthors = libraryAuthors
+            libraryAuthors = libraryAuthors,
+            onDeleteBook = onDeleteBook
         )
     }
 }

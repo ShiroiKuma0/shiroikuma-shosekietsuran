@@ -68,6 +68,12 @@ interface TagDao {
     @Query("SELECT * FROM tags")
     suspend fun getAllTagsList(): List<TagEntity>
 
+    @Query(
+        "SELECT t.name FROM tags t INNER JOIN book_tag_cross_ref c ON t.id = c.tagId " +
+            "WHERE c.bookId = :bookId ORDER BY t.name COLLATE NOCASE ASC"
+    )
+    suspend fun getTagNamesForBook(bookId: String): List<String>
+
     @Query("SELECT * FROM book_tag_cross_ref")
     fun getAllBookTagCrossRefs(): Flow<List<BookTagCrossRef>>
 

@@ -407,6 +407,8 @@ fun SharedMobileContextualActionBar(
     onPin: (() -> Unit)? = null,
     onClear: (() -> Unit)? = null,
     tagIcon: @Composable (String?) -> Unit,
+    // shiroikuma fork: extra leading action (parallel reading).
+    leadingActions: (@Composable RowScope.() -> Unit)? = null,
 ) {
     SharedMobileTopAppBar(
         title = {
@@ -418,6 +420,7 @@ fun SharedMobileContextualActionBar(
             }
         },
         actions = {
+            leadingActions?.invoke(this)
             if (compact) {
                 SharedMobileCompactSelectionActions(
                     selectedItemCount = selectedItemCount,

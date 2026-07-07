@@ -59,7 +59,8 @@ class EpubMetadataFileEditor(private val context: Context) {
                         seriesName = metadata.seriesName,
                         seriesIndex = metadata.seriesIndex,
                         cover = coverUpdate,
-                        publicationDate = metadata.publicationDate
+                        publicationDate = metadata.publicationDate,
+                        subjects = metadata.tags
                     )
                 )
                 replaceUriBytes(sourceUri, editedCopy)

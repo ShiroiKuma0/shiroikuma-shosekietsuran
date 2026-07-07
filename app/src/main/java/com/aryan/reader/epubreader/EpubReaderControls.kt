@@ -259,6 +259,7 @@ fun EpubReaderTopBar(
     onToggleReflow: (() -> Unit)? = null,
     onDeleteReflow: (() -> Unit)? = null,
     readerMotionPolicy: ReaderMotionPolicy = ReaderMotionPolicy(),
+    belowBarContent: (@Composable () -> Unit)? = null,
 ) {
     com.aryan.reader.shared.ui.SharedReaderBarVisibility(
         visible = isVisible,
@@ -266,6 +267,7 @@ fun EpubReaderTopBar(
         motionPolicy = readerMotionPolicy,
         modifier = modifier
     ) {
+        Column {
         com.aryan.reader.shared.ui.SharedReaderToolbarSurface(height = 55.dp) {
             com.aryan.reader.shared.ui.SharedEpubTopToolbarRow {
                 if (searchState.isSearchActive) {
@@ -770,6 +772,8 @@ fun EpubReaderTopBar(
                     }
                 }
             }
+        }
+        belowBarContent?.invoke()
         }
     }
 }
