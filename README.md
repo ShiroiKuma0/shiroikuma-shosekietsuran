@@ -6,11 +6,11 @@
 
 **A black-and-yellow e-book reader that reads Japanese the way Japan prints it.**
 
-A fork of [Episteme](https://github.com/Aryan-Raj3112/episteme) with **major additions**: tategaki 縦書き vertical-text rendering, parallel reading of two books side by side, a fully themeable black×yellow UI, tap/swipe reading gestures with page-turn sound, a remade library, and metadata that writes back into the book files.
+A fork of [Episteme](https://github.com/Aryan-Raj3112/episteme) with **major additions**: tategaki 縦書き vertical-text rendering, parallel reading of up to three books in nine screen layouts, a cross-book annotation library, page-turn animations with a real paper curl, whole-line page views, a fully themeable black×yellow UI, tap/swipe reading gestures with page-turn sound, a remade library, and metadata that writes back into the book files.
 
 Installs **side-by-side** with Episteme (app id `shiroikuma.shosekietsuran`).
 
-**📥 Latest release: [`1.0.51+51`](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases/latest)** — [all releases & APK downloads »](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases)
+**📥 Latest release: [`1.0.51+61`](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases/latest)** — [all releases & APK downloads »](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases)
 
 </div>
 
@@ -19,8 +19,14 @@ Installs **side-by-side** with Episteme (app id `shiroikuma.shosekietsuran`).
 ## 📜 Tategaki 縦書き — real Japanese vertical text
 Vertical-writing EPUBs render as true tategaki: columns flow top-to-bottom, right-to-left, on an exact character grid with print typography — strict kinsoku line breaking, one-character paragraph indents, and a 振り仮名の余白 toggle that either gives furigana-bearing lines their annotation gap (print style) or keeps a strictly uniform column pitch. Left tap pages forward, the way a Japanese book turns. A unified reading-mode menu (with its own toolbar icon) offers Scroll, 縦書き, native scroll, and both page-flip directions — one choice sets layout and writing direction, remembered per book.
 
-## 📖📖 Parallel reading — two books at once
-Pick two or three books (the same novel in two languages, say), and flip between them with a one-finger swipe, each keeping its own position. Or split the screen — top/bottom or side-by-side — and read both simultaneously: the second pane has full gesture parity (scroll, tap page turns, font and brightness swipes) and follows the same format settings live. A tab bar in the reader switches, reorders (drag with a haptic), and manages the set.
+## 📖📖 Parallel reading — up to three books at once, nine layouts
+Pick two or three books (the same novel in two languages, say), and flip between them with a one-finger swipe, each keeping its own position. Or share the screen: a layout chooser in the reader's tab bar offers one book at a time, two or three side by side or stacked, and four mixed one-plus-two arrangements — with **draggable dividers** to give any book more room, remembered across sessions. Companion panes have full gesture parity (scroll, tap page turns, font and brightness swipes) and follow the same format settings live.
+
+## 🗂️ Annotation library — study every highlight in one place
+One screen gathers every text highlight and note from every book, live — nothing to sync or rebuild. Fold and unfold collapsible groups by book, by tag, or by color; search across highlighted text, notes, tags and titles as you type; organize with free-form tags. Tap any annotation and the book opens at that exact spot.
+
+## 📃 Page turns that behave like paper
+Five page-turn styles — instant, slide, fade, flip over the spine, and a deluxe **page curl** that folds the paper over a sweeping crease, showing the washed-out backside with true fold shadows — with a speed slider (150–1500 ms) and a live animated preview in the settings. Pages end on whole lines: a line that would be cut at the bottom (or a tategaki column at the left edge) is hidden and leads the next page instead, and short flips at chapter ends smooth-scroll the remainder so your eyes never lose the text. Tiny ornament images keep their intended size (no more page-wide blurs), and all-black separator glyphs repaint themselves yellow on dark pages.
 
 ## 🐻 白い熊 UI — black and yellow, all the way down
 Pure-black surfaces, pure-yellow text, accents and borders — and every one of those colors adjustable from a dedicated settings page with RGBA pickers, recent-color memory and live preview. Typography scale and weight, corner roundness, and border thickness are sliders; the yellow frame follows you into every dialog, sheet, menu and banner in the app.
