@@ -28,6 +28,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -71,6 +76,19 @@ fun SharedAndroidLibraryScaffold(
     val focusRequester = remember { FocusRequester() }
     var fieldValue by remember(isSearchActive) { mutableStateOf(TextFieldValue(searchQuery, TextRange(searchQuery.length))) }
     LaunchedEffect(isSearchActive) { if (isSearchActive) focusRequester.requestFocus() }
+    // shiroikuma fork: the field is the single source of truth while search is open — the
+    // query reaches the view model DEBOUNCED. Pushing it per keystroke re-projected the
+    // whole library on every letter, which on a large library arrives a keystroke late.
+    LaunchedEffect(isSearchActive) {
+        if (!isSearchActive) return@LaunchedEffect
+        snapshotFlow { fieldValue.text }
+            .drop(1)
+            .distinctUntilChanged()
+            .collectLatest { query ->
+                delay(220)
+                onSearchQueryChange(query)
+            }
+    }
     Scaffold(
         modifier = modifier,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -81,8 +99,8 @@ fun SharedAndroidLibraryScaffold(
                     hasShelfSelection && pagerState.currentPage == 1 -> shelfContextualTopBar()
                     isSearchActive -> SharedMobileLibrarySearchTopBar(
                         value = fieldValue,
-                        onValueChange = { fieldValue = it; onSearchQueryChange(it.text) },
-                        showClear = searchQuery.isNotEmpty(),
+                        onValueChange = { fieldValue = it },
+                        showClear = fieldValue.text.isNotEmpty(),
                         onClose = { onSearchActiveChange(false) },
                         onClear = { fieldValue = TextFieldValue("", TextRange.Zero); onSearchQueryChange("") },
                         placeholder = strings.searchPlaceholder,
