@@ -415,6 +415,15 @@
     };
 
     window.applyReaderTheme = function (isDark, bgHex, textHex, textureBase64, textureAlpha) {
+        // 白い熊 UI: the bottom-line mask paints in the page background colour, and
+        // black ornaments swap to their yellow variant on dark backgrounds.
+        window.whiteBearPageMaskColor = bgHex;
+        if (window.whiteBearUpdateBottomMask) {
+            setTimeout(window.whiteBearUpdateBottomMask, 80);
+        }
+        if (window.whiteBearProcessSmallImages) {
+            setTimeout(window.whiteBearProcessSmallImages, 60);
+        }
         var styleId = "readerThemeStyle";
         var themeStyleElement = document.getElementById(styleId);
 
@@ -1184,8 +1193,26 @@
         }
     };
 
-    // 白い熊 UI: after scrolling, nudge up so the top line is never cut — the partial line at
-    // the previous page's fold becomes the first FULL line of the new page.
+    // 白い熊 UI: with line spacing under 1.0 the glyph ink is TALLER than the line box —
+    // the previous line's descenders seep below its box by half the difference. Returns
+    // that seepage in px (0 for line spacing >= 1.0). `rect` is a char range rect, which
+    // measures the font-metrics box, not the compressed line box.
+    window.whiteBearLineSeep = function (node, rect) {
+        try {
+            var el = (node && node.nodeType === 3) ? node.parentElement
+                : (node && node.nodeType === 1) ? node : null;
+            if (!el || !rect) return 0;
+            var lineHeight = parseFloat(window.getComputedStyle(el).lineHeight);
+            if (isNaN(lineHeight) || lineHeight <= 0 || rect.height <= lineHeight) return 0;
+            return (rect.height - lineHeight) / 2;
+        } catch (e) {
+            return 0;
+        }
+    };
+
+    // 白い熊 UI: after scrolling, align the top line — never cut, and with tight line
+    // spacing scrolled just past the previous line's descender seepage so no glyph
+    // bottoms from the prior page show above the first line.
     window.whiteBearSnapTopToLine = function () {
         if (!document.caretRangeFromPoint) return;
         var x = Math.round((window.innerWidth || document.documentElement.clientWidth || 300) / 2);
@@ -1204,18 +1231,288 @@
             rect = range.getBoundingClientRect();
         }
         if (!rect || rect.height <= 0) return;
-        // If the first line's top is above the viewport top (cut off), scroll up to reveal it.
-        if (rect.top < -0.5 && rect.top > -(rect.height + 6)) {
-            window.scrollBy({ top: Math.floor(rect.top), behavior: "auto" });
+        // The previous line's ink reaches (metrics top + 2×seep); park the first line's
+        // metrics top that far above the viewport edge so the seepage stays hidden.
+        var seep = window.whiteBearLineSeep(node, rect);
+        var desiredTop = seep > 0 ? -(2 * seep + 1) : 0;
+        var delta = rect.top - desiredTop;
+        if (delta < -0.5 && delta > -(rect.height + 6)) {
+            // First line cut at the top: scroll up to reveal it (down to the seep mark).
+            window.scrollBy({ top: Math.round(delta), behavior: "auto" });
+        } else if (delta > 0.5 && delta <= 2 * seep + 2) {
+            // Aligned to the metrics box but seepage still peeking: nudge down past it.
+            window.scrollBy({ top: Math.round(delta), behavior: "auto" });
         }
     };
 
-    // 白い熊 UI: instant full-viewport page turn (no smooth-scroll animation). direction +1
-    // = next page (down), -1 = previous (up). Moves by fraction*viewport (1.0 = full page,
-    // no overlap), then snaps the top line whole. Returns "moved", or "end"/"start" when
-    // already at the chapter boundary so the app can flip to the neighbouring chapter.
-    window.whiteBearTurnPage = function (direction, fraction) {
+    // 白い熊 UI: small ornament images (scene separators and similar, both natural
+    // dimensions ≤ 96 px) are exempted from the reader's forced full-width image sizing
+    // (class wb-natural-size → the book's own CSS or the natural size applies), and
+    // all-black ornaments are recoloured to accent yellow on dark backgrounds so they
+    // don't vanish into the page.
+    var WB_ORNAMENT_MAX_PX = 96;
+
+    function wbIsDarkBackground() {
+        var hex = window.whiteBearPageMaskColor;
+        if (!hex || hex.charAt(0) !== "#" || hex.length < 7) return false;
+        var r = parseInt(hex.substr(1, 2), 16);
+        var g = parseInt(hex.substr(3, 2), 16);
+        var b = parseInt(hex.substr(5, 2), 16);
+        return (0.299 * r + 0.587 * g + 0.114 * b) < 96;
+    }
+
+    function wbAnalyzeAndRecolor(img, source) {
+        try {
+            var w = source.naturalWidth || source.width;
+            var h = source.naturalHeight || source.height;
+            if (!w || !h) {
+                img.dataset.wbInkState = "no";
+                return;
+            }
+            var canvas = document.createElement("canvas");
+            canvas.width = w;
+            canvas.height = h;
+            var ctx = canvas.getContext("2d");
+            ctx.drawImage(source, 0, 0);
+            var data = ctx.getImageData(0, 0, w, h);
+            var px = data.data;
+            var opaque = 0;
+            var dark = 0;
+            for (var i = 0; i < px.length; i += 4) {
+                if (px[i + 3] > 24) {
+                    opaque++;
+                    if (px[i] < 60 && px[i + 1] < 60 && px[i + 2] < 60) dark++;
+                }
+            }
+            if (opaque === 0 || dark / opaque < 0.98) {
+                img.dataset.wbInkState = "no";
+                return;
+            }
+            // All ink is black: repaint it accent yellow, keeping the alpha channel.
+            for (var j = 0; j < px.length; j += 4) {
+                px[j] = 255;
+                px[j + 1] = 255;
+                px[j + 2] = 0;
+            }
+            ctx.putImageData(data, 0, 0);
+            img.dataset.wbYellowSrc = canvas.toDataURL("image/png");
+            img.dataset.wbInkState = "yes";
+            if (wbIsDarkBackground()) img.src = img.dataset.wbYellowSrc;
+        } catch (e) {
+            // Canvas unreadable (tainted origin): leave the image untouched.
+            img.dataset.wbInkState = "no";
+        }
+    }
+
+    function wbRecolorIfInkOrnament(img) {
+        if (img.dataset.wbInkState === "no" || img.dataset.wbInkState === "pending") return;
+        if (!img.dataset.wbOrigSrc) img.dataset.wbOrigSrc = img.src;
+        var wantYellow = wbIsDarkBackground();
+        if (img.dataset.wbYellowSrc) {
+            // Analysed before: just swap for the current theme.
+            var target = wantYellow ? img.dataset.wbYellowSrc : img.dataset.wbOrigSrc;
+            if (img.src !== target) img.src = target;
+            return;
+        }
+        if (!wantYellow) return; // only analyse when we would actually recolour
+        // The chapter document loads from file://, which taints a canvas painted with
+        // its images. The app bridge returns the same image as a data: URL, which stays
+        // readable; fall back to direct analysis for data:/http(s) images.
+        var dataUrl = "";
+        try {
+            if (window.WhiteBearImageBridge && window.WhiteBearImageBridge.readAsDataUrl) {
+                dataUrl = window.WhiteBearImageBridge.readAsDataUrl(img.dataset.wbOrigSrc) || "";
+            }
+        } catch (e) {
+            dataUrl = "";
+        }
+        if (dataUrl) {
+            img.dataset.wbInkState = "pending";
+            var probe = new Image();
+            probe.onload = function () { wbAnalyzeAndRecolor(img, probe); };
+            probe.onerror = function () { img.dataset.wbInkState = "no"; };
+            probe.src = dataUrl;
+        } else {
+            wbAnalyzeAndRecolor(img, img);
+        }
+    }
+
+    function wbProcessImage(img) {
+        if (!img.complete || img.naturalWidth <= 0) return;
+        if (img.naturalWidth <= WB_ORNAMENT_MAX_PX && img.naturalHeight <= WB_ORNAMENT_MAX_PX) {
+            img.classList.add("wb-natural-size");
+            wbRecolorIfInkOrnament(img);
+        }
+    }
+
+    window.whiteBearProcessSmallImages = function () {
+        var imgs = document.images;
+        for (var i = 0; i < imgs.length; i++) {
+            var img = imgs[i];
+            if (img.dataset.wbSmallChecked) {
+                if (img.classList.contains("wb-natural-size")) wbRecolorIfInkOrnament(img);
+                continue;
+            }
+            if (img.complete && img.naturalWidth > 0) {
+                img.dataset.wbSmallChecked = "1";
+                wbProcessImage(img);
+            } else if (!img.dataset.wbSmallListener) {
+                img.dataset.wbSmallListener = "1";
+                img.addEventListener("load", function (ev) {
+                    var target = ev.target;
+                    if (!target.dataset.wbSmallChecked) {
+                        target.dataset.wbSmallChecked = "1";
+                        wbProcessImage(target);
+                    }
+                }, { once: true });
+            }
+        }
+    };
+
+    // 白い熊 UI: page-view line masking — a text line that would be cut at the page's end
+    // edge is hidden entirely (painted over in the page colour) and becomes the first
+    // line of the next page, so a page turn always flips whole lines. Yokogaki masks the
+    // partial line at the BOTTOM edge; tategaki masks the partial column at the LEFT edge.
+    window.whiteBearBottomCutPx = 0; // yokogaki: height of the masked strip at the bottom
+    window.whiteBearLeftCutPx = 0;   // tategaki: width of the masked strip at the left
+    window.whiteBearProgrammaticScrollUntil = 0;
+
+    window.whiteBearUpdateBottomMask = function () {
+        var mask = document.getElementById("whiteBearBottomMask");
+        var hide = function () {
+            if (mask) mask.style.display = "none";
+            window.whiteBearBottomCutPx = 0;
+            window.whiteBearLeftCutPx = 0;
+        };
+        if (!window.whiteBearPageMaskColor || !document.caretRangeFromPoint) {
+            hide();
+            return;
+        }
+        var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+        var vw = window.innerWidth || document.documentElement.clientWidth || 0;
+        if (vh <= 0 || vw <= 0) { hide(); return; }
+
+        var ensureMask = function () {
+            if (!mask) {
+                mask = document.createElement("div");
+                mask.id = "whiteBearBottomMask";
+                mask.style.position = "fixed";
+                mask.style.zIndex = "40";
+                mask.style.pointerEvents = "none";
+                document.body.appendChild(mask);
+            }
+            mask.style.background = window.whiteBearPageMaskColor;
+            mask.style.display = "block";
+        };
+        var probes = [0.5, 0.25, 0.75, 0.12, 0.88];
+        var charAt = function (x, y) {
+            var range = document.caretRangeFromPoint(x, y);
+            if (!range) return null;
+            var node = range.startContainer;
+            if (!node || node.nodeType !== 3 || node.length === 0) return null; // text only
+            var start = Math.min(range.startOffset, node.length - 1);
+            var charRange = document.createRange();
+            charRange.setStart(node, start);
+            charRange.setEnd(node, start + 1);
+            var rect = charRange.getBoundingClientRect();
+            return (rect && rect.height > 0 && rect.width > 0) ? { rect: rect, node: node } : null;
+        };
+
+        if (window.whiteBearEffectiveVertical) {
+            // Tategaki: columns flow right → left; the page's end edge is the LEFT one.
+            var currentX = Math.round(window.scrollX || window.pageXOffset || 0);
+            if (currentX <= 1) { hide(); return; } // final view: read through to the end
+            var cutRight = 0;
+            for (var i = 0; i < probes.length; i++) {
+                var hit = charAt(2, Math.round(vh * probes[i]));
+                if (!hit) continue;
+                var rect = hit.rect;
+                // A column is partial when it straddles the left viewport edge.
+                if (rect.left < -1 && rect.right > 1) {
+                    var right = Math.ceil(rect.right);
+                    cutRight = (cutRight === 0) ? right : Math.max(cutRight, right);
+                }
+            }
+            // Only mask sensible column widths — never huge blocks (images, tables).
+            if (cutRight > vw * 0.45) cutRight = 0;
+            if (cutRight > 0) {
+                ensureMask();
+                mask.style.left = "0";
+                mask.style.top = "0";
+                mask.style.bottom = "0";
+                mask.style.right = "auto";
+                mask.style.width = cutRight + "px";
+                mask.style.height = "auto";
+                window.whiteBearLeftCutPx = cutRight;
+                window.whiteBearBottomCutPx = 0;
+            } else {
+                hide();
+            }
+            return;
+        }
+
+        var docHeight = document.body.scrollHeight || document.documentElement.scrollHeight || 0;
+        var maxScroll = Math.max(0, docHeight - vh);
+        var current = Math.round(window.scrollY || window.pageYOffset || 0);
+        if (current >= maxScroll - 1) { hide(); return; } // final view: read through to the end
+        var cutTop = 0;
+        for (var j = 0; j < probes.length; j++) {
+            var lineHit = charAt(Math.round(vw * probes[j]), vh - 2);
+            if (!lineHit) continue;
+            var lineRect = lineHit.rect;
+            if (lineRect.top < vh - 1 && lineRect.bottom > vh + 1) {
+                // Mask from the LINE BOX top, not the metrics-box top: with tight line
+                // spacing the metrics boxes overlap, and masking from the metrics top
+                // would shave the previous (fully visible) line's descenders.
+                var top = Math.floor(lineRect.top + window.whiteBearLineSeep(lineHit.node, lineRect));
+                cutTop = (cutTop === 0) ? top : Math.min(cutTop, top);
+            }
+        }
+        // Only mask sensible line heights — never huge blocks (images, tables).
+        if (cutTop > 0 && cutTop < vh * 0.55) cutTop = 0;
+        if (cutTop > 0) {
+            ensureMask();
+            mask.style.top = cutTop + "px";
+            mask.style.left = "0";
+            mask.style.right = "0";
+            mask.style.bottom = "0";
+            mask.style.width = "auto";
+            mask.style.height = "auto";
+            window.whiteBearBottomCutPx = vh - cutTop;
+            window.whiteBearLeftCutPx = 0;
+        } else {
+            hide();
+        }
+    };
+
+    (function () {
+        var maskTimer = null;
+        window.addEventListener("scroll", function () {
+            // A user-initiated scroll flows lines naturally: drop the mask at once and
+            // re-evaluate when the view settles. Programmatic page turns keep it stable.
+            if (Date.now() > window.whiteBearProgrammaticScrollUntil) {
+                var mask = document.getElementById("whiteBearBottomMask");
+                if (mask) mask.style.display = "none";
+                window.whiteBearBottomCutPx = 0;
+            }
+            if (maskTimer) clearTimeout(maskTimer);
+            maskTimer = setTimeout(function () { window.whiteBearUpdateBottomMask(); }, 240);
+        }, { passive: true });
+    })();
+
+    // 白い熊 UI: full-viewport page turn. direction +1 = next page (down), -1 = previous
+    // (up). Moves by fraction*viewport (1.0 = full page, no overlap), then snaps the top
+    // line whole. `anim` = "slide" smooth-scrolls every turn; any other value jumps
+    // instantly (the app may animate an overlay on top). A PARTIAL turn — less than a
+    // full step remaining at a chapter boundary — always smooth-scrolls the remainder so
+    // the eye can follow where the text continues; it returns "moved-partial" so the app
+    // skips its overlay animation. Returns "end"/"start" when already at the chapter
+    // boundary so the app can flip to the neighbouring chapter.
+    window.whiteBearTurnPage = function (direction, fraction, anim) {
         var frac = (typeof fraction === "number" && fraction > 0) ? fraction : 1.0;
+        var slide = anim === "slide";
+
+        window.whiteBearProgrammaticScrollUntil = Date.now() + 800;
 
         if (window.whiteBearEffectiveVertical) {
             window.whiteBearUserNavigated = true;
@@ -1231,29 +1528,57 @@
             var forward = direction < 0 ? 1 : -1; // logical reading direction
             if (forward > 0 && currentX <= 1) return "end";
             if (forward < 0 && currentX >= maxScrollX - 1) return "start";
-            var targetX = Math.min(maxScrollX, Math.max(0, currentX - forward * hStep));
-            window.scrollTo({ left: targetX, behavior: "auto" });
-            if (window.reportScrollState) {
-                setTimeout(function () { window.reportScrollState(); }, 30);
+            // With the left-column mask active, the page visually ends at the mask:
+            // advance exactly to it, so the hidden column leads the next page.
+            if (forward > 0 && frac >= 0.999 &&
+                window.whiteBearLeftCutPx > 0 && window.whiteBearLeftCutPx < vw) {
+                hStep = Math.max(1, vw - window.whiteBearLeftCutPx);
             }
-            return "moved";
+            var targetX = Math.min(maxScrollX, Math.max(0, currentX - forward * hStep));
+            var hPartial = Math.abs(targetX - currentX) < hStep - 1;
+            var hBehavior = (hPartial || slide) ? "smooth" : "auto";
+            window.scrollTo({ left: targetX, behavior: hBehavior });
+            if (window.reportScrollState) {
+                setTimeout(function () { window.reportScrollState(); }, hBehavior === "smooth" ? 450 : 30);
+            }
+            setTimeout(function () { window.whiteBearUpdateBottomMask(); }, hBehavior === "smooth" ? 470 : 40);
+            return hPartial ? "moved-partial" : "moved";
         }
 
         var vh = window.innerHeight || document.documentElement.clientHeight || 0;
         if (vh <= 0) return "moved";
         var step = Math.max(1, Math.round(vh * frac));
+        // With the bottom-line mask active, the page visually ends at the mask: advance
+        // exactly to it, so the hidden line becomes the first line of the next page.
+        if (direction > 0 && frac >= 0.999 &&
+            window.whiteBearBottomCutPx > 0 && window.whiteBearBottomCutPx < vh) {
+            step = Math.max(1, vh - window.whiteBearBottomCutPx);
+        }
         var docHeight = document.body.scrollHeight || document.documentElement.scrollHeight || 0;
         var maxScroll = Math.max(0, docHeight - vh);
         var current = Math.round(window.scrollY || window.pageYOffset || 0);
         if (direction > 0 && current >= maxScroll - 1) return "end";
         if (direction < 0 && current <= 1) return "start";
         var target = Math.min(maxScroll, Math.max(0, current + direction * step));
-        window.scrollTo({ top: target, behavior: "auto" });
-        window.whiteBearSnapTopToLine();
-        if (window.reportScrollState) {
-            setTimeout(function () { window.reportScrollState(); }, 30);
+        var partial = Math.abs(target - current) < step - 1;
+        var behavior = (partial || slide) ? "smooth" : "auto";
+        window.scrollTo({ top: target, behavior: behavior });
+        if (direction > 0 && target >= maxScroll - 1) {
+            // The chapter's FINAL view: stay exactly at the end. The top-line snap
+            // would pull back up, cutting the last line and leaving the position
+            // short of the "end" threshold — taps would then bounce forever
+            // (sound, no movement) and the next chapter would never open.
+        } else if (behavior === "smooth") {
+            // Snap only after the smooth scroll has settled.
+            setTimeout(function () { window.whiteBearSnapTopToLine(); }, 420);
+        } else {
+            window.whiteBearSnapTopToLine();
         }
-        return "moved";
+        if (window.reportScrollState) {
+            setTimeout(function () { window.reportScrollState(); }, behavior === "smooth" ? 450 : 30);
+        }
+        setTimeout(function () { window.whiteBearUpdateBottomMask(); }, behavior === "smooth" ? 470 : 40);
+        return partial ? "moved-partial" : "moved";
     };
 
     window.updateReaderStyles = function (fontSizeEm, lineHeight, fontFamily, textAlign, paragraphGap, imageSize, horizontalMargin, verticalMargin, fontWeight, letterSpacing, hideImages) {
@@ -1296,10 +1621,17 @@
         var newFontWeight = parseInt(fontWeight, 10);
         var newLetterSpacing = parseFloat(letterSpacing);
 
+        // 白い熊 UI: classify small ornament images (registers load listeners for images
+        // that are still decoding, so late arrivals get tagged too).
+        if (window.whiteBearProcessSmallImages) {
+            setTimeout(window.whiteBearProcessSmallImages, 0);
+        }
+
         if (isNaN(newFontSize) || newFontSize < 0.5 || newFontSize > 5.0) newFontSize = 1.0;
         if (isNaN(newLineHeight) || newLineHeight < 0.3 || newLineHeight > 3.0) newLineHeight = 1.0;
         if (isNaN(newGap) || newGap < 0.0 || newGap > 3.0) newGap = 1.0;
-        if (isNaN(newImageSize) || newImageSize < 0.5 || newImageSize > 2.0) newImageSize = 1.0;
+        // 白い熊 UI: 0 is the "original image sizes" sentinel (no forced resizing).
+        if (isNaN(newImageSize) || ((newImageSize < 0.5 || newImageSize > 2.0) && newImageSize !== 0)) newImageSize = 1.0;
         if (isNaN(newHorizontalMargin) || newHorizontalMargin < 0.0 || newHorizontalMargin > 3.0) newHorizontalMargin = 1.0;
         if (isNaN(newVerticalMargin) || newVerticalMargin < 0.0 || newVerticalMargin > 3.0) newVerticalMargin = 1.0;
         if (isNaN(newFontWeight) || newFontWeight < 0 || newFontWeight > 1000) newFontWeight = 0;
@@ -1455,17 +1787,34 @@
             }
         `;
 
+        // 白い熊 UI: in "original sizes" mode no width is forced at all — the book's own
+        // CSS (or the natural size, capped at the column) decides.
+        var wbForcedImageWidth = newImageSize === 0
+            ? ""
+            : "width: min(100%, calc(100% * var(--reader-image-size))) !important;";
         var imageCss = `
             :root {
                 --reader-image-size: ${newImageSize};
             }
-            body img,
+            body img:not(.wb-natural-size),
             body svg,
             body video,
             body canvas,
             body image {
-                width: auto;
-                max-width: min(100%, calc(100% * var(--reader-image-size))) !important;
+                ${wbForcedImageWidth}
+                max-width: 100% !important;
+                height: auto !important;
+                display: block !important;
+                float: none !important;
+                margin-left: auto !important;
+                margin-right: auto !important;
+                object-fit: contain !important;
+            }
+            /* 白い熊 UI: small ornaments keep the book's own size (or natural size) —
+               forcing them to full width blows a 14-px separator star up to a page-wide
+               blur that reads as a wall of whitespace. */
+            body img.wb-natural-size {
+                max-width: 100% !important;
                 height: auto !important;
                 display: block !important;
                 float: none !important;

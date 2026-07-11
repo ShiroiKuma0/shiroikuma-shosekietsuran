@@ -34,9 +34,33 @@ class WhiteBearGestureState private constructor(private val prefs: SharedPrefere
     var pageTurnStepPercent by mutableIntStateOf(prefs.getInt(KEY_PAGE_TURN_STEP, 100))
         private set
 
+    /** Visual style of the tap page turn (instant, smooth scroll, fade, flip, curl). */
+    var pageTurnAnimation by mutableStateOf(
+        WhiteBearPageTurnAnimation.entries.getOrElse(
+            prefs.getInt(KEY_PAGE_TURN_ANIMATION, WhiteBearPageTurnAnimation.CURL.ordinal)
+        ) {
+            WhiteBearPageTurnAnimation.CURL
+        }
+    )
+        private set
+
+    /** Duration of the page-turn animation in milliseconds. */
+    var pageTurnAnimMs by mutableIntStateOf(prefs.getInt(KEY_PAGE_TURN_ANIM_MS, 420).coerceIn(150, 1500))
+        private set
+
+    fun updatePageTurnAnimMs(value: Int) {
+        pageTurnAnimMs = value.coerceIn(150, 1500)
+        prefs.edit().putInt(KEY_PAGE_TURN_ANIM_MS, pageTurnAnimMs).apply()
+    }
+
     /** Font-size multiplier of the split companion pane (right/bottom book). */
     var companionFontScale by mutableStateOf(prefs.getFloat(KEY_COMPANION_FONT_SCALE, 1.0f))
         private set
+
+    fun updatePageTurnAnimation(value: WhiteBearPageTurnAnimation) {
+        pageTurnAnimation = value
+        prefs.edit().putInt(KEY_PAGE_TURN_ANIMATION, value.ordinal).apply()
+    }
 
     fun updateCompanionFontScale(value: Float) {
         companionFontScale = value.coerceIn(0.5f, 3.0f)
@@ -81,6 +105,8 @@ class WhiteBearGestureState private constructor(private val prefs: SharedPrefere
         private const val KEY_LEFT_SWIPE_BRIGHTNESS = "wb_left_swipe_brightness"
         private const val KEY_PAGE_TURN_SOUND = "wb_page_turn_sound"
         private const val KEY_PAGE_TURN_STEP = "wb_page_turn_step"
+        private const val KEY_PAGE_TURN_ANIMATION = "wb_page_turn_animation"
+        private const val KEY_PAGE_TURN_ANIM_MS = "wb_page_turn_anim_ms"
         private const val KEY_COMPANION_FONT_SCALE = "wb_companion_font_scale"
 
         @Volatile

@@ -76,6 +76,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CollectionsBookmark
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterList
@@ -426,6 +427,11 @@ fun LibraryScreen(
                 parallel.updateSet(ids)
                 viewModel.showBanner("Parallel set (${ids.size}/3): flip with a two-finger swipe.")
             },
+            onStartParallel = { item ->
+                val parallel = com.aryan.reader.whitebear.WhiteBearParallelState.get(context)
+                parallel.startNewSet(item.bookId)
+                viewModel.showBanner("New parallel set (1/3) — use “Add to parallel reading” on the next book.")
+            },
             onDelete = { item -> wbDeleteCandidate = item }
         )
     }
@@ -520,6 +526,7 @@ fun LibraryScreen(
             onShowBanner = viewModel::showBanner,
             onSettingsClick = { navController.navigateIfReady(com.aryan.reader.shared.ui.SharedMobileAppDestination.SETTINGS) },
             onSettingsLongClick = { navController.navigateIfReady(AppDestinations.WHITE_BEAR_UI_SCREEN_ROUTE) },
+            onAnnotationLibraryClick = { navController.navigateIfReady(AppDestinations.ANNOTATION_LIBRARY_SCREEN_ROUTE) },
             onParallelReadClick = { showParallelOrderDialog = true },
             bookMenuActions = wbBookMenuActions,
             usePdfFileNameAsDisplayName = uiState.usePdfFileNameAsDisplayName,
@@ -905,6 +912,7 @@ fun LibraryScreenContent(
     onShowBanner: (String) -> Unit,
     onSettingsClick: () -> Unit,
     onSettingsLongClick: () -> Unit = {},
+    onAnnotationLibraryClick: () -> Unit = {},
     onParallelReadClick: (() -> Unit)? = null,
     bookMenuActions: WhiteBearBookMenuActions? = null,
     usePdfFileNameAsDisplayName: Boolean,
@@ -1046,6 +1054,10 @@ fun LibraryScreenContent(
                     icon = { Icon(painterResource(R.drawable.sort), stringResource(R.string.content_desc_sort), Modifier.size(20.dp)) },
                 )
                 IconButton(onClick = { onSearchActiveChange(true) }) { Icon(Icons.Default.Search, stringResource(R.string.action_search)) }
+            }
+            // Fork: central annotation library across all books.
+            IconButton(onClick = onAnnotationLibraryClick) {
+                Icon(Icons.Default.CollectionsBookmark, contentDescription = "Annotations")
             }
             // 白い熊: long-press the cog opens the UI page directly.
             Box(
@@ -1541,6 +1553,7 @@ data class WhiteBearBookMenuActions(
     val onShare: (RecentFileItem) -> Unit,
     val onSaveCopy: (RecentFileItem) -> Unit,
     val onAddParallel: (RecentFileItem) -> Unit,
+    val onStartParallel: (RecentFileItem) -> Unit,
     val onDelete: (RecentFileItem) -> Unit
 )
 
@@ -1578,6 +1591,11 @@ private fun WhiteBearBookCoverMenu(
                 MaterialTheme.shapes.extraSmall
             )
         ) {
+            DropdownMenuItem(
+                text = { Text("Start new parallel reading") },
+                leadingIcon = { Icon(painterResource(id = R.drawable.wb_parallel), contentDescription = null) },
+                onClick = { open = false; actions.onStartParallel(item) }
+            )
             DropdownMenuItem(
                 text = { Text("Add to parallel reading") },
                 leadingIcon = { Icon(painterResource(id = R.drawable.wb_parallel), contentDescription = null) },

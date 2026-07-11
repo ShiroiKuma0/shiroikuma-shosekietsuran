@@ -742,9 +742,30 @@ fun ReaderTextFormatPanel(
             FormatStepperRow(stringResource(R.string.label_paragraph_gap), formatMultiplier(currentParagraphGap),
                 { onParagraphGapChange(stepFormatValue(currentParagraphGap, -0.1f, 0f, 3f)) },
                 { onParagraphGapChange(stepFormatValue(currentParagraphGap, 0.1f, 0f, 3f)) }) { activeAdjustment = ReaderFormatAdjustment.PARAGRAPH_GAP }
-            FormatStepperRow(stringResource(R.string.label_image_size), formatMultiplier(currentImageSize),
-                { onImageSizeChange(stepFormatValue(currentImageSize, -0.1f, 0.5f, 2f)) },
-                { onImageSizeChange(stepFormatValue(currentImageSize, 0.1f, 0.5f, 2f)) }) { activeAdjustment = ReaderFormatAdjustment.IMAGE_SIZE }
+            // 白い熊 UI: image size 0 is the "original sizes" sentinel — the reader stops
+            // resizing images entirely and the books' own CSS (or the natural pixel size)
+            // applies. The stepper hides while it is active.
+            if (currentImageSize != 0f) {
+                FormatStepperRow(stringResource(R.string.label_image_size), formatMultiplier(currentImageSize),
+                    { onImageSizeChange(stepFormatValue(currentImageSize, -0.1f, 0.5f, 2f)) },
+                    { onImageSizeChange(stepFormatValue(currentImageSize, 0.1f, 0.5f, 2f)) }) { activeAdjustment = ReaderFormatAdjustment.IMAGE_SIZE }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Original image sizes (no resizing)",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = currentImageSize == 0f,
+                    onCheckedChange = { on ->
+                        onImageSizeChange(if (on) 0f else DEFAULT_IMAGE_SIZE_VAL)
+                    }
+                )
+            }
             FormatStepperRow(stringResource(R.string.label_horizontal_margin), formatMargin(currentHorizontalMargin),
                 { onHorizontalMarginChange(stepFormatValue(currentHorizontalMargin, -0.1f, 0f, 3f)) },
                 { onHorizontalMarginChange(stepFormatValue(currentHorizontalMargin, 0.1f, 0f, 3f)) }) { activeAdjustment = ReaderFormatAdjustment.HORIZONTAL_MARGIN }

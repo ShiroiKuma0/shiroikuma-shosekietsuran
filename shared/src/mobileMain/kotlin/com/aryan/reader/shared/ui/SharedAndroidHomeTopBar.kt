@@ -3,6 +3,7 @@ package com.aryan.reader.shared.ui
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -76,6 +77,8 @@ fun SharedAndroidHomeTopBar(
     onSettings: () -> Unit,
     // shiroikuma fork: long-press the cog to open the 白い熊 書籍閲覧 UI page.
     onSettingsLongPress: () -> Unit = {},
+    // shiroikuma fork: extra actions before the cog (the annotation library).
+    extraActions: (@Composable RowScope.() -> Unit)? = null,
     onAppTheme: () -> Unit,
     onRecentFilesLimitChange: (Int) -> Unit,
     onAbout: () -> Unit,
@@ -173,6 +176,7 @@ fun SharedAndroidHomeTopBar(
             }
         },
         actions = {
+            extraActions?.invoke(this)
             Box(
                 modifier = Modifier
                     .size(48.dp)

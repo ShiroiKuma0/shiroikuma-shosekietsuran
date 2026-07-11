@@ -16,6 +16,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -206,6 +207,7 @@ internal fun defaultReaderBottomTools(): Set<String> {
 fun EpubReaderTopBar(
     isVisible: Boolean,
     searchState: SearchState,
+    onOpenWhiteBearUi: () -> Unit = {},
     bookTitle: String,
     currentRenderMode: RenderMode,
     isBookmarked: Boolean,
@@ -436,9 +438,12 @@ fun EpubReaderTopBar(
                         var showHiddenToolsExpanded by overflowMenuState.hiddenToolsExpanded
                         var showReadingModeExpanded by overflowMenuState.readingModeExpanded
                         var showTtsSettingsExpanded by overflowMenuState.ttsSettingsExpanded
+                        // 白い熊 UI: long-press opens the 白い熊 書籍閲覧 UI page directly
+                        // (mirrors the home screen's settings long-press).
                         TooltipIconButton(
                             text = stringResource(R.string.tooltip_more_options),
                             description = stringResource(R.string.tooltip_more_options_desc),
+                            onLongClick = onOpenWhiteBearUi,
                             onClick = overflowMenuState::open
                         ) {
                             Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.content_desc_more_options))

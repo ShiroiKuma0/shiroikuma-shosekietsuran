@@ -32,6 +32,7 @@ import com.aryan.reader.epub.EpubBook
 import com.aryan.reader.paginatedreader.Locator
 import com.aryan.reader.paginatedreader.NativeVerticalReaderScreen
 import com.aryan.reader.whitebear.WhiteBearGestureState
+import com.aryan.reader.whitebear.WhiteBearPageTurnAnimation
 
 /**
  * 白い熊 UI: the second book of a parallel set, rendered in its own vertical-scroll pane
@@ -244,7 +245,9 @@ fun WhiteBearCompanionPane(
                     initialLocator = initialLocator,
                     scrollDeltaRequest = deltaRequest,
                     scrollDeltaRequestId = deltaRequestId,
-                    scrollDeltaRequestAnimated = false,
+                    // Any non-instant page-turn style animates the companion's page turns
+                    // as a smooth scroll (the bitmap overlay styles apply to the primary).
+                    scrollDeltaRequestAnimated = gestures.pageTurnAnimation != WhiteBearPageTurnAnimation.NONE,
                     onScrollDeltaConsumed = { deltaRequest = null },
                     onPaginatorReady = {},
                     onVisiblePageChanged = { _, _, locator ->
