@@ -81,6 +81,7 @@ import com.aryan.reader.shared.TTS_PLAYBACK_SOURCE_AUDIOBOOK
 import com.aryan.reader.shared.samePdfDocument
 import com.aryan.reader.shared.ui.SharedMobileAppDestination
 import com.aryan.reader.tts.ReaderTtsMiniBar
+import com.aryan.reader.whitebear.AnnotationLibraryScreen
 import com.aryan.reader.whitebear.WhiteBearUiScreen
 import com.aryan.reader.tts.readerTtsMiniBarBottomPaddingDp
 import com.aryan.reader.tts.shouldShowReaderTtsMiniBar
@@ -90,6 +91,7 @@ import kotlinx.coroutines.delay
 // SharedMobileAppDestination; only the fork-local ones live here.
 object AppDestinations {
     const val WHITE_BEAR_UI_SCREEN_ROUTE = "white_bear_ui_screen_route"
+    const val ANNOTATION_LIBRARY_SCREEN_ROUTE = "annotation_library_screen_route"
 }
 
 fun shouldInterceptAppNavBack(
@@ -146,6 +148,23 @@ private fun NavHostController.navigateToMain() {
 internal fun NavHostController.navigateIfReady(destination: SharedMobileAppDestination, popUpToStart: Boolean = false) {
     if (currentDestination?.route == destination.route) return
     navigateSingleTopTo(destination, popUpToStart = popUpToStart)
+}
+
+/**
+ * 白い熊 fork: the same guard for our own routes, which live in [AppDestinations] as plain
+ * strings rather than in upstream's shared destination enum.
+ */
+internal fun NavHostController.navigateIfReady(route: String) {
+    if (currentDestination?.route == route) return
+    if (!isReadyForBackStackChange()) {
+        Timber.d("Skipping navigation to $route because the current entry is not resumed yet.")
+        return
+    }
+    try {
+        navigate(route) { launchSingleTop = true }
+    } catch (e: IllegalStateException) {
+        Timber.w(e, "Navigation to $route ignored because the back stack is mid-transition.")
+    }
 }
 
 private fun NavHostController.popBackStackIfReady(): Boolean {
@@ -516,7 +535,10 @@ fun AppNavigation(
                             onRenderModeChange = viewModel::setRenderMode,
                             customFonts = customFonts,
                             onImportFonts = viewModel::importFonts,
-                            viewModel = viewModel
+                            viewModel = viewModel,
+                            onOpenWhiteBearUi = {
+                                navController.navigateIfReady(AppDestinations.WHITE_BEAR_UI_SCREEN_ROUTE)
+                            }
                         )
 
                         if (uiState.isLoading) {
@@ -619,6 +641,24 @@ fun AppNavigation(
             WhiteBearUiScreen(
                 viewModel = viewModel,
                 onBackClick = { navController.popBackStackIfReady() }
+            )
+        }
+
+        composable(route = AppDestinations.ANNOTATION_LIBRARY_SCREEN_ROUTE) {
+            AnnotationLibraryScreen(
+                onBackClick = { navController.popBackStackIfReady() },
+                onOpenAnnotation = { entry ->
+                    // Route sync back to the reader only runs from the main route,
+                    // so leave the library before requesting the open.
+                    navController.popBackStackIfReady()
+                    viewModel.openTtsNotificationTarget(
+                        bookId = entry.bookId,
+                        sourceCfi = entry.cfi,
+                        startOffset = entry.charOffset,
+                        chapterIndex = entry.chapterIndex,
+                        pageIndex = entry.pageIndex
+                    )
+                }
             )
         }
         }
