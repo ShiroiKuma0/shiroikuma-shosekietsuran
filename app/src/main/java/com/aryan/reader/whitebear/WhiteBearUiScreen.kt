@@ -104,8 +104,6 @@ fun WhiteBearUiScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(start = 16.dp, end = 16.dp, bottom = 32.dp)
         ) {
-            WhiteBearPreviewCard(state)
-
             SectionHeader("General")
             SwitchRow(
                 label = "Use 白い熊 UI",
@@ -139,6 +137,7 @@ fun WhiteBearUiScreen(
                     pickerSlot = slot
                 }
             }
+            WhiteBearColorsPreview(state)
 
             SectionHeader("Typography")
             SubHeader("Font", level = 1)
@@ -168,6 +167,7 @@ fun WhiteBearUiScreen(
                 level = 2,
                 onChange = { state.updateFontWeight((it / 100f).roundToInt() * 100) }
             )
+            WhiteBearTypographyPreview(state)
 
             SectionHeader("Shape & borders")
             SliderRow(
@@ -188,6 +188,7 @@ fun WhiteBearUiScreen(
                 level = 1,
                 onChange = { state.updateBorderWidth((it * 2).roundToInt() / 2f) }
             )
+            WhiteBearShapePreview(state)
 
             SectionHeader("Tap and swipe (reader)")
             SwitchRow(
@@ -222,6 +223,30 @@ fun WhiteBearUiScreen(
                         WhiteBearSound.get(context).play(choice)
                     }
                 }
+            )
+            PageTurnAnimationChooser(
+                selected = gestureState.pageTurnAnimation,
+                level = 2,
+                onSelect = { gestureState.updatePageTurnAnimation(it) }
+            )
+            SliderRow(
+                label = "Animation speed",
+                value = gestureState.pageTurnAnimMs.toFloat(),
+                valueText = "${gestureState.pageTurnAnimMs} ms",
+                range = 150f..1500f,
+                steps = 26,
+                level = 2,
+                onChange = { gestureState.updatePageTurnAnimMs((it / 50f).roundToInt() * 50) }
+            )
+            Row(modifier = Modifier.padding(start = IndentStep * 2, top = 6.dp, bottom = 4.dp)) {
+                WhiteBearPageTurnPreview(
+                    style = gestureState.pageTurnAnimation,
+                    durationMs = gestureState.pageTurnAnimMs
+                )
+            }
+            GestureHelpText(
+                "Fade / Flip / Curl animate the old page away over the new one. Partial turns at chapter ends always scroll smoothly so the eye can follow.",
+                level = 2
             )
             SubHeader("Vertical swipes", level = 1)
             SwitchRow(
@@ -278,18 +303,27 @@ fun WhiteBearUiScreen(
 
 /** Live sample of text, icons, borders, corners and buttons — restyles as settings change. */
 @Composable
-private fun WhiteBearPreviewCard(state: WhiteBearUiState) {
+private fun WhiteBearPreviewBox(
+    state: WhiteBearUiState,
+    level: Int = 1,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
+) {
     val borderWidth = state.borderWidth.dp
     var boxModifier = Modifier
         .fillMaxWidth()
-        .padding(top = 12.dp)
+        .padding(start = IndentStep * level, top = 8.dp)
         .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.medium)
     if (state.borderWidth > 0f) {
         boxModifier = boxModifier.border(
             borderWidth, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.medium
         )
     }
-    Column(modifier = boxModifier.padding(12.dp)) {
+    Column(modifier = boxModifier.padding(12.dp), content = content)
+}
+
+@Composable
+private fun WhiteBearColorsPreview(state: WhiteBearUiState) {
+    WhiteBearPreviewBox(state) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 Icons.Default.Settings,
@@ -306,28 +340,53 @@ private fun WhiteBearPreviewCard(state: WhiteBearUiState) {
             )
             Spacer(Modifier.width(10.dp))
             Text(
-                "白い熊 書籍閲覧 — AaBb 012 あ亜",
-                style = MaterialTheme.typography.bodyLarge,
+                "Text on background",
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Button(onClick = {}) { Text("Accent") }
+            OutlinedButton(onClick = {}) { Text("Outline") }
+        }
+    }
+}
+
+@Composable
+private fun WhiteBearTypographyPreview(state: WhiteBearUiState) {
+    WhiteBearPreviewBox(state) {
+        Text(
+            "白い熊 書籍閲覧 — AaBb 012 あ亜",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface
+        )
         Text(
             "Secondary sample text",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun WhiteBearShapePreview(state: WhiteBearUiState) {
+    WhiteBearPreviewBox(state) {
+        Text(
+            String.format(
+                "Corner %d dp · Border %.1f dp",
+                state.cornerRadius.roundToInt(),
+                state.borderWidth
+            ),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         if (state.borderWidth > 0f) {
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 6.dp),
-                thickness = borderWidth,
+                thickness = state.borderWidth.dp,
                 color = MaterialTheme.colorScheme.outline
             )
-        } else {
-            Spacer(Modifier.height(6.dp))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(onClick = {}) { Text("Accent") }
-            OutlinedButton(onClick = {}) { Text("Outline") }
         }
     }
 }
@@ -383,6 +442,34 @@ private fun PageTurnSoundChooser(selected: Int, level: Int, onSelect: (Int) -> U
                     selected = selected == value,
                     onClick = { onSelect(value) },
                     label = { Text(label) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PageTurnAnimationChooser(
+    selected: WhiteBearPageTurnAnimation,
+    level: Int,
+    onSelect: (WhiteBearPageTurnAnimation) -> Unit
+) {
+    Column(modifier = Modifier.padding(start = IndentStep * level, top = 4.dp, bottom = 2.dp)) {
+        Text(
+            "Page-turn animation",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            WhiteBearPageTurnAnimation.entries.forEach { style ->
+                androidx.compose.material3.FilterChip(
+                    selected = selected == style,
+                    onClick = { onSelect(style) },
+                    label = { Text(style.label) }
                 )
             }
         }

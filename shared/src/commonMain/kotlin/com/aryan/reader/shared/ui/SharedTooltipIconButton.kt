@@ -5,6 +5,12 @@ package com.aryan.reader.shared.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PlainTooltip
@@ -24,7 +30,7 @@ import androidx.compose.ui.unit.dp
 
 private val activeSharedTooltipState = mutableStateOf<TooltipState?>(null)
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun SharedTooltipIconButton(
     text: String,
@@ -32,6 +38,8 @@ fun SharedTooltipIconButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     description: String? = null,
+    // shiroikuma fork: optional long-press action on the same button.
+    onLongClick: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     val tooltipState = rememberTooltipState(isPersistent = true)
@@ -92,8 +100,20 @@ fun SharedTooltipIconButton(
         },
         state = tooltipState,
     ) {
-        IconButton(onClick = onClick, modifier = modifier, enabled = enabled) {
-            content()
+        if (onLongClick != null) {
+            Box(
+                modifier = modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .combinedClickable(enabled = enabled, onClick = onClick, onLongClick = onLongClick),
+                contentAlignment = Alignment.Center
+            ) {
+                content()
+            }
+        } else {
+            IconButton(onClick = onClick, modifier = modifier, enabled = enabled) {
+                content()
+            }
         }
     }
 }

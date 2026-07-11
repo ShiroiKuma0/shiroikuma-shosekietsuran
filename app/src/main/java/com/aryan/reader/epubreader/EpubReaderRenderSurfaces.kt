@@ -385,6 +385,9 @@ internal fun EpubReaderRenderSurfaces(
     onUpdateHighlightPaletteFn: (Int, Int) -> Unit,
     runRecapFn: (Int, Int) -> Unit
 ) {
+    // 白い熊 UI: image size 0 is the "original sizes" sentinel for the WebView renderer;
+    // the native renderers have no such mode, so they fall back to the 1.0 default.
+    val wbNativeImageSize = if (format.currentImageSize == 0f) 1f else format.currentImageSize
     var addBookmarkRequest by addBookmarkRequestState
     var bookReplacementPreferences by bookReplacementPreferencesState
     var bookmarks by bookmarksState
@@ -492,7 +495,7 @@ internal fun EpubReaderRenderSurfaces(
                                     fontSizeMultiplier = format.currentFontSizeEm,
                                     lineHeightMultiplier = format.currentLineHeight,
                                     paragraphGapMultiplier = format.currentParagraphGap,
-                                    imageSizeMultiplier = format.currentImageSize,
+                                    imageSizeMultiplier = wbNativeImageSize,
                                     hideImages = prefs.hideImages,
                                     horizontalMarginMultiplier = format.currentHorizontalMargin,
                                     verticalMarginMultiplier = format.currentVerticalMargin,
@@ -1685,7 +1688,7 @@ internal fun EpubReaderRenderSurfaces(
                                 fontSizeMultiplier = format.currentFontSizeEm,
                                 lineHeightMultiplier = format.currentLineHeight,
                                 paragraphGapMultiplier = format.currentParagraphGap,
-                                imageSizeMultiplier = format.currentImageSize,
+                                imageSizeMultiplier = wbNativeImageSize,
                                 hideImages = prefs.hideImages,
                                 horizontalMarginMultiplier = format.currentHorizontalMargin,
                                 verticalMarginMultiplier = format.currentVerticalMargin,

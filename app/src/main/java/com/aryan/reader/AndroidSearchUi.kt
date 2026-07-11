@@ -199,6 +199,8 @@ fun TooltipIconButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     description: String? = null,
+    // 白い熊 UI: optional long-press on the same button.
+    onLongClick: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
     com.aryan.reader.shared.ui.SharedTooltipIconButton(
@@ -207,6 +209,7 @@ fun TooltipIconButton(
         modifier = modifier,
         enabled = enabled,
         description = description,
+        onLongClick = onLongClick,
         content = content,
     )
 }

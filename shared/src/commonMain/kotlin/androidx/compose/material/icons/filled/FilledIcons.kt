@@ -66,6 +66,9 @@ val Icons.Filled.CloudDownload: ImageVector
 val Icons.Filled.Code: ImageVector
     get() = EpistemeFilledIcons.code
 
+val Icons.Filled.CollectionsBookmark: ImageVector
+    get() = EpistemeFilledIcons.collectionsBookmark
+
 val Icons.Filled.ContentCopy: ImageVector
     get() = EpistemeFilledIcons.contentCopy
 
@@ -551,6 +554,21 @@ private object EpistemeFilledIcons {
             autoMirror = false,
             paths = listOf(
                 """M320,720L80,480L320,240L377,297L193,481L376,664L320,720ZM640,720L583,663L767,479L584,296L640,240L880,480L640,720Z"""
+            )
+        )
+    }
+
+    val collectionsBookmark: ImageVector by lazy {
+        materialIcon(
+            name = "CollectionsBookmark",
+            defaultWidth = 24f,
+            defaultHeight = 24f,
+            viewportWidth = 24f,
+            viewportHeight = 24f,
+            autoMirror = false,
+            paths = listOf(
+                """M4,6L2,6L2,20Q2,20.83 2.59,21.41Q3.17,22 4,22L18,22L18,20L4,20L4,6Z""",
+                """M20,2L8,2Q7.17,2 6.59,2.59Q6,3.17 6,4L6,16Q6,16.83 6.59,17.41Q7.17,18 8,18L20,18Q20.83,18 21.41,17.41Q22,16.83 22,16L22,4Q22,3.17 21.41,2.59Q20.83,2 20,2ZM18,10L15.5,8.5L13,10L13,4L18,4L18,10Z"""
             )
         )
     }

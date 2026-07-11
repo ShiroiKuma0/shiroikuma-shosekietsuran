@@ -589,6 +589,47 @@ private fun colorCssForArgb(argb: Int): String {
     return String.format("#%06X", 0xFFFFFF and argb)
 }
 
+/**
+ * 白い熊 UI: hands image bytes to the reader JS as a data: URL. Chapter documents load
+ * from file://, so a canvas painted with their images is tainted and unreadable — the
+ * ornament recolouring reads pixels via this bridge's data: URLs instead. Restricted to
+ * the app's own files/cache directories and small files.
+ */
+@Suppress("unused")
+class WhiteBearImageJsBridge(context: android.content.Context) {
+    private val allowedRoots = listOfNotNull(
+        runCatching { context.filesDir.canonicalPath }.getOrNull(),
+        runCatching { context.cacheDir.canonicalPath }.getOrNull()
+    )
+
+    @JavascriptInterface
+    fun readAsDataUrl(src: String?): String {
+        return try {
+            if (src.isNullOrBlank()) return ""
+            val uri = android.net.Uri.parse(src)
+            if (uri.scheme != "file") return ""
+            val file = java.io.File(uri.path ?: return "")
+            val canonical = file.canonicalPath
+            if (allowedRoots.none { canonical.startsWith("$it/") }) return ""
+            if (!file.isFile || file.length() > 1_000_000L) return ""
+            val mime = when (file.extension.lowercase()) {
+                "png" -> "image/png"
+                "jpg", "jpeg" -> "image/jpeg"
+                "gif" -> "image/gif"
+                "webp" -> "image/webp"
+                else -> return ""
+            }
+            "data:$mime;base64," + android.util.Base64.encodeToString(
+                file.readBytes(),
+                android.util.Base64.NO_WRAP
+            )
+        } catch (e: Exception) {
+            Timber.d(e, "WhiteBearImageBridge failed for $src")
+            ""
+        }
+    }
+}
+
 @Suppress("unused")
 class AiJsBridge(
     private val scope: CoroutineScope, private val onContentReady: suspend (String) -> Unit
@@ -1034,6 +1075,9 @@ fun ChapterWebView(
                             this.post { onInternalLinkClick(href) }
                         }, "LinkNavBridge"
                     )
+
+                    // 白い熊 UI: untainted pixel access for the ornament recolouring.
+                    addJavascriptInterface(WhiteBearImageJsBridge(ctx), "WhiteBearImageBridge")
 
                     webViewClient = object : WebViewClient() {
                         override fun shouldOverrideUrlLoading(

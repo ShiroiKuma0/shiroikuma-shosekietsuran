@@ -59,8 +59,8 @@ fun WhiteBearParallelTabBar(
     onRemove: (String) -> Unit,
     onInfo: (String) -> Unit,
     onAddBook: () -> Unit,
-    splitMode: WhiteBearSplitMode = WhiteBearSplitMode.NONE,
-    onSplitModeChange: (WhiteBearSplitMode) -> Unit = {},
+    layout: WhiteBearParallelLayout = WhiteBearParallelLayout.SINGLE,
+    onLayoutChange: (WhiteBearParallelLayout) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -184,14 +184,15 @@ fun WhiteBearParallelTabBar(
                 }
             }
         }
-        if (tabs.size == 2) {
-            // 白い熊 UI: same-screen split chooser replaces the "+" tab for a two-book set.
+        if (tabs.size >= 2) {
+            // 白い熊 UI: same-screen layout chooser for a 2–3-book set. Layouts needing
+            // more books than the set has are hidden; dividers between panes are draggable.
             var splitMenuOpen by remember { mutableStateOf(false) }
             Box(modifier = Modifier.weight(0.22f)) {
                 Surface(
                     shape = MaterialTheme.shapes.small,
-                    color = if (splitMode != WhiteBearSplitMode.NONE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                    contentColor = if (splitMode != WhiteBearSplitMode.NONE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+                    color = if (layout != WhiteBearParallelLayout.SINGLE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                    contentColor = if (layout != WhiteBearParallelLayout.SINGLE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
                     border = androidx.compose.foundation.BorderStroke(borderDp, MaterialTheme.colorScheme.outline),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -204,7 +205,7 @@ fun WhiteBearParallelTabBar(
                     ) {
                         Icon(
                             androidx.compose.ui.res.painterResource(id = com.aryan.reader.R.drawable.wb_split),
-                            contentDescription = "Split view",
+                            contentDescription = "Reading layout",
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -214,25 +215,23 @@ fun WhiteBearParallelTabBar(
                     onDismissRequest = { splitMenuOpen = false },
                     modifier = Modifier.border(borderDp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.extraSmall)
                 ) {
-                    listOf(
-                        WhiteBearSplitMode.VERTICAL to "Vertical (top / bottom)",
-                        WhiteBearSplitMode.HORIZONTAL to "Horizontal (side by side)",
-                        WhiteBearSplitMode.NONE to "None (one book)"
-                    ).forEach { (mode, label) ->
-                        DropdownMenuItem(
-                            text = { Text(label) },
-                            trailingIcon = if (mode == splitMode) {
-                                { Icon(Icons.Default.Check, contentDescription = null) }
-                            } else null,
-                            onClick = {
-                                splitMenuOpen = false
-                                onSplitModeChange(mode)
-                            }
-                        )
-                    }
+                    WhiteBearParallelLayout.entries
+                        .filter { it.minBooks <= tabs.size }
+                        .forEach { mode ->
+                            DropdownMenuItem(
+                                text = { Text(mode.label) },
+                                trailingIcon = if (mode == layout) {
+                                    { Icon(Icons.Default.Check, contentDescription = null) }
+                                } else null,
+                                onClick = {
+                                    splitMenuOpen = false
+                                    onLayoutChange(mode)
+                                }
+                            )
+                        }
                 }
             }
-        } else if (tabs.size < 2) {
+        } else {
             Surface(
                 shape = MaterialTheme.shapes.small,
                 color = MaterialTheme.colorScheme.surface,
