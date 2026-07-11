@@ -2,6 +2,54 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.51+61
+
+Base: Episteme Android v1.0.51 (oss).
+
+### Annotation library
+
+- New "Annotations" screen — bookmark-collection icon in the Home and Library top bars: every text highlight (with its note) from every book in one place, aggregated live from the existing stores (EPUB highlights from the database, PDF highlights from their sidecar files). New annotations appear automatically; there is no separate index to drift.
+- Collapsible groups with three switchable modes: by book (with cover thumbnail), by tag, by color — each header folds and shows its count.
+- Live search across highlighted text, notes, tags, book titles and locations; tapping a tag chip filters by it.
+- Free-form tags per annotation: chip editor with removable chips, a new-tag field and suggestions from all existing tags; stored in a fork-owned JSON file (rebase-clean, and the natural payload for a future annotation import/export).
+- Entries render study-style: color bar, the text in its highlight color and style (background, underline, strikethrough), the note in italics, book · location caption.
+- Tap an annotation → the book opens at that spot (EPUB by CFI, PDF at the page).
+- `CollectionsBookmark` glyph added to the local icon pack.
+
+### Parallel reading layouts
+
+- Layout chooser in the parallel tab bar for **any** 2–3-book set (previously only two-book sets had a split control): one book at a time; two side by side / stacked; three side by side / stacked; one left + two stacked right; two stacked left + one right; one top + two side-by-side bottom; two side-by-side top + one bottom.
+- The split container hosts up to three panes (primary + two companion panes).
+- **Draggable dividers** with centered grab handles between all panes; both split ratios persist across sessions.
+- The chosen layout persists and degrades gracefully when the set shrinks (three-pane layouts fall back to the matching two-pane one, then to single); the legacy two-book split preference is migrated.
+- Library cover menu: new "Start new parallel reading" (drops the old set and starts fresh with that book) alongside "Add to parallel reading".
+
+### Page-turn animations
+
+- Five styles, set in 白い熊 UI → Page turning: **None** (instant), **Slide** (smooth scroll), **Fade**, **Flip** (the page folds over the spine), **Curl** — a deluxe corner peel: a crease sweeps diagonally from the corner, the part past it folds over showing the paper's mirrored, washed-out backside, with a drop shadow on the revealed page and shading along the crease. Curl is the default.
+- The backside color derives from the page itself — near-white paper on light themes, lifted dark grey on dark themes.
+- Animation speed slider: 150–1500 ms in 50 ms steps.
+- Animated in-settings preview: a black page with yellow border and yellow text lines turning on a loop with the selected style and speed.
+- Works in yokogaki and tategaki; split-layout companion panes follow with smooth-scroll turns whenever an animation style is active.
+
+### Whole-line pages
+
+- A text line (yokogaki) or column (tategaki) that would be cut at the page's end edge is hidden — painted over in the page's own background color — and becomes the first line of the next page; the page turn advances exactly to it, so turns always flip whole lines.
+- The mask drops during free scrolling and re-evaluates when the view settles; oversized blocks (images, tables) are never masked; the final view of a chapter stays intact.
+- Partial page turns at chapter boundaries always smooth-scroll the remainder, giving the eye a cue where the text continues (no more hunting after a short flip).
+- Tight line spacing fixed: with line height < 1.0, the previous line's descenders no longer peek above the first line (the top-line snap compensates the ink seepage), and the bottom mask anchors on the line box so the last visible line keeps its descenders.
+
+### Images
+
+- Small ornament images (both dimensions ≤ 96 px — separator stars and similar) are exempt from the reader's forced full-width sizing: the book's own CSS or the natural size applies. Fixes tiny separators being blown up into page-wide blurs that read as walls of whitespace.
+- All-black ornaments are repainted accent yellow on dark backgrounds — pixel-exact with the alpha channel preserved, so anti-aliased edges stay smooth — and swap back to the original on light themes. Colored ornaments and photographs are never touched. Pixel access goes through a restricted bridge returning data: URLs (chapter documents load from file://, which taints a canvas), locked to the app's own directories and small files.
+- New "Original image sizes (no resizing)" switch in the reader's format sheet, next to the Image size slider; persists through the existing per-book/global format machinery.
+
+### UI & settings
+
+- 白い熊 UI settings restructured: per-section previews (Colors, Typography, Shape & borders) replace the single preview card at the top, and the Page turning section gained the animation chooser, speed slider and live page preview.
+- Long-press the reader's top-right ⋮ opens the 白い熊 UI settings directly, mirroring the home screen's cog long-press.
+
 ## 1.0.51+51
 
 First published release. Base: Episteme Android v1.0.51 (oss).
