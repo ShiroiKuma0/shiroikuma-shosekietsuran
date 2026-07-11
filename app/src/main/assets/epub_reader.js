@@ -1487,6 +1487,10 @@
 
     (function () {
         var maskTimer = null;
+        var scheduleMaskUpdate = function (delay) {
+            if (maskTimer) clearTimeout(maskTimer);
+            maskTimer = setTimeout(function () { window.whiteBearUpdateBottomMask(); }, delay);
+        };
         window.addEventListener("scroll", function () {
             // A user-initiated scroll flows lines naturally: drop the mask at once and
             // re-evaluate when the view settles. Programmatic page turns keep it stable.
@@ -1495,9 +1499,22 @@
                 if (mask) mask.style.display = "none";
                 window.whiteBearBottomCutPx = 0;
             }
-            if (maskTimer) clearTimeout(maskTimer);
-            maskTimer = setTimeout(function () { window.whiteBearUpdateBottomMask(); }, 240);
+            scheduleMaskUpdate(240);
         }, { passive: true });
+        // A fresh chapter reflows several times after load (style injection, custom
+        // fonts, chunked content, images) with no scroll event — re-evaluate the mask
+        // whenever the document's size settles, so the first view is masked too.
+        if (window.ResizeObserver) {
+            try {
+                var observer = new ResizeObserver(function () { scheduleMaskUpdate(180); });
+                observer.observe(document.documentElement);
+                if (document.body) observer.observe(document.body);
+            } catch (e) { /* mask still updates on scrolls and turns */ }
+        }
+        // Font swaps change line metrics without necessarily resizing the document.
+        if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
+            document.fonts.ready.then(function () { scheduleMaskUpdate(80); });
+        }
     })();
 
     // 白い熊 UI: full-viewport page turn. direction +1 = next page (down), -1 = previous
@@ -1873,6 +1890,11 @@
             window.triggerInitialScrollStateReport();
         } else if (window.reportScrollState) {
             setTimeout(window.reportScrollState, 60);
+        }
+        // 白い熊 UI: styles just reflowed the text without any scroll event — the
+        // bottom-line mask must be re-evaluated against the new line positions.
+        if (window.whiteBearUpdateBottomMask) {
+            setTimeout(window.whiteBearUpdateBottomMask, 160);
         }
         return true;
     };
