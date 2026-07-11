@@ -2,6 +2,15 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.51+64
+
+Base: Episteme Android v1.0.51 (oss).
+
+### Fixes
+
+- Library search on large libraries no longer mangles typed input. Every keystroke used to round-trip through the view model — whose cache key includes the query, forcing a full re-projection of the library per letter — and the stale state echo was written back into the text field, resetting text and cursor. That destroyed the IME composition, so autocorrect committed after every character; with thousands of books this fired on every letter. The search field is now the single source of truth while search is open (nothing is ever written back into it), and the query reaches the view model debounced — 220 ms after typing pauses, distinct values only — so the heavy filtering runs once per pause instead of once per letter. The clear button clears both the field and the query immediately.
+- The per-book cover menu's three yellow dots carry a black outline (the glyph drawn underneath in black, offset 1.2 dp in eight directions), so they no longer blend into yellow, white, or busy cover art.
+
 ## 1.0.51+62
 
 Base: Episteme Android v1.0.51 (oss).
