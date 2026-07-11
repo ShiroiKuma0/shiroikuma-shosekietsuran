@@ -1569,7 +1569,8 @@ private fun WhiteBearBookCoverMenu(
     val wbContext = LocalContext.current
     val wbFrame = remember { com.aryan.reader.whitebear.WhiteBearUiState.get(wbContext) }
     Box(modifier = modifier) {
-        // Bare three yellow dots — no pill behind them.
+        // Bare three yellow dots — no pill behind them. A black outline (offset copies
+        // of the glyph drawn underneath) keeps them visible on yellow and white covers.
         Box(
             modifier = Modifier
                 .size(32.dp)
@@ -1577,6 +1578,20 @@ private fun WhiteBearBookCoverMenu(
                 .clickable { open = true },
             contentAlignment = Alignment.Center
         ) {
+            val wbOutline = 1.2.dp
+            listOf(
+                -wbOutline to -wbOutline, wbOutline to -wbOutline,
+                -wbOutline to wbOutline, wbOutline to wbOutline,
+                0.dp to -wbOutline, 0.dp to wbOutline,
+                -wbOutline to 0.dp, wbOutline to 0.dp
+            ).forEach { (dx, dy) ->
+                Icon(
+                    Icons.Default.MoreVert,
+                    contentDescription = null,
+                    tint = Color.Black,
+                    modifier = Modifier.offset(x = dx, y = dy)
+                )
+            }
             Icon(
                 Icons.Default.MoreVert,
                 contentDescription = "Book actions",
