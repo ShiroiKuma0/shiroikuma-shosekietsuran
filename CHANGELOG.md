@@ -2,6 +2,14 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.51+62
+
+Base: Episteme Android v1.0.51 (oss).
+
+### Fixes
+
+- Whole-line pages: the bottom-line mask is now re-evaluated whenever the chapter's layout settles, instead of once shortly after page load. Previously the one-shot computation raced the style injection, custom fonts, chunked content and images that reflow a fresh chapter, so the **first view of a new chapter** could keep an unmasked partial bottom line. A ResizeObserver on the document re-runs the mask when the layout stops changing, every style reflow (font size, line height, margins) schedules a recompute — which also fixes stale masks after mid-page format changes, which fire no scroll event — and `document.fonts.ready` triggers one more pass for font swaps that change line metrics without resizing the document.
+
 ## 1.0.51+61
 
 Base: Episteme Android v1.0.51 (oss).
