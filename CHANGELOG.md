@@ -2,6 +2,24 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.52+1
+
+Base: Episteme Android v1.0.52 (oss) — **new upstream base**; the entire fork layer rebased onto it.
+
+### Upstream 1.0.52 brings
+
+- An optional, redesigned library view; sorting by newest/oldest; shelf-sync and sorting fixes.
+- Markdown files split into chapters by headings; more reliable EPUB table-of-contents links; improved image sizing, wide-content handling, tables and complex layouts; a touchpad-scrolling fix.
+- Fixes: PDF reading-position restore, Arabic text selection in paginated mode, files opened from outside the app, PDF-reader keyboard spacing, TTS playback/stop/navigation reliability, and general stability.
+- Build system moved to AGP 9.0, with reproducible-build work for F-Droid.
+
+### Fork-side changes in this release
+
+- Ported the fork's APK-naming off the `applicationVariants` API that AGP 9.0 removed — the `buildApk` task now solely owns the `shiroikuma-shosekietsuran_<version>_arm64-v8a.apk` naming.
+- Kept the fork's debounced library search on top of upstream's new local-field-state fix (upstream still pushes the query every keystroke; ours fires 220 ms after typing pauses).
+- Kept the fork's reader image sizing (slider-driven width with the natural-size ornament exemption), which supersedes upstream's milder width-cap change.
+- All customizations verified intact after the rebase: branding, theming, tategaki, parallel reading, gestures, annotation library, metadata round-trip, library remake, versioning and signing.
+
 ## 1.0.51+64
 
 Base: Episteme Android v1.0.51 (oss).
