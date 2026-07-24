@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -38,6 +39,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -45,16 +47,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.text.font.Font
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.aryan.reader.AppFontPreference
 import com.aryan.reader.AppFontPreferenceKind
 import com.aryan.reader.CustomTopAppBar
@@ -77,12 +81,23 @@ fun WhiteBearUiScreen(
     val context = LocalContext.current
     val state = remember { WhiteBearUiState.get(context) }
     val gestureState = remember { WhiteBearGestureState.get(context) }
+    val libraryState = remember { WhiteBearLibraryState.get(context) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val customFonts by viewModel.customFonts.collectAsStateWithLifecycle()
 
     var pickerSlot by remember { mutableStateOf<WhiteBearSlot?>(null) }
     var pickerOriginal by remember { mutableIntStateOf(0) }
     var showResetDialog by remember { mutableStateOf(false) }
+
+    // Export/Import: the export directory is queried for the latest export when the page
+    // opens, and again whenever the panel closes (a fresh export changes the answer).
+    var showExim by remember { mutableStateOf(false) }
+    var eximStatus by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+    LaunchedEffect(showExim) {
+        if (!showExim) {
+            eximStatus = withContext(Dispatchers.IO) { WhiteBearExport.lastExportStatus(context) }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -104,6 +119,9 @@ fun WhiteBearUiScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(start = 16.dp, end = 16.dp, bottom = 32.dp)
         ) {
+            SectionHeader("Export / Import", first = true)
+            EximEntryRow(status = eximStatus) { showExim = true }
+
             SectionHeader("General")
             SwitchRow(
                 label = "Use 白い熊 UI",
@@ -190,6 +208,41 @@ fun WhiteBearUiScreen(
             )
             WhiteBearShapePreview(state)
 
+            SectionHeader("Library view")
+            SwitchRow(
+                label = "Grid layout (covers)",
+                checked = libraryState.gridLayout,
+                level = 1,
+                onToggle = { libraryState.updateGridLayout(it) }
+            )
+            SliderRow(
+                label = "Thumbnail height",
+                value = libraryState.thumbnailHeight,
+                valueText = "${libraryState.thumbnailHeight.toInt()} dp",
+                range = 100f..320f,
+                steps = 21,
+                level = 1,
+                onChange = { libraryState.updateThumbnailHeight(it) }
+            )
+            SliderRow(
+                label = "Title size",
+                value = libraryState.titleFontSize,
+                valueText = "${libraryState.titleFontSize.toInt()} sp",
+                range = 9f..24f,
+                steps = 14,
+                level = 1,
+                onChange = { libraryState.updateTitleFontSize(it) }
+            )
+            SliderRow(
+                label = "Author size",
+                value = libraryState.authorFontSize,
+                valueText = "${libraryState.authorFontSize.toInt()} sp",
+                range = 8f..20f,
+                steps = 11,
+                level = 1,
+                onChange = { libraryState.updateAuthorFontSize(it) }
+            )
+
             SectionHeader("Tap and swipe (reader)")
             SwitchRow(
                 label = "Enable reading gestures",
@@ -261,7 +314,44 @@ fun WhiteBearUiScreen(
                 level = 2,
                 onToggle = { gestureState.updateLeftSwipeBrightness(it) }
             )
+
+            SectionHeader("Split reading")
+            SliderRow(
+                label = "Companion pane font scale",
+                value = gestureState.companionFontScale,
+                valueText = String.format("×%.2f", gestureState.companionFontScale),
+                range = 0.5f..3.0f,
+                steps = 24,
+                level = 1,
+                onChange = { gestureState.updateCompanionFontScale(it) }
+            )
+
+            SectionHeader("Writing 縦書き")
+            var rubySpace by remember { mutableStateOf(WhiteBearWritingMode.loadRubySpace(context)) }
+            SwitchRow(
+                label = "Extra column spacing for ruby ルビ lines",
+                checked = rubySpace,
+                level = 1,
+                onToggle = {
+                    rubySpace = it
+                    WhiteBearWritingMode.saveRubySpace(context, it)
+                }
+            )
+            GestureHelpText(
+                "Per-book writing direction (auto / vertical / horizontal) is set from the reader menu.",
+                level = 1
+            )
         }
+    }
+
+    if (showExim) {
+        WhiteBearExportImportSheet(
+            onDismiss = { showExim = false },
+            onFinished = {
+                showExim = false
+                onBackClick()
+            }
+        )
     }
 
     pickerSlot?.let { slot ->
@@ -391,16 +481,29 @@ private fun WhiteBearShapePreview(state: WhiteBearUiState) {
     }
 }
 
+/**
+ * kxkb-style section header: a thin full-width hairline separating it from the previous
+ * section (omitted on the first), then a 20 sp bold accent title with a 2 dp underline
+ * exactly as wide as the text.
+ */
 @Composable
-private fun SectionHeader(text: String) {
-    Column(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 6.dp)) {
+private fun SectionHeader(text: String, first: Boolean = false) {
+    if (!first) {
+        HorizontalDivider(
+            modifier = Modifier.padding(top = 20.dp),
+            thickness = 1.dp,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.35f)
+        )
+    }
+    Column(Modifier.width(IntrinsicSize.Max).padding(top = 16.dp, bottom = 6.dp)) {
         Text(
             text,
-            style = MaterialTheme.typography.titleLarge,
+            fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1
         )
-        Spacer(Modifier.height(3.dp))
+        Spacer(Modifier.height(4.dp))
         Box(
             Modifier
                 .fillMaxWidth()
@@ -410,16 +513,60 @@ private fun SectionHeader(text: String) {
     }
 }
 
+/** kxkb-style subgroup header: 16 sp medium accent title, 1.5 dp text-wide underline. */
 @Composable
 private fun SubHeader(text: String, level: Int) {
-    Text(
-        text,
-        style = MaterialTheme.typography.titleSmall,
-        fontWeight = FontWeight.Bold,
-        textDecoration = TextDecoration.Underline,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = IndentStep * level, top = 8.dp, bottom = 2.dp)
-    )
+    Column(
+        Modifier
+            .padding(start = IndentStep * level, top = 10.dp, bottom = 2.dp)
+            .width(IntrinsicSize.Max)
+    ) {
+        Text(
+            text,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1
+        )
+        Spacer(Modifier.height(2.dp))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(1.5.dp)
+                .background(MaterialTheme.colorScheme.primary)
+        )
+    }
+}
+
+/**
+ * The Export/Import entry row under the page's first heading — title, description, and
+ * the last-export line for the persisted export directory (red when unset or empty).
+ */
+@Composable
+private fun EximEntryRow(status: Pair<String, Boolean>?, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(start = IndentStep, top = 10.dp, bottom = 10.dp)
+    ) {
+        Text("Export / Import", style = MaterialTheme.typography.bodyLarge)
+        Text(
+            "Export or import every setting in the app by category.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+            modifier = Modifier.padding(top = 3.dp)
+        )
+        status?.let { (message, warn) ->
+            Text(
+                message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (warn) Color(0xFFFF5252)
+                        else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
+                modifier = Modifier.padding(top = 3.dp)
+            )
+        }
+    }
 }
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
