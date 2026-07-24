@@ -27,9 +27,12 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.clickable
@@ -37,6 +40,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -58,7 +62,9 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
@@ -119,6 +125,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -134,8 +141,10 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -147,8 +156,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -1130,26 +1141,36 @@ fun LibraryScreenContent(
                     wbVisibleFiles.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text("No books match the author/tag filter.")
                     }
-                    wbLibraryState.gridLayout -> LazyVerticalGrid(
-                        columns = GridCells.Adaptive(
-                            minSize = (wbLibraryState.thumbnailHeight * 0.7f).dp.coerceAtLeast(72.dp)
-                        ),
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
-                        gridItems(wbVisibleFiles, key = { it.bookId }) { item ->
-                            WhiteBearLibraryGridItem(
-                                item = item,
-                                isSelected = item.bookId in selectedBookIds,
-                                thumbnailHeightDp = wbLibraryState.thumbnailHeight,
-                                titleFontSp = wbLibraryState.titleFontSize,
-                                authorFontSp = wbLibraryState.authorFontSize,
-                                onItemClick = { onItemClick(item) },
-                                onItemLongClick = { onItemLongClick(item) },
-                                usePdfFileNameAsDisplayName = usePdfFileNameAsDisplayName,
-                                menuActions = bookMenuActions,
+                    wbLibraryState.gridLayout -> {
+                        val wbGridState = rememberLazyGridState()
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            LazyVerticalGrid(
+                                columns = GridCells.Adaptive(
+                                    minSize = (wbLibraryState.thumbnailHeight * 0.7f).dp.coerceAtLeast(72.dp)
+                                ),
+                                state = wbGridState,
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                            ) {
+                                gridItems(wbVisibleFiles, key = { it.bookId }) { item ->
+                                    WhiteBearLibraryGridItem(
+                                        item = item,
+                                        isSelected = item.bookId in selectedBookIds,
+                                        thumbnailHeightDp = wbLibraryState.thumbnailHeight,
+                                        titleFontSp = wbLibraryState.titleFontSize,
+                                        authorFontSp = wbLibraryState.authorFontSize,
+                                        onItemClick = { onItemClick(item) },
+                                        onItemLongClick = { onItemLongClick(item) },
+                                        usePdfFileNameAsDisplayName = usePdfFileNameAsDisplayName,
+                                        menuActions = bookMenuActions,
+                                    )
+                                }
+                            }
+                            WhiteBearFastScrollbar(
+                                gridState = wbGridState,
+                                modifier = Modifier.align(Alignment.TopEnd)
                             )
                         }
                     }
@@ -1557,6 +1578,126 @@ data class WhiteBearBookMenuActions(
     val onStartParallel: (RecentFileItem) -> Unit,
     val onDelete: (RecentFileItem) -> Unit
 )
+
+/**
+ * 白い熊 UI: black-yellow fast scroller over the right edge of the library grid —
+ * a full-height black track column with a thick yellow, black-outlined thumb.
+ * It appears while the grid scrolls, stays while touched, and fades out shortly
+ * after. The whole track is interactive: tap anywhere on the black column to jump
+ * straight to that point of the library, or grab (anywhere) and drag to scrub —
+ * the track maps linearly onto all items. The track ends above the FAB corner so
+ * the bottom of the bar is never buried under the “+” button.
+ */
+@Composable
+private fun WhiteBearFastScrollbar(
+    gridState: LazyGridState,
+    modifier: Modifier = Modifier
+) {
+    val scope = rememberCoroutineScope()
+    var isDragging by remember { mutableStateOf(false) }
+
+    val scrollable by remember {
+        derivedStateOf {
+            val info = gridState.layoutInfo
+            info.totalItemsCount > info.visibleItemsInfo.size
+        }
+    }
+    // Fraction of the way through the library, by item index — coarse but plenty
+    // smooth at thousands of items.
+    val scrollFraction by remember {
+        derivedStateOf {
+            val info = gridState.layoutInfo
+            val denominator = (info.totalItemsCount - info.visibleItemsInfo.size).coerceAtLeast(1)
+            (gridState.firstVisibleItemIndex.toFloat() / denominator).coerceIn(0f, 1f)
+        }
+    }
+
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(gridState.isScrollInProgress, isDragging, scrollable) {
+        if ((gridState.isScrollInProgress || isDragging) && scrollable) {
+            visible = true
+        } else if (visible) {
+            delay(2000)
+            visible = false
+        }
+    }
+    val barAlpha by animateFloatAsState(if (visible) 1f else 0f, label = "wbFastScrollAlpha")
+    if (barAlpha == 0f) return
+
+    // Bottom inset keeps the track clear of the “+” FAB corner; the track's bottom
+    // still means “end of the library”, so the last books stay one tap away.
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxHeight()
+            .padding(top = 8.dp, bottom = 96.dp, end = 2.dp)
+            .width(40.dp)
+    ) {
+        val density = LocalDensity.current
+        val thumbHeight = 88.dp
+        val trackPx = with(density) { maxHeight.toPx() }
+        val thumbPx = with(density) { thumbHeight.toPx() }
+        val maxOffsetPx = (trackPx - thumbPx).coerceAtLeast(0f)
+        var dragOffsetPx by remember { mutableStateOf(0f) }
+        val thumbOffsetPx = if (isDragging) dragOffsetPx else scrollFraction * maxOffsetPx
+
+        fun scrollToOffset(offsetPx: Float) {
+            dragOffsetPx = offsetPx.coerceIn(0f, maxOffsetPx)
+            val fraction = if (maxOffsetPx > 0f) dragOffsetPx / maxOffsetPx else 0f
+            val lastIndex = gridState.layoutInfo.totalItemsCount - 1
+            if (lastIndex >= 0) {
+                val target = (fraction * lastIndex).roundToInt().coerceIn(0, lastIndex)
+                scope.launch { gridState.scrollToItem(target) }
+            }
+        }
+
+        // The black track: tap to jump, or drag from anywhere on it to scrub.
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(40.dp)
+                .graphicsLayer { alpha = barAlpha }
+                .background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(12.dp))
+                .pointerInput(maxOffsetPx) {
+                    detectTapGestures { tap -> scrollToOffset(tap.y - thumbPx / 2f) }
+                }
+                .pointerInput(maxOffsetPx) {
+                    detectVerticalDragGestures(
+                        onDragStart = { start ->
+                            isDragging = true
+                            scrollToOffset(start.y - thumbPx / 2f)
+                        },
+                        onDragEnd = { isDragging = false },
+                        onDragCancel = { isDragging = false },
+                        onVerticalDrag = { change, dragAmount ->
+                            change.consume()
+                            scrollToOffset(dragOffsetPx + dragAmount)
+                        }
+                    )
+                }
+        )
+        // The yellow thumb rides on the track; touches pass through to the track.
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(0, thumbOffsetPx.roundToInt()) }
+                .size(width = 40.dp, height = thumbHeight)
+                .graphicsLayer { alpha = barAlpha }
+                .background(Color(0xFFFFD600), RoundedCornerShape(12.dp))
+                .border(3.dp, Color.Black, RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            // Grip: three short black bars, so the thumb reads as grabbable.
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                repeat(3) {
+                    Box(
+                        modifier = Modifier
+                            .size(width = 20.dp, height = 3.dp)
+                            .background(Color.Black, RoundedCornerShape(2.dp))
+                    )
+                }
+            }
+        }
+    }
+}
 
 /** Yellow hamburger in the cover's bottom-left corner with the per-book action menu. */
 @Composable
