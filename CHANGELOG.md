@@ -2,6 +2,31 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.52+6
+
+Base: Episteme Android v1.0.52 (oss).
+
+### Export / Import of every setting
+
+- The 白い熊 UI page opens with a new first section, **Export / Import**. Its entry row shows the date of the latest export, queried from the persisted export directory whenever the page opens.
+- The panel (a full-height sheet holding a 2 dp yellow-bordered box) carries: a **settable export directory** — a tappable bordered box opening the system folder picker, persisted with a durable permission so it survives reboots, red "Not set" until chosen; the last-export line; and a **category checklist** with Select all.
+- Six categories cover everything settable in the app: 白い熊 UI (colors, fonts, shapes), 白い熊 gestures & page turning, 白い熊 library view, 白い熊 writing 縦書き, app settings (theme, font, behavior), reader settings (EPUB, PDF, TTS, annotation defaults).
+- The export is a ZIP of plain per-category JSON files plus a manifest (format, version, categories). Whole preference stores serialize generically and type-tagged, so any keyset round-trips; device-local keys (installation id, sync timestamps, open tabs, per-device caches) never travel.
+- One-tap export writes `shiroikuma-shosekietsuran-<version>-export_<timestamp>.zip` straight into the set directory; without a directory it falls back to a save-as dialog.
+- Import picks a ZIP, merges key by key (never clears), skips categories absent from the file, reports a per-category count, and offers **Restart now / Later** so every imported setting takes effect.
+- The result dialog is yellow-bordered; acknowledging a successful export or import closes the dialog, the panel, and the UI page in one go. Failures leave the panel open for a retry.
+
+### UI page — kxkb look, all settings in one place
+
+- Section headings restyled to the kxkb convention: 20 sp bold yellow, underlined **only as wide as the text** (2 dp); sub-headings 16 sp medium with a 1.5 dp text-wide underline; sections separated by thin 1 dp hairlines (none above the first).
+- The page now gathers the previously scattered fork settables: a **Library view** section (grid/list toggle, thumbnail height, title and author sizes), **Split reading** (companion pane font scale), and **Writing 縦書き** (ruby line spacing toggle).
+
+### Library grid fast scroller
+
+- A black-and-yellow fast scroller floats over the grid's right edge — over the rightmost covers, no layout shift: a full-height 40 dp black track column with a thick yellow, black-outlined 88 dp thumb (grip bars included). It fades in while the grid scrolls and out 2 s after it stops.
+- The whole track is interactive, not just the thumb: tap anywhere on the column to jump straight to that point of the library, or grab any spot and drag — the thumb snaps under the finger and the track maps linearly onto all items, so a 9000-book library is one screen-height swipe end to end.
+- The bar ends 96 dp above the bottom edge so it never slides under the add-file button; its bottom still means end-of-library.
+
 ## 1.0.52+1
 
 Base: Episteme Android v1.0.52 (oss) — **new upstream base**; the entire fork layer rebased onto it.
