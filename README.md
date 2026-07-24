@@ -6,11 +6,11 @@
 
 **A black-and-yellow e-book reader that reads Japanese the way Japan prints it.**
 
-A fork of [Episteme](https://github.com/Aryan-Raj3112/episteme) with **major additions**: tategaki 縦書き vertical-text rendering, parallel reading of up to three books in nine screen layouts, a cross-book annotation library, page-turn animations with a real paper curl, whole-line page views, a fully themeable black×yellow UI, tap/swipe reading gestures with page-turn sound, a remade library, and metadata that writes back into the book files.
+A fork of [Episteme](https://github.com/Aryan-Raj3112/episteme) with **major additions**: tategaki 縦書き vertical-text rendering, parallel reading of up to three books in nine screen layouts, a cross-book annotation library, page-turn animations with a real paper curl, whole-line page views, a fully themeable black×yellow UI, one-tap export/import of every setting, tap/swipe reading gestures with page-turn sound, a remade library with a grab-anywhere fast scroller, and metadata that writes back into the book files.
 
 Installs **side-by-side** with Episteme (app id `shiroikuma.shosekietsuran`).
 
-**📥 Latest release: [`1.0.52+1`](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases/latest)** — [all releases & APK downloads »](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases)
+**📥 Latest release: [`1.0.52+6`](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases/latest)** — [all releases & APK downloads »](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases)
 
 </div>
 
@@ -29,13 +29,16 @@ One screen gathers every text highlight and note from every book, live — nothi
 Five page-turn styles — instant, slide, fade, flip over the spine, and a deluxe **page curl** that folds the paper over a sweeping crease, showing the washed-out backside with true fold shadows — with a speed slider (150–1500 ms) and a live animated preview in the settings. Pages end on whole lines: a line that would be cut at the bottom (or a tategaki column at the left edge) is hidden and leads the next page instead, and short flips at chapter ends smooth-scroll the remainder so your eyes never lose the text. Tiny ornament images keep their intended size (no more page-wide blurs), and all-black separator glyphs repaint themselves yellow on dark pages.
 
 ## 🐻 白い熊 UI — black and yellow, all the way down
-Pure-black surfaces, pure-yellow text, accents and borders — and every one of those colors adjustable from a dedicated settings page with RGBA pickers, recent-color memory and live preview. Typography scale and weight, corner roundness, and border thickness are sliders; the yellow frame follows you into every dialog, sheet, menu and banner in the app.
+Pure-black surfaces, pure-yellow text, accents and borders — and every one of those colors adjustable from a dedicated settings page with RGBA pickers, recent-color memory and live preview. Typography scale and weight, corner roundness, and border thickness are sliders; the yellow frame follows you into every dialog, sheet, menu and banner in the app. The page gathers **every fork setting in one place** — UI, gestures, library view, split reading, 縦書き — under text-wide underlined headings.
+
+## 💾 Export / Import — every setting, one tap
+The UI page opens with an Export/Import panel: pick an export directory once, and one tap writes a timestamped ZIP of every setting in the app — six categories of plain JSON (白い熊 UI, gestures & page turning, library view, writing 縦書き, app settings, reader settings), selectable by checkbox. The page greets you with the date of the latest export in that directory; import merges category by category and offers an in-place restart.
 
 ## 👆 Reading gestures — tap zones, swipe control, page-turn sound
 Side-third taps turn real pages in every render mode (instant full-viewport jumps that snap the top line whole and cross chapter boundaries); a right-third vertical swipe steps font size and a left-third swipe steps screen brightness, with a live on-page readout; page turns click with a choice of five bundled sounds. Every gesture has its own toggle.
 
 ## 🗄️ Library, remade
-A grid layout with live-adjustable thumbnail, title and author sizes; author and tag pull-down filters (with search-as-you-type and first/last-name sorting); a three-dot menu on every cover for parallel reading, file info, tags, sharing and deletion; and deletion that actually deletes — folder-synced files included — confirmed by a yellow-framed dialog and an instant library update.
+A grid layout with live-adjustable thumbnail, title and author sizes; author and tag pull-down filters (with search-as-you-type and first/last-name sorting); a three-dot menu on every cover for parallel reading, file info, tags, sharing and deletion; and deletion that actually deletes — folder-synced files included — confirmed by a yellow-framed dialog and an instant library update. A thick black-and-yellow **fast scroller** floats over the grid's right edge: tap anywhere on its track to jump, or grab the fat yellow thumb and sweep a 9000-book library end to end in one swipe.
 
 ## 🏷️ Metadata that round-trips into your files
 Embedded subjects (EPUB `dc:subject`, MOBI EXTH, FB2 genres, PDF Keywords) become library tags on import, and tag edits write back into the files — EPUB OPF rewriting and PDF info-dictionary editing included. Publication date, publisher, language, rating and ISBN are read live from the file; author, title, summary and date are editable for EPUBs and PDFs alike.
