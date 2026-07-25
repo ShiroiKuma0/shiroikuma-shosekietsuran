@@ -6,11 +6,11 @@
 
 **A black-and-yellow e-book reader that reads Japanese the way Japan prints it.**
 
-A fork of [Episteme](https://github.com/Aryan-Raj3112/episteme) with **major additions**: tategaki 縦書き vertical-text rendering, parallel reading of up to three books in nine screen layouts, a cross-book annotation library, page-turn animations with a real paper curl, whole-line page views, a fully themeable black×yellow UI, one-tap export/import of every setting, tap/swipe reading gestures with page-turn sound, a remade library with a grab-anywhere fast scroller, and metadata that writes back into the book files.
+A fork of [Episteme](https://github.com/Aryan-Raj3112/episteme) with **major additions**: tategaki 縦書き vertical-text rendering, parallel reading of up to three books in nine screen layouts, a cross-book annotation library, page-turn animations with a real paper curl, whole-line page views, a fully themeable black×yellow UI, one-ZIP backup of the whole library and every setting (headless automation included), tap/swipe reading gestures with page-turn sound, a remade library with a grab-anywhere fast scroller, and metadata that writes back into the book files.
 
 Installs **side-by-side** with Episteme (app id `shiroikuma.shosekietsuran`).
 
-**📥 Latest release: [`1.0.52+6`](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases/latest)** — [all releases & APK downloads »](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases)
+**📥 Latest release: [`1.0.52+7`](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases/latest)** — [all releases & APK downloads »](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases)
 
 </div>
 
@@ -31,8 +31,10 @@ Five page-turn styles — instant, slide, fade, flip over the spine, and a delux
 ## 🐻 白い熊 UI — black and yellow, all the way down
 Pure-black surfaces, pure-yellow text, accents and borders — and every one of those colors adjustable from a dedicated settings page with RGBA pickers, recent-color memory and live preview. Typography scale and weight, corner roundness, and border thickness are sliders; the yellow frame follows you into every dialog, sheet, menu and banner in the app. The page gathers **every fork setting in one place** — UI, gestures, library view, split reading, 縦書き — under text-wide underlined headings.
 
-## 💾 Export / Import — every setting, one tap
-The UI page opens with an Export/Import panel: pick an export directory once, and one tap writes a timestamped ZIP of every setting in the app — six categories of plain JSON (白い熊 UI, gestures & page turning, library view, writing 縦書き, app settings, reader settings), selectable by checkbox. The page greets you with the date of the latest export in that directory; import merges category by category and offers an in-place restart.
+## 💾 Backup — the whole app in one ZIP, by hand or unattended
+The UI page opens with an Export/Import panel: pick a directory once, and one tap writes a timestamped `shiroikuma-shosekietsuran_<date>.zip` holding **everything** — the six settings categories (白い熊 UI, gestures & page turning, library view, writing 縦書き, app settings, reader settings) and the library itself: every book with its reading position, bookmarks and highlights, plus shelves & tags, annotation sidecars, covers and custom fonts, each selectable by checkbox with sub-options indented under their parent. Settings serialize generically and type-tagged, tables as JSON lines; import merges key by key and row by row (never clears), drops columns a newer schema no longer has, skips what the ZIP doesn't carry, and offers an in-place restart.
+
+That same export runs **headlessly on request**: turn on the automation switch in that section and the app answers a token-gated broadcast from a sister-app task — 白い熊's 自由作業盤 backs up every app in one batch — writing one ZIP wherever the batch says, reporting live counts (`書籍 1234/8942`) as it goes and replying with the path and byte size. The token is copied from the settings row with a tap, regenerable, and never travels inside a backup.
 
 ## 👆 Reading gestures — tap zones, swipe control, page-turn sound
 Side-third taps turn real pages in every render mode (instant full-viewport jumps that snap the top line whole and cross chapter boundaries); a right-third vertical swipe steps font size and a left-third swipe steps screen brightness, with a live on-page readout; page turns click with a choice of five bundled sounds. Every gesture has its own toggle.
