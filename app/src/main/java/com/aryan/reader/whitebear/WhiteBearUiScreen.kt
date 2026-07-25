@@ -1,5 +1,11 @@
 package com.aryan.reader.whitebear
 
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.os.Environment
+import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -49,12 +55,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.text.font.Font
 import kotlinx.coroutines.Dispatchers
@@ -79,6 +89,7 @@ fun WhiteBearUiScreen(
     onBackClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
     val state = remember { WhiteBearUiState.get(context) }
     val gestureState = remember { WhiteBearGestureState.get(context) }
     val libraryState = remember { WhiteBearLibraryState.get(context) }
@@ -97,6 +108,18 @@ fun WhiteBearUiScreen(
         if (!showExim) {
             eximStatus = withContext(Dispatchers.IO) { WhiteBearExport.lastExportStatus(context) }
         }
+    }
+
+    // 保存復元 automation: a sister-app task may trigger this app's export headlessly, gated
+    // by the switch and the token below. Both live in the Export/Import section, because
+    // that is where 白い熊 looks for anything to do with backups.
+    var automationOn by remember { mutableStateOf(WhiteBearAutomation.isEnabled(context)) }
+    var automationToken by remember { mutableStateOf(WhiteBearAutomation.token(context)) }
+    var allFilesAccess by remember { mutableStateOf(hasAllFilesAccess()) }
+    var showRegenerateTokenDialog by remember { mutableStateOf(false) }
+    LifecycleResumeEffect(Unit) {
+        allFilesAccess = hasAllFilesAccess()
+        onPauseOrDispose { }
     }
 
     Scaffold(
@@ -121,6 +144,29 @@ fun WhiteBearUiScreen(
         ) {
             SectionHeader("Export / Import", first = true)
             EximEntryRow(status = eximStatus) { showExim = true }
+            AutomationSwitchRow(
+                checked = automationOn,
+                onToggle = { value ->
+                    automationOn = value
+                    WhiteBearAutomation.setEnabled(context, value)
+                    if (value) automationToken = WhiteBearAutomation.token(context)
+                }
+            )
+            AutomationTokenRow(
+                token = automationToken,
+                onCopy = {
+                    clipboard.setText(AnnotatedString(automationToken))
+                    Toast.makeText(context, "Automation token copied.", Toast.LENGTH_SHORT).show()
+                },
+                onRegenerate = { showRegenerateTokenDialog = true }
+            )
+            if (automationOn && !allFilesAccess) {
+                ActionRow(
+                    label = "Grant All-files access (needed to write to a given directory)…",
+                    level = 1,
+                    onClick = { openAllFilesAccessSettings(context) }
+                )
+            }
 
             SectionHeader("General")
             SwitchRow(
@@ -389,6 +435,97 @@ fun WhiteBearUiScreen(
             }
         )
     }
+
+    if (showRegenerateTokenDialog) {
+        AlertDialog(
+            onDismissRequest = { showRegenerateTokenDialog = false },
+            title = { Text("Regenerate automation token") },
+            text = {
+                Text(
+                    "The current token stops working immediately. Every copy pasted " +
+                        "elsewhere — 自由作業盤's 保存復元の設定 above all — must be updated " +
+                        "with the new one."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    automationToken = WhiteBearAutomation.regenerate(context)
+                    showRegenerateTokenDialog = false
+                    Toast.makeText(context, "New automation token generated.", Toast.LENGTH_SHORT).show()
+                }) { Text("Regenerate") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRegenerateTokenDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+}
+
+/** True when the app may write a backup to any absolute path the automation names. */
+private fun hasAllFilesAccess(): Boolean =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) Environment.isExternalStorageManager() else true
+
+private fun openAllFilesAccessSettings(context: Context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
+    val direct = Intent(
+        Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+        "package:${context.packageName}".toUri()
+    )
+    runCatching { context.startActivity(direct) }.onFailure {
+        runCatching {
+            context.startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+        }
+    }
+}
+
+/**
+ * The 保存復元 master switch — nothing in the automation contract answers until this is on.
+ * Default OFF, like every sister app.
+ */
+@Composable
+private fun AutomationSwitchRow(checked: Boolean, onToggle: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onToggle(!checked) }
+            .padding(start = IndentStep, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Automation export", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "Let a sister-app task (自由作業盤 保存復元) run this app's export headlessly " +
+                    "with the token below.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                modifier = Modifier.padding(top = 3.dp, end = 8.dp)
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onToggle)
+    }
+}
+
+/** Tap copies the whole token; Regenerate replaces it. */
+@Composable
+private fun AutomationTokenRow(token: String, onCopy: () -> Unit, onRegenerate: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onCopy)
+            .padding(start = IndentStep, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Automation token", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                WhiteBearAutomation.abbreviated(token) + " — tap to copy",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 3.dp, end = 8.dp)
+            )
+        }
+        TextButton(onClick = onRegenerate) { Text("Regenerate") }
+    }
 }
 
 /** Live sample of text, icons, borders, corners and buttons — restyles as settings change. */
@@ -552,7 +689,7 @@ private fun EximEntryRow(status: Pair<String, Boolean>?, onClick: () -> Unit) {
     ) {
         Text("Export / Import", style = MaterialTheme.typography.bodyLarge)
         Text(
-            "Export or import every setting in the app by category.",
+            "Export or import every setting and the whole book library, by category, as one ZIP.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
             modifier = Modifier.padding(top = 3.dp)

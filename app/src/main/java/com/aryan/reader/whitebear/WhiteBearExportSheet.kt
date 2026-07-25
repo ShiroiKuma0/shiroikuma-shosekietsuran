@@ -41,9 +41,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aryan.reader.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -139,9 +139,11 @@ fun WhiteBearExportImportSheet(
             scope.launch {
                 val outcome = withContext(Dispatchers.IO) {
                     runCatching {
-                        val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                            ?: error("Cannot read the file.")
-                        WhiteBearExport.import(context, bytes, cats)
+                        WhiteBearExport.import(
+                            context,
+                            { context.contentResolver.openInputStream(uri) ?: error("Cannot read the file.") },
+                            cats
+                        )
                     }
                 }
                 resultTitle = "Import"
@@ -157,7 +159,7 @@ fun WhiteBearExportImportSheet(
 
     fun onExport() {
         val dir = WhiteBearExport.exportDir(context)
-        val name = WhiteBearExport.exportFileName(BuildConfig.VERSION_NAME)
+        val name = WhiteBearExport.exportFileName()
         if (dir != null) {
             exportTo(
                 {
@@ -195,7 +197,8 @@ fun WhiteBearExportImportSheet(
                 modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 6.dp)
             )
             Text(
-                "Export or import every setting in the app — 白い熊 UI, gestures, library, reader — by category.",
+                "Export or import everything the app holds — 白い熊 UI, gestures, reader settings, " +
+                    "and the book library with its annotations and covers — by category, as one ZIP.",
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                 modifier = Modifier.padding(bottom = 10.dp)
@@ -238,12 +241,25 @@ fun WhiteBearExportImportSheet(
                 bold = true,
                 onToggle = { value -> WhiteBearExport.Cat.entries.forEach { checks[it] = value } }
             )
-            WhiteBearExport.Cat.entries.forEach { cat ->
+            // Top-level categories, each followed by its indented sub-options; toggling a
+            // parent carries its children with it, and each child stays selectable alone.
+            WhiteBearExport.Cat.entries.filter { it.parentId == null }.forEach { cat ->
                 CheckRow(
                     label = cat.label,
                     checked = checks[cat] == true,
-                    onToggle = { checks[cat] = it }
+                    onToggle = { value ->
+                        checks[cat] = value
+                        cat.children.forEach { checks[it] = value }
+                    }
                 )
+                cat.children.forEach { child ->
+                    CheckRow(
+                        label = child.label,
+                        checked = checks[child] == true,
+                        indent = 28.dp,
+                        onToggle = { checks[child] = it }
+                    )
+                }
             }
 
             HorizontalDivider(
@@ -296,11 +312,18 @@ fun WhiteBearExportImportSheet(
 }
 
 @Composable
-private fun CheckRow(label: String, checked: Boolean, bold: Boolean = false, onToggle: (Boolean) -> Unit) {
+private fun CheckRow(
+    label: String,
+    checked: Boolean,
+    bold: Boolean = false,
+    indent: Dp = 0.dp,
+    onToggle: (Boolean) -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onToggle(!checked) },
+            .clickable { onToggle(!checked) }
+            .padding(start = indent),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Checkbox(checked = checked, onCheckedChange = onToggle)
