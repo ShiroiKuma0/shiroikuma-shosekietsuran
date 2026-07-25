@@ -1,10 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
+    <!--
+      白い熊 保存復元: the automation export writes ONE backup ZIP into the absolute directory
+      the batch names (the shared 「[979] バックアップ」 folder), which needs All-Files-Access —
+      the same reason renrakusaki declares it. Without the grant the export falls back to the
+      SAF directory configured on the UI page.
+    -->
+    <uses-permission
+        android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
 
     <queries>
         <intent>
@@ -363,6 +374,19 @@
                 android:name="autoStoreLocales"
                 android:value="true" />
         </service>
+
+        <!--
+          白い熊 保存復元 automation endpoint. No android:permission — the caller cannot hold
+          one; the token in the intent is the gate (see WhiteBearAutomation).
+        -->
+        <receiver
+            android:name=".whitebear.StateExportReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="${applicationId}.action.EXPORT_STATE" />
+                <action android:name="${applicationId}.action.LIST_CATEGORIES" />
+            </intent-filter>
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"
