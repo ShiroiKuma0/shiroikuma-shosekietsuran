@@ -2,6 +2,39 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.52+7
+
+Base: Episteme Android v1.0.52 (oss).
+
+### 保存復元 automation — the app backs itself up on request
+
+- Two exported broadcast actions, `shiroikuma.shosekietsuran.action.EXPORT_STATE` and `…​.action.LIST_CATEGORIES`, let 白い熊's 自由作業盤 back this app up inside its one-run batch across every sister app. No `android:permission` — a token in the intent is the gate.
+- **Token gate.** A master switch (**default off**) plus a 24-byte `SecureRandom` token, hex-encoded and generated lazily on first read, compared in constant time. Both live in a preferences file that belongs to no export category, so the token can never travel inside a backup ZIP.
+- **The export runs headlessly** — no Activity, no interaction: the very same export the Export/Import panel writes, with the panel and the receiver as two thin callers of one core.
+- `EXPORT_STATE` honours `path` (an absolute directory, created if missing, overriding the app's own), `items` (a comma-separated category list; absent means everything), `progress_action`, and the `reply_action` / `reply_package` / `reply_id` triple. Directory precedence: the `path` extra, then the configured export directory, else `ERROR:no-directory`.
+- **The reply is always a fresh broadcast** with `setPackage` and `FLAG_INCLUDE_STOPPED_PACKAGES` — EMUI will not reliably carry a live Binder into another app's manifest receiver and severs the ordered-broadcast result channel between third-party apps. The ordered result is set too, correct AOSP behaviour, but is never the only reply. Exactly one terminal reply per request, guarded by an `AtomicBoolean`, so an async success and a synchronous error can never both fire.
+- Success answers `OK:<absolute path>|<bytes>|<human size>|<n> categories`, with both sizes computed here — the caller cannot stat the file. Failures are specific and distinguishable: `automation disabled`, `bad token`, `no-directory`, `no-storage-access`, `unknown category in items: …`.
+- `LIST_CATEGORIES` answers instantly with `id⇥label` per line, sub-options carrying their parent's id in a third field, so the calling task can render a checkbox picker.
+- **Progress broadcasts carry real numbers, never a percentage**: `書籍 1234/8942`, `表紙 120/340`, `区分 7/11 — Book library`, each with structured `current` / `total` / `unit` extras alongside the display line, throttled to at most one every 500 ms with a final one always sent at completion.
+- The work is held open with `goAsync()` and done on a background dispatcher.
+- Declares `MANAGE_EXTERNAL_STORAGE`, needed to write the batch's absolute directory. Without the grant the export falls back to the configured SAF directory, and a **Grant All-files access** row appears in the settings — only while the switch is on and the grant is missing.
+
+### Backup now carries the library, not just the settings
+
+- New **Book library** category — every book with its reading position, bookmarks and EPUB highlights — with independently selectable sub-options: **shelves & tags**, **annotations, notes, text boxes & page layouts**, **cover images**, and **custom fonts**. One `EXPORT_STATE` still produces exactly one ZIP; restoring the app means picking that one file.
+- Room tables are dumped as JSON lines (a header object per table, then one array per row) and streamed straight into the ZIP, so a nine-thousand-book library never has to fit in memory; per-book sidecar files are carried verbatim under their category.
+- Import streams the ZIP entry by entry, restores rows inside one transaction, drops columns the current schema no longer has (so older backups still import), and skips rows whose foreign keys are missing instead of failing the whole category. Entry names containing `..` are refused.
+- Imported book copies in app storage stay out of the backup on purpose — a nightly cross-app batch would otherwise carry gigabytes of book files.
+- The Export/Import checklist renders sub-options indented under their parent; toggling a parent carries its children, and each child stays selectable alone.
+
+### Backup file naming — the family convention
+
+- Every backup this app writes, from the automation path and from the Export/Import panel alike, is now named `shiroikuma-shosekietsuran_<yyyy-MM-dd_HH-mm-ss>.zip` — no version, no `-export` infix, no decoration — so all of 白い熊's apps' backups sort and read uniformly in one directory. The previous name is still recognised when reporting the latest export.
+
+### Settings
+
+- The automation switch and the token row sit **inside the existing Export/Import section** of the 白い熊 UI page, directly below the export rows, where backup lives. The token row shows the token abbreviated (`80922d8c…4c49a87c`), copies it in full on tap with a confirmation, and carries a **Regenerate** action that warns pasted copies must be updated.
+
 ## 1.0.52+6
 
 Base: Episteme Android v1.0.52 (oss).
