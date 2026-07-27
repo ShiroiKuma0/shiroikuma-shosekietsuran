@@ -2,6 +2,41 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.52+12
+
+Base: Episteme Android v1.0.52 (oss).
+
+### 保存復元 automation — an export that cannot hang, and a backup that admits what it skipped
+
+With the ANR of +8 gone, the export itself began stopping part-way and never coming back — three times in one evening on a Mate XT, at 24,471,993 B and at 16,565,045 B, so not one corrupt file at a fixed position. Nothing was wrong with the service plumbing, and that was the problem: the coroutine stayed alive, so the concurrency flag was held by a `finally` that could not run and every later request answered `ERROR:export already running` for the rest of the process's life; the heartbeat kept going out, so the calling batch waited out its whole 600 s timeout instead of failing the app at its 180 s silence watchdog; and each attempt left a half-written ZIP that looked exactly like a backup until someone opened it.
+
+- **Nothing bounded now runs unbounded.** A file copy stops once it has yielded more than its own file's declared length plus slack — a stream that will never EOF; a table's cursor stops past the row count that same table just reported; an entry that outlives its 60 s share is skipped and the run carries on. Skipped entries are closed properly, so the archive stays readable.
+- **A partial backup says it is partial.** Skips are counted and reported in the reply — `OK:…|11 categories (12 entries skipped)` — and listed by name in the Export/Import panel's result. Silently lossy backups were the worst of the failure: they are indistinguishable from good ones until a restore.
+- **Five timeouts in a row calls the run off** with an error instead of writing a shell of a backup: at that point it is not one bad file, it is the target that has stalled.
+- **The directory walk is depth-bounded** and collected files de-duplicated, putting a symlink loop and a duplicate-entry `ZipException` out of reach.
+- **A watchdog judges the run from outside**, on what it last really did. It answers `ERROR:stalled — no progress for 91 s at library.covers/cover_cache/…` at 90 s, and `ERROR:export timed out after 540 s at …` as a backstop — both inside the caller's own timeouts, and both naming the entry the run stopped on. The export itself carries an 8-minute ceiling that ends a run with an error rather than a silence.
+- **Then it lets go without waiting.** The watchdog closes the output stream (Android signals threads blocked on a closed descriptor — the one thing that can break a stuck write), interrupts the worker, gives up the slot and stops the service. The export runs on a thread of its own precisely so it can be abandoned; a wedged one dies with the process rather than owning the app.
+- **A wedged run can be taken over.** The `AtomicBoolean` is gone; the slot is held by a run that knows when it started, when it last moved and what it is on. A request finding it held by a run older than any run may live supersedes it — the old caller is told `ERROR:superseded` and the new one proceeds. Retry can no longer be refused by a run that died half an hour ago.
+- **The heartbeat is honest.** It is now sent by the watchdog itself, only while the export is really moving, so it cannot outlive the work it reports on. A heartbeat that keeps a caller waiting on a dead export is worse than no heartbeat at all.
+- **Every entry names itself into logcat** on its way in, so a whole run can be followed with `adb logcat -s WhiteBearAutomation` — and because the error line carries the entry, the next failure diagnoses itself from the reply alone.
+
+### Book covers are their own item, and start unticked
+
+- **Cover images are no longer a sub-option of the book library** but a category in their own right, so the library's toggle no longer drags them in. They are thousands of files and the bulk of an archive's bytes, and unlike everything else in a backup they are derived from the book files rather than authored — the one part worth leaving out of a routine backup, and the one part whose absence costs nothing that cannot be made again.
+- **They are written last**, so whatever goes wrong while writing them, everything irreplaceable is already in the archive.
+- The category id stays `library.covers`: it is the ZIP entry prefix, and renaming it would make the covers in every existing backup unimportable.
+
+### Import offers what the archive really holds
+
+- **Picking a file now reads it first** and offers exactly what is in it, everything ticked. A category the archive does not carry is not shown at all, so the list can never promise a restore the file cannot deliver.
+- The contents are read from the **entry names, not from `manifest.json`** — the manifest records what a run set out to write, and a partial export is now a case that really happens.
+- An archive with nothing importable in it says so, instead of running an import that quietly restores nothing. A sub-option whose parent is absent stands unindented rather than under a row that is not there.
+
+### Wire contract
+
+- `LIST_CATEGORIES` now emits the **fourth contract field** — `id⇥label⇥parent-id⇥on|off` — with the third empty for a top-level category, so a calling picker opens with **Book covers** already unticked. The first three fields keep their meaning and order.
+- **A request naming no `items` gets the default set**, not the whole catalogue, so an automated run that never picked its items does not drag gigabytes of covers in behind a default that says to leave them out.
+
 ## 1.0.52+8
 
 Base: Episteme Android v1.0.52 (oss).
