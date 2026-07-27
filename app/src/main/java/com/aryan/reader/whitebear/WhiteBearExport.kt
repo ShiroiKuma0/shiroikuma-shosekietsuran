@@ -5,7 +5,9 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.database.Cursor
 import android.net.Uri
+import android.os.SystemClock
 import android.util.Base64
+import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteStatement
@@ -15,6 +17,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.io.OutputStream
@@ -65,12 +68,14 @@ object WhiteBearExport {
      * A selectable category. [id] is the ZIP entry name (`<id>.json` for prefs, `<id>.jsonl`
      * for tables, `<id>/…` for files) and the id accepted in the automation `items` extra.
      * A category with a [parentId] is a sub-option of that category and is selected
-     * independently of it.
+     * independently of it; one with [defaultSelected] false is offered but left unticked, so
+     * it goes in only when it is asked for by name.
      */
     enum class Cat(
         val id: String,
         val label: String,
         val parentId: String? = null,
+        val defaultSelected: Boolean = true,
         val progressUnit: String = "区分",
         internal val prefsFiles: List<String> = emptyList(),
         internal val tables: List<String> = emptyList(),
@@ -117,13 +122,25 @@ object WhiteBearExport {
                 FileSpec("page_layouts"), FileSpec("whitebear"), FileSpec("", "rich_doc_")
             )
         ),
-        LIBRARY_COVERS(
-            "library.covers", "Cover images", parentId = "library", progressUnit = "表紙",
-            files = listOf(FileSpec("cover_cache"))
-        ),
         LIBRARY_FONTS(
             "library.fonts", "Custom fonts", parentId = "library", progressUnit = "字体",
             tables = listOf("custom_fonts"), files = listOf(FileSpec("custom_fonts"))
+        ),
+
+        /**
+         * Its own item, and unticked until asked for (白い熊, 2026-07-27).
+         *
+         * The covers are thousands of files and the bulk of an archive's bytes, and unlike
+         * everything else here they are derived from the book files rather than authored — so
+         * they are the one part worth leaving out of a routine backup, and the one part whose
+         * absence costs nothing that cannot be made again. Last in the enum, so it is also last
+         * into the ZIP: whatever goes wrong while writing them, everything irreplaceable is
+         * already in the archive.
+         */
+        LIBRARY_COVERS(
+            "library.covers", "Book covers — cached cover images",
+            defaultSelected = false, progressUnit = "表紙",
+            files = listOf(FileSpec("cover_cache"))
         );
 
         /** The label without its trailing explanation — what progress lines show. */
@@ -134,9 +151,18 @@ object WhiteBearExport {
 
     fun catById(id: String): Cat? = Cat.entries.firstOrNull { it.id == id }
 
-    /** `id<TAB>label[<TAB>parent-id]` per line — the automation LIST_CATEGORIES payload. */
+    /** What a request that names no categories gets: everything ticked by default. */
+    fun defaultCats(): Set<Cat> = Cat.entries.filter { it.defaultSelected }.toSet()
+
+    /**
+     * `id<TAB>label<TAB>parent-id<TAB>on|off` per line — the automation LIST_CATEGORIES payload.
+     *
+     * All four fields, always: the third is empty for a top-level category, and the fourth is
+     * how 自由作業盤's picker knows to open with 「Book covers」 unticked. The first three keep
+     * their meaning and order, so a reader that only knows about three still works.
+     */
     fun categoryLines(): String = Cat.entries.joinToString("\n") { cat ->
-        if (cat.parentId != null) "${cat.id}\t${cat.label}\t${cat.parentId}" else "${cat.id}\t${cat.label}"
+        "${cat.id}\t${cat.label}\t${cat.parentId.orEmpty()}\t${if (cat.defaultSelected) "on" else "off"}"
     }
 
     /** Reports work done while exporting — real counts, never a percentage. */
@@ -144,13 +170,112 @@ object WhiteBearExport {
         fun report(current: Long, total: Long, unit: String, text: String)
     }
 
-    /** Write a ZIP of the selected categories to [out]. Returns a short human summary. */
+    // ---- The leash: why a run can no longer write forever, or write nothing forever ----
+
+    /** One entry's share of a run — a file still copying after this is not going to finish. */
+    private const val PER_ENTRY_MS = 60_000L
+
+    /** Slack over a file's own length before its stream is taken for one that never EOFs. */
+    private const val SIZE_SLACK = 1L shl 20
+
+    /** Rows past the count a table just reported before its cursor is taken for a loop. */
+    private const val ROW_SLACK = 5_000L
+
+    /** Entries abandoned back to back before the whole run is called off. */
+    private const val MAX_TIMEOUTS_IN_A_ROW = 5
+
+    private const val COPY_BUFFER = 64 * 1024
+
+    /** `cover_cache` and the annotation directories are flat; deeper than this is a loop. */
+    private const val MAX_WALK_DEPTH = 6
+
+    /**
+     * The export's leash — what keeps one bad entry from costing the whole backup.
+     *
+     * Every entry announces itself through [enter], so whatever the run is on is always
+     * nameable from outside (the service puts it in its stall error and in logcat, which is how
+     * a hang gets identified at all). Every copy loop asks [overrun] between chunks and gives up
+     * on what will not finish; what it gives up on is counted in [skipped], so a partial backup
+     * says it is partial instead of being silently lossy. [checkCeiling] ends a run that has
+     * simply gone on too long with an error rather than a silence.
+     *
+     * None of this can rescue a syscall that never returns — nothing inside the process can.
+     * That is the service watchdog's job. The leash bounds everything that *does* come back.
+     */
+    class Leash(
+        private val perEntryMs: Long = PER_ENTRY_MS,
+        private val ceilingMs: Long = Long.MAX_VALUE,
+        private val onEnter: (String) -> Unit = {}
+    ) {
+        private val startedAt = SystemClock.elapsedRealtime()
+        private var entryStartedAt = startedAt
+        private var timeoutsInARow = 0
+        private val abandoned = mutableListOf<String>()
+
+        /** Entries given up on, in ZIP order. */
+        val skipped: List<String> get() = abandoned
+
+        /** Name what is about to be written and restart its clock. Never throws. */
+        fun enter(entry: String) {
+            entryStartedAt = SystemClock.elapsedRealtime()
+            onEnter(entry)
+        }
+
+        /** True once this entry has had its share of the run — stop copying and move on. */
+        fun overrun(): Boolean =
+            SystemClock.elapsedRealtime() - entryStartedAt > perEntryMs || exhausted()
+
+        /** True once the run as a whole is out of time — finish the current step and get out. */
+        fun exhausted(): Boolean = SystemClock.elapsedRealtime() - startedAt > ceilingMs
+
+        /**
+         * End the run when it is out of time. Called only from the category loop, never from
+         * inside a `runCatching`, so the error reaches the caller instead of becoming a skip.
+         */
+        fun checkCeiling() {
+            if (exhausted()) throw IOException("export timed out after ${ceilingMs / 1000L} s")
+        }
+
+        /**
+         * Record an entry we are not waiting for. A handful of timeouts in a row is no longer
+         * one bad file — it is the target we are writing to, and finishing would only produce a
+         * shell of a backup reported as a good one.
+         */
+        fun skip(entry: String, why: String, timedOut: Boolean = false) {
+            Log.w(AutomationWire.TAG, "skipped $entry — $why")
+            abandoned += entry
+            if (!timedOut) return
+            if (++timeoutsInARow >= MAX_TIMEOUTS_IN_A_ROW) {
+                throw IOException("export stalled — $timeoutsInARow entries in a row timed out at $entry")
+            }
+        }
+
+        /** An entry that finished normally — the run is healthy again. */
+        fun done() {
+            timeoutsInARow = 0
+        }
+    }
+
+    /** What a run produced: how many categories, and what it had to give up on. */
+    data class Outcome(val categories: Int, val skipped: List<String>) {
+        /** The one line the automation reply and the export sheet both show. */
+        val summary: String
+            get() = "$categories ${if (categories == 1) "category" else "categories"}" +
+                if (skipped.isEmpty()) {
+                    ""
+                } else {
+                    " (${skipped.size} ${if (skipped.size == 1) "entry" else "entries"} skipped)"
+                }
+    }
+
+    /** Write a ZIP of the selected categories to [out], bounded by [leash]. */
     fun export(
         context: Context,
         cats: Set<Cat>,
         out: OutputStream,
-        onProgress: Progress? = null
-    ): String {
+        onProgress: Progress? = null,
+        leash: Leash = Leash()
+    ): Outcome {
         val ordered = Cat.entries.filter { it in cats }
         ZipOutputStream(out).use { zip ->
             val manifest = JSONObject()
@@ -163,6 +288,8 @@ object WhiteBearExport {
             writeEntry(zip, "manifest.json", manifest.toString(2))
 
             ordered.forEachIndexed { index, cat ->
+                leash.checkCeiling()
+                leash.enter(cat.id)
                 onProgress?.report(
                     index.toLong(), ordered.size.toLong(), "区分",
                     "区分 ${index + 1}/${ordered.size} — ${cat.shortLabel}"
@@ -177,15 +304,44 @@ object WhiteBearExport {
                     }
                     writeEntry(zip, "${cat.id}.json", json.toString(2))
                 }
-                if (cat.tables.isNotEmpty()) writeTables(context, zip, cat, onProgress)
-                if (cat.files.isNotEmpty()) writeFiles(context, zip, cat, onProgress)
+                if (cat.tables.isNotEmpty()) writeTables(context, zip, cat, onProgress, leash)
+                if (cat.files.isNotEmpty()) writeFiles(context, zip, cat, onProgress, leash)
             }
+            // Out of time on the last category too: an error, never a quietly half-full ZIP
+            // reported as a backup.
+            leash.checkCeiling()
             onProgress?.report(
                 ordered.size.toLong(), ordered.size.toLong(), "区分",
                 "区分 ${ordered.size}/${ordered.size} — 完了"
             )
         }
-        return "${cats.size} ${if (cats.size == 1) "category" else "categories"}"
+        return Outcome(cats.size, leash.skipped)
+    }
+
+    /** The category an entry belongs to, by the naming [export] writes. */
+    private fun catOf(name: String, among: Collection<Cat>): Cat? = among.firstOrNull { c ->
+        name == "${c.id}.json" || name == "${c.id}.jsonl" || name.startsWith("${c.id}/")
+    }
+
+    /**
+     * What an archive actually carries — the categories an import may offer.
+     *
+     * Read from the entry names rather than from `manifest.json`: the manifest records what a
+     * run set out to write, and a run that had to skip its way through the covers still lists
+     * them there. What can be restored is what is really in the file.
+     */
+    fun categoriesIn(openZip: () -> InputStream): Set<Cat> {
+        val found = linkedSetOf<Cat>()
+        ZipInputStream(openZip()).use { zip ->
+            var entry = zip.nextEntry
+            while (entry != null) {
+                if (!entry.isDirectory) catOf(entry.name, Cat.entries)?.let { found += it }
+                if (found.size == Cat.entries.size) break
+                zip.closeEntry()
+                entry = zip.nextEntry
+            }
+        }
+        return found
     }
 
     /**
@@ -200,9 +356,7 @@ object WhiteBearExport {
             while (entry != null) {
                 val name = entry.name
                 if (!entry.isDirectory && !name.contains("..")) {
-                    val cat = cats.firstOrNull { c ->
-                        name == "${c.id}.json" || name == "${c.id}.jsonl" || name.startsWith("${c.id}/")
-                    }
+                    val cat = catOf(name, cats)
                     if (cat != null) {
                         val added = runCatching {
                             when {
@@ -343,11 +497,18 @@ object WhiteBearExport {
     private fun db(context: Context): SupportSQLiteDatabase =
         AppDatabase.getDatabase(context).openHelper.writableDatabase
 
-    private fun writeTables(context: Context, zip: ZipOutputStream, cat: Cat, onProgress: Progress?) {
+    private fun writeTables(
+        context: Context,
+        zip: ZipOutputStream,
+        cat: Cat,
+        onProgress: Progress?,
+        leash: Leash
+    ) {
         val database = db(context)
         zip.putNextEntry(ZipEntry("${cat.id}.jsonl"))
         val writer = OutputStreamWriter(zip, Charsets.UTF_8)
         for (table in cat.tables) {
+            leash.enter("${cat.id}.jsonl: $table")
             val total = rowCount(database, table) ?: continue
             runCatching {
                 database.query("SELECT * FROM `$table`").use { cursor ->
@@ -368,10 +529,16 @@ object WhiteBearExport {
                         writer.write("\n")
                         done++
                         if (done % 50L == 0L) {
+                            // Also the liveness tick: a table this long must keep saying so,
+                            // or the watchdog is right to call the run dead.
+                            leash.enter("${cat.id}.jsonl: $table $done/$total")
                             onProgress?.report(
                                 done, total, cat.progressUnit, "${cat.progressUnit} $done/$total"
                             )
                         }
+                        // A cursor still yielding rows well past the count the same table just
+                        // reported is not a cursor we keep reading.
+                        if (done > total + ROW_SLACK || leash.exhausted()) break
                     }
                     onProgress?.report(done, total, cat.progressUnit, "${cat.progressUnit} $done/$total")
                 }
@@ -379,6 +546,7 @@ object WhiteBearExport {
         }
         writer.flush()
         zip.closeEntry()
+        leash.done()
     }
 
     private fun rowCount(database: SupportSQLiteDatabase, table: String): Long? = runCatching {
@@ -494,28 +662,77 @@ object WhiteBearExport {
                     ?.filter { it.isFile && it.name.startsWith(spec.namePrefix) }
                     ?.let { found += it }
             } else {
-                base.walkTopDown().filter { it.isFile }.forEach { found += it }
+                // Bounded depth: these directories are flat, so a walk that goes deeper is
+                // following a symlink back into itself and would never come out.
+                base.walkTopDown().maxDepth(MAX_WALK_DEPTH).filter { it.isFile }
+                    .forEach { found += it }
             }
         }
-        return found
+        // The same file reached through two specs would be a duplicate ZIP entry, which throws
+        // and costs the entries after it.
+        return found.distinctBy { it.absolutePath }
     }
 
-    private fun writeFiles(context: Context, zip: ZipOutputStream, cat: Cat, onProgress: Progress?) {
+    private fun writeFiles(
+        context: Context,
+        zip: ZipOutputStream,
+        cat: Cat,
+        onProgress: Progress?,
+        leash: Leash
+    ) {
         val root = context.filesDir
+        leash.enter("${cat.id}: scanning")
         val files = collectFiles(context, cat)
         val total = files.size.toLong()
-        files.forEachIndexed { index, file ->
+        for ((index, file) in files.withIndex()) {
+            if (leash.exhausted()) break
             val relative = file.toRelativeString(root).replace(File.separatorChar, '/')
-            runCatching {
-                zip.putNextEntry(ZipEntry("${cat.id}/$relative"))
-                file.inputStream().use { it.copyTo(zip) }
-                zip.closeEntry()
+            val entry = "${cat.id}/$relative"
+            leash.enter(entry)
+            val copied = runCatching { copyEntry(zip, file, entry, leash) }
+            when {
+                copied.isFailure ->
+                    leash.skip(entry, copied.exceptionOrNull()?.message ?: "unreadable")
+                copied.getOrDefault(false) -> leash.done()
+                else -> leash.skip(entry, "did not finish in time", timedOut = true)
             }
             val done = (index + 1).toLong()
             if (done % 25L == 0L || done == total) {
                 onProgress?.report(done, total, cat.progressUnit, "${cat.progressUnit} $done/$total")
             }
         }
+    }
+
+    /**
+     * Copy one file into the archive, and stop copying rather than wait forever: a stream that
+     * keeps yielding well past the length its own file reports is one that will never EOF, and
+     * a copy that outlives its slice of the run is one nothing is gained by waiting on. Either
+     * way the entry is closed, so the archive stays readable — `false` says it is short, and the
+     * caller counts it as skipped. Returns true when the whole file went in.
+     */
+    private fun copyEntry(zip: ZipOutputStream, file: File, entry: String, leash: Leash): Boolean {
+        var complete = false
+        zip.putNextEntry(ZipEntry(entry))
+        try {
+            val cap = file.length() + SIZE_SLACK
+            var copied = 0L
+            val buffer = ByteArray(COPY_BUFFER)
+            file.inputStream().use { input ->
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read < 0) {
+                        complete = true
+                        break
+                    }
+                    zip.write(buffer, 0, read)
+                    copied += read
+                    if (copied > cap || leash.overrun()) break
+                }
+            }
+        } finally {
+            runCatching { zip.closeEntry() }
+        }
+        return complete
     }
 
     private fun importFile(context: Context, cat: Cat, entryName: String, input: InputStream): Int {

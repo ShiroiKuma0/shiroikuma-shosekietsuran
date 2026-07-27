@@ -2,6 +2,7 @@ package com.aryan.reader.whitebear
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -71,7 +72,7 @@ fun WhiteBearExportImportSheet(
     var status by remember { mutableStateOf("" to false) }
     val checks = remember {
         mutableStateMapOf<WhiteBearExport.Cat, Boolean>().apply {
-            WhiteBearExport.Cat.entries.forEach { put(it, true) }
+            WhiteBearExport.Cat.entries.forEach { put(it, it.defaultSelected) }
         }
     }
     var resultTitle by remember { mutableStateOf<String?>(null) }
@@ -79,8 +80,24 @@ fun WhiteBearExportImportSheet(
     var offerRestart by remember { mutableStateOf(false) }
     var resultSuccess by remember { mutableStateOf(false) }
 
+    // Import is chosen from the archive, not from the catalogue: once a file is picked it is
+    // read for what it really holds, and only that is offered — everything in it ticked, and a
+    // category that is not in there not shown at all, so the list can never promise a restore
+    // the file cannot deliver.
+    var importUri by remember { mutableStateOf<Uri?>(null) }
+    var importName by remember { mutableStateOf("") }
+    val importChecks = remember { mutableStateMapOf<WhiteBearExport.Cat, Boolean>() }
+    var busyText by remember { mutableStateOf<String?>(null) }
+
     fun selectedCats(): Set<WhiteBearExport.Cat> =
         checks.filterValues { it }.keys.toSet()
+
+    fun failed(what: String) {
+        resultTitle = "Import"
+        resultText = what
+        offerRestart = false
+        resultSuccess = false
+    }
 
     suspend fun refresh() {
         val (name, st) = withContext(Dispatchers.IO) {
@@ -117,7 +134,20 @@ fun WhiteBearExportImportSheet(
             refresh()
             resultTitle = "Export"
             resultText = outcome.fold(
-                onSuccess = { "Exported $it to $shownTarget." },
+                onSuccess = { written ->
+                    // A backup that had to give up on something says so here too — a partial
+                    // one is only safe to keep if it is visibly partial.
+                    buildString {
+                        append("Exported ${written.summary} to $shownTarget.")
+                        if (written.skipped.isNotEmpty()) {
+                            append("\n\nSkipped:\n")
+                            append(written.skipped.take(10).joinToString("\n"))
+                            if (written.skipped.size > 10) {
+                                append("\n… and ${written.skipped.size - 10} more")
+                            }
+                        }
+                    }
+                },
                 onFailure = { "Export failed: ${it.message}" }
             )
             offerRestart = false
@@ -133,27 +163,57 @@ fun WhiteBearExportImportSheet(
         }
     }
 
+    fun openImport(uri: Uri) = context.contentResolver.openInputStream(uri)
+        ?: error("Cannot read the file.")
+
+    /** Step one: find out what the picked archive holds, and offer exactly that. */
     val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            val cats = selectedCats()
+            busyText = "Reading the archive…"
             scope.launch {
-                val outcome = withContext(Dispatchers.IO) {
-                    runCatching {
-                        WhiteBearExport.import(
-                            context,
-                            { context.contentResolver.openInputStream(uri) ?: error("Cannot read the file.") },
-                            cats
-                        )
-                    }
+                val found = withContext(Dispatchers.IO) {
+                    runCatching { WhiteBearExport.categoriesIn { openImport(uri) } }
                 }
-                resultTitle = "Import"
-                resultText = outcome.fold(
-                    onSuccess = { "$it\n\nRestart the app so every imported setting takes effect." },
-                    onFailure = { "Import failed: ${it.message}" }
+                busyText = null
+                found.fold(
+                    onSuccess = { cats ->
+                        if (cats.isEmpty()) {
+                            failed("There is nothing this app can import in that file.")
+                        } else {
+                            importUri = uri
+                            importName = uri.lastPathSegment?.substringAfterLast('/') ?: "the chosen file"
+                            importChecks.clear()
+                            cats.forEach { importChecks[it] = true }
+                        }
+                    },
+                    onFailure = { failed("Cannot read that file: ${it.message}") }
                 )
-                offerRestart = outcome.isSuccess
-                resultSuccess = outcome.isSuccess
             }
+        }
+    }
+
+    /** Step two: restore what is still ticked of it. */
+    fun onImport() {
+        val uri = importUri ?: return
+        val cats = importChecks.filterValues { it }.keys.toSet()
+        if (cats.isEmpty()) {
+            failed("No categories selected.")
+            return
+        }
+        busyText = "Importing…"
+        scope.launch {
+            val outcome = withContext(Dispatchers.IO) {
+                runCatching { WhiteBearExport.import(context, { openImport(uri) }, cats) }
+            }
+            busyText = null
+            importUri = null
+            resultTitle = "Import"
+            resultText = outcome.fold(
+                onSuccess = { "$it\n\nRestart the app so every imported setting takes effect." },
+                onFailure = { "Import failed: ${it.message}" }
+            )
+            offerRestart = outcome.isSuccess
+            resultSuccess = outcome.isSuccess
         }
     }
 
@@ -234,31 +294,71 @@ fun WhiteBearExportImportSheet(
 
             HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
 
-            val allChecked = checks.values.all { it }
-            CheckRow(
-                label = "Select all",
-                checked = allChecked,
-                bold = true,
-                onToggle = { value -> WhiteBearExport.Cat.entries.forEach { checks[it] = value } }
-            )
-            // Top-level categories, each followed by its indented sub-options; toggling a
-            // parent carries its children with it, and each child stays selectable alone.
-            WhiteBearExport.Cat.entries.filter { it.parentId == null }.forEach { cat ->
-                CheckRow(
-                    label = cat.label,
-                    checked = checks[cat] == true,
-                    onToggle = { value ->
-                        checks[cat] = value
-                        cat.children.forEach { checks[it] = value }
-                    }
+            when {
+                busyText != null -> Text(
+                    busyText.orEmpty(),
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)
                 )
-                cat.children.forEach { child ->
-                    CheckRow(
-                        label = child.label,
-                        checked = checks[child] == true,
-                        indent = 28.dp,
-                        onToggle = { checks[child] = it }
+
+                // Importing: the archive's own contents, all taken unless unticked.
+                importUri != null -> {
+                    Text(
+                        "From $importName",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                        modifier = Modifier.padding(start = 2.dp, top = 6.dp)
                     )
+                    CheckRow(
+                        label = "Select all",
+                        checked = importChecks.values.all { it },
+                        bold = true,
+                        onToggle = { value ->
+                            importChecks.keys.toList().forEach { importChecks[it] = value }
+                        }
+                    )
+                    val present = WhiteBearExport.Cat.entries.filter { importChecks.containsKey(it) }
+                    present.forEach { cat ->
+                        CheckRow(
+                            label = cat.label,
+                            checked = importChecks[cat] == true,
+                            // Indented only under a parent the archive also holds — an orphan
+                            // sub-option stands on its own.
+                            indent = if (present.any { it.id == cat.parentId }) 28.dp else 0.dp,
+                            onToggle = { importChecks[cat] = it }
+                        )
+                    }
+                }
+
+                else -> {
+                    CheckRow(
+                        label = "Select all",
+                        checked = checks.values.all { it },
+                        bold = true,
+                        onToggle = { value -> WhiteBearExport.Cat.entries.forEach { checks[it] = value } }
+                    )
+                    // Top-level categories, each followed by its indented sub-options; toggling
+                    // a parent carries its children with it, and each child stays selectable
+                    // alone.
+                    WhiteBearExport.Cat.entries.filter { it.parentId == null }.forEach { cat ->
+                        CheckRow(
+                            label = cat.label,
+                            checked = checks[cat] == true,
+                            onToggle = { value ->
+                                checks[cat] = value
+                                cat.children.forEach { checks[it] = value }
+                            }
+                        )
+                        cat.children.forEach { child ->
+                            CheckRow(
+                                label = child.label,
+                                checked = checks[child] == true,
+                                indent = 28.dp,
+                                onToggle = { checks[child] = it }
+                            )
+                        }
+                    }
                 }
             }
 
@@ -274,11 +374,19 @@ fun WhiteBearExportImportSheet(
                 modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                PillButton("Cancel") { onDismiss() }
-                Spacer(Modifier.weight(1f))
-                PillButton("Import") { importPicker.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) }
-                Spacer(Modifier.width(8.dp))
-                PillButton("Export") { onExport() }
+                if (importUri != null) {
+                    PillButton("Back") { importUri = null }
+                    Spacer(Modifier.weight(1f))
+                    PillButton("Import") { onImport() }
+                } else {
+                    PillButton("Cancel") { onDismiss() }
+                    Spacer(Modifier.weight(1f))
+                    PillButton("Import") {
+                        importPicker.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    PillButton("Export") { onExport() }
+                }
             }
         }
         Spacer(Modifier.height(10.dp))
