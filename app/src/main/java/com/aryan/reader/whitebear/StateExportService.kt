@@ -18,6 +18,7 @@ import androidx.core.app.ServiceCompat
 import com.aryan.reader.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -27,6 +28,7 @@ import java.io.File
 import java.io.FilterOutputStream
 import java.io.OutputStream
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * The wire shape of the 保存復元 automation contract — the extras both the receiver and the
@@ -74,10 +76,14 @@ internal object AutomationWire {
         }
     }
 
-    /** Absent/empty `items` = everything; an unknown id is an error and writes nothing. */
+    /**
+     * Absent/empty `items` = the default set, not the whole catalogue: a run that never picked
+     * its items must not drag the covers in behind a default that says to leave them out. An
+     * unknown id is an error and writes nothing.
+     */
     fun resolveCategories(items: String?): Result<Set<WhiteBearExport.Cat>> {
         val ids = items?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()
-        if (ids.isEmpty()) return Result.success(WhiteBearExport.Cat.entries.toSet())
+        if (ids.isEmpty()) return Result.success(WhiteBearExport.defaultCats())
         val unknown = ids.filter { WhiteBearExport.catById(it) == null }
         if (unknown.isNotEmpty()) {
             return Result.failure(
@@ -99,11 +105,26 @@ internal object AutomationWire {
  * dead process. So [StateExportReceiver] does nothing but gate the request and start this
  * service, and everything slow lives here: the export, the progress broadcasts, and the one
  * terminal reply.
+ *
+ * **And a service is not enough either.** With the ANR gone, the export itself stopped part-way
+ * — twice in one evening on the same phone, at two different offsets — and simply never came
+ * back. Nothing was wrong with the plumbing: the coroutine was alive, the heartbeat was still
+ * going out, so 自由作業盤 waited out its whole timeout instead of failing the app; the guard
+ * flag was released in a `finally` that could not run, so every later request answered
+ * `ERROR:export already running` for the rest of the process's life; and a half-written ZIP was
+ * left behind each time, indistinguishable from a backup until someone tried to open it.
+ *
+ * So nothing here trusts the export to return. A watchdog judges the run from outside on what it
+ * last really did, answers for it when it stops, and gives up the slot without waiting for it;
+ * a request that finds the slot held by a run older than any run may live takes it over; and the
+ * heartbeat is sent by the watchdog itself, so it cannot outlive the work it reports on.
  */
 class StateExportService : Service() {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val busy = AtomicBoolean(false)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /** The run that owns this service, or none. Never a bare flag — see [claim]. */
+    private val current = AtomicReference<Run?>(null)
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -112,67 +133,117 @@ class StateExportService : Service() {
         startInForeground(getString(R.string.whitebear_backup_notification_working))
 
         val request = intent ?: run {
-            stopEverything()
+            // A redelivery with nothing in it must not take down a run that is under way.
+            if (current.get() == null) stopEverything()
             return START_NOT_STICKY
         }
-        val replyAction = request.getStringExtra(AutomationWire.EXTRA_REPLY_ACTION).orEmpty()
-        val replyPackage = request.getStringExtra(AutomationWire.EXTRA_REPLY_PACKAGE).orEmpty()
-        val replyId = request.getStringExtra(AutomationWire.EXTRA_REPLY_ID)
-
-        // One export at a time: a second request never interleaves with a running one, and
-        // never touches its lifecycle either.
-        if (!busy.compareAndSet(false, true)) {
-            if (replyAction.isNotEmpty() && replyPackage.isNotEmpty()) {
-                AutomationWire.sendReply(
-                    this, replyAction, replyPackage, replyId, "ERROR:export already running"
-                )
-            }
-            return START_NOT_STICKY
-        }
-
-        scope.launch {
-            val answered = AtomicBoolean(false)
-
-            /** Exactly one terminal reply per request, however the work ends. */
-            fun reply(result: String) {
-                if (!answered.compareAndSet(false, true)) return
-                if (replyAction.isEmpty() || replyPackage.isEmpty()) {
-                    Log.w(AutomationWire.TAG, "no reply_action/reply_package — $result")
-                    return
-                }
-                AutomationWire.sendReply(
-                    this@StateExportService, replyAction, replyPackage, replyId, result
-                )
-            }
-
-            val progress = ProgressSender(
-                context = this@StateExportService,
-                action = request.getStringExtra(AutomationWire.EXTRA_PROGRESS_ACTION),
-                replyPackage = replyPackage,
-                replyId = replyId,
-                onText = { text -> updateNotification(text) }
-            )
-            // Every progress broadcast is also a heartbeat — 自由作業盤 presumes an app that
-            // goes quiet is dead and fails its slot, so the last line is re-sent during a
-            // single long step (zipping one huge library) even when the numbers have not moved.
-            val heartbeat = scope.launch {
-                while (isActive) {
-                    delay(HEARTBEAT_MS)
-                    progress.heartbeat()
-                }
-            }
-            val wakeLock = acquireWakeLock()
-            try {
-                reply(runCatching { export(request, progress) }
-                    .getOrElse { "ERROR:${it.message ?: it.javaClass.simpleName}" })
-            } finally {
-                heartbeat.cancel()
-                runCatching { wakeLock?.takeIf { it.isHeld }?.release() }
-                busy.set(false)
-                stopEverything()
-            }
-        }
+        val run = Run(
+            replyAction = request.getStringExtra(AutomationWire.EXTRA_REPLY_ACTION).orEmpty(),
+            replyPackage = request.getStringExtra(AutomationWire.EXTRA_REPLY_PACKAGE).orEmpty(),
+            replyId = request.getStringExtra(AutomationWire.EXTRA_REPLY_ID)
+        )
+        if (claim(run)) start(request, run)
         return START_NOT_STICKY
+    }
+
+    /**
+     * One export at a time — but never for longer than an export can honestly last.
+     *
+     * A run that has been going longer than any run may live is not working, it is wedged, and
+     * the flag it is holding is worth nothing to anyone. So it is superseded: its caller is told
+     * so, and the new request takes the slot. A user who taps "retry" must never be refused by a
+     * run that died half an hour ago.
+     */
+    private fun claim(run: Run): Boolean {
+        while (true) {
+            val existing = current.get()
+            if (existing == null) {
+                if (current.compareAndSet(null, run)) return true
+                continue
+            }
+            val age = SystemClock.elapsedRealtime() - existing.startedAt
+            if (age <= CEILING_MS) {
+                run.reply(this, "ERROR:export already running")
+                return false
+            }
+            Log.w(AutomationWire.TAG, "superseding a run wedged for ${age / 1000} s at ${existing.item}")
+            abandon(existing, "ERROR:superseded")
+            current.compareAndSet(existing, run)
+        }
+    }
+
+    /**
+     * The export runs on a thread of its own, not on a dispatcher: when it wedges it must be
+     * abandonable, and abandoning a pooled thread poisons whatever runs on it next. A stuck
+     * worker is left to die with the process — the service does not wait for it.
+     */
+    private fun start(request: Intent, run: Run) {
+        val progress = ProgressSender(
+            context = this,
+            action = request.getStringExtra(AutomationWire.EXTRA_PROGRESS_ACTION),
+            replyPackage = run.replyPackage,
+            replyId = run.replyId,
+            onText = { text -> updateNotification(text) }
+        )
+        run.wakeLock = acquireWakeLock()
+        // The heartbeat and the watchdog are one loop on purpose. 自由作業盤 reads a heartbeat as
+        // proof the app is still working and waits out its whole timeout while they keep coming,
+        // so a heartbeat that can outlive the work it reports on is worse than none: the beat is
+        // sent only while the export is really moving, and the same tick that finds it stopped
+        // is the one that says so.
+        run.watchdog = scope.launch {
+            while (isActive) {
+                delay(WATCHDOG_TICK_MS)
+                val now = SystemClock.elapsedRealtime()
+                val silent = now - run.lastProgressAt
+                when {
+                    now - run.startedAt > CEILING_MS -> {
+                        fail(run, "ERROR:export timed out after ${CEILING_MS / 1000} s at ${run.item}")
+                        return@launch
+                    }
+                    silent > STALL_MS -> {
+                        fail(run, "ERROR:stalled — no progress for ${silent / 1000} s at ${run.item}")
+                        return@launch
+                    }
+                    else -> progress.heartbeat()
+                }
+            }
+        }
+        val worker = Thread({
+            val result = runCatching { export(request, run, progress) }
+                .getOrElse { "ERROR:${it.message ?: it.javaClass.simpleName}" }
+            run.reply(this, result)
+            run.watchdog?.cancel()
+            run.releaseWakeLock()
+            retire(run)
+        }, "wb-state-export")
+        worker.isDaemon = true
+        run.worker = worker
+        worker.start()
+    }
+
+    /** Answer for a run that is not coming back, and take everything from it we can. */
+    private fun fail(run: Run, message: String) {
+        Log.w(AutomationWire.TAG, message)
+        abandon(run, message)
+        retire(run)
+    }
+
+    private fun abandon(run: Run, message: String) {
+        run.reply(this, message)
+        run.watchdog?.cancel()
+        // Closing the sink is the one thing that can break a write that will not return:
+        // Android signals the threads blocked on a file descriptor when it is closed. The
+        // interrupt is the same bet on the read side. Neither is guaranteed, and neither is
+        // waited for — the reply has already gone out.
+        runCatching { run.sink?.close() }
+        runCatching { run.worker?.interrupt() }
+        run.releaseWakeLock()
+    }
+
+    /** Give up the slot, and with it the service — but only if this run still holds it. */
+    private fun retire(run: Run) {
+        if (current.compareAndSet(run, null)) stopEverything()
     }
 
     override fun onDestroy() {
@@ -181,15 +252,58 @@ class StateExportService : Service() {
     }
 
     /**
+     * One request, from its extras to its single reply. Everything the watchdog needs to judge
+     * it — when it started, when it last really moved, and what it is on — lives here, written
+     * by the export thread and read by the watchdog, hence the volatiles.
+     */
+    private class Run(
+        val replyAction: String,
+        val replyPackage: String,
+        val replyId: String?
+    ) {
+        val startedAt: Long = SystemClock.elapsedRealtime()
+        private val answered = AtomicBoolean(false)
+
+        @Volatile var lastProgressAt: Long = startedAt
+        @Volatile var item: String = "開始"
+        @Volatile var worker: Thread? = null
+        @Volatile var watchdog: Job? = null
+        @Volatile var sink: OutputStream? = null
+        @Volatile var wakeLock: PowerManager.WakeLock? = null
+
+        /** Exactly one terminal reply per request, however the work ends. */
+        fun reply(context: Context, result: String) {
+            if (!answered.compareAndSet(false, true)) return
+            if (replyAction.isEmpty() || replyPackage.isEmpty()) {
+                Log.w(AutomationWire.TAG, "no reply_action/reply_package — $result")
+                return
+            }
+            AutomationWire.sendReply(context, replyAction, replyPackage, replyId, result)
+        }
+
+        /** Real work happened — the only thing that resets the stall clock. */
+        fun alive(what: String? = null) {
+            if (what != null) item = what
+            lastProgressAt = SystemClock.elapsedRealtime()
+        }
+
+        fun releaseWakeLock() {
+            runCatching { wakeLock?.takeIf { it.isHeld }?.release() }
+            wakeLock = null
+        }
+    }
+
+    /**
      * Directory precedence: the `path` extra → the configured export directory →
      * `ERROR:no-directory`. Writing to an arbitrary absolute path needs All-Files-Access;
      * without it `path` is honoured only by falling back to the configured SAF directory.
      */
-    private fun export(request: Intent, progress: ProgressSender): String {
+    private fun export(request: Intent, run: Run, progress: ProgressSender): String {
         val cats = AutomationWire.resolveCategories(request.getStringExtra(AutomationWire.EXTRA_ITEMS))
             .getOrElse { return it.message ?: "ERROR:bad items" }
         // A first line before any directory work, so the caller hears us immediately.
         progress.report(0L, cats.size.toLong(), "区分", "区分 0/${cats.size} — 開始")
+        run.alive("開始")
 
         val name = WhiteBearExport.exportFileName()
         val requested = request.getStringExtra(AutomationWire.EXTRA_PATH)?.trim().orEmpty()
@@ -203,36 +317,55 @@ class StateExportService : Service() {
             val dir = File(requested)
             if (!dir.isDirectory && !dir.mkdirs()) return "ERROR:cannot create directory $requested"
             val file = File(dir, name)
-            val written = file.outputStream().use { out -> writeExport(cats, out, progress) }
-            val bytes = if (file.length() > 0L) file.length() else written
+            val out = file.outputStream()
+            run.sink = out
+            val written = out.use { writeExport(cats, it, run, progress) }
+            val bytes = if (file.length() > 0L) file.length() else written.bytes
             progress.finish()
-            return "OK:${file.absolutePath}|$bytes|${WhiteBearExport.humanSize(bytes)}|${cats.size} categories"
+            return "OK:${file.absolutePath}|$bytes|${WhiteBearExport.humanSize(bytes)}|${written.summary}"
         }
 
         val dir = WhiteBearExport.exportDir(this)
             ?: return if (requested.isNotEmpty()) "ERROR:no-storage-access" else "ERROR:no-directory"
         val target = dir.createFile("application/zip", name) ?: return "ERROR:cannot create the file"
-        val written = contentResolver.openOutputStream(target.uri)?.use { out ->
-            writeExport(cats, out, progress)
-        } ?: return "ERROR:cannot open the file for writing"
-        val bytes = if (target.length() > 0L) target.length() else written
+        val out = contentResolver.openOutputStream(target.uri) ?: return "ERROR:cannot open the file for writing"
+        run.sink = out
+        val written = out.use { writeExport(cats, it, run, progress) }
+        val bytes = if (target.length() > 0L) target.length() else written.bytes
         progress.finish()
         val path = target.uri.path ?: target.uri.toString()
-        return "OK:$path|$bytes|${WhiteBearExport.humanSize(bytes)}|${cats.size} categories"
+        return "OK:$path|$bytes|${WhiteBearExport.humanSize(bytes)}|${written.summary}"
     }
+
+    private data class Written(val bytes: Long, val summary: String)
 
     private fun writeExport(
         cats: Set<WhiteBearExport.Cat>,
         out: OutputStream,
+        run: Run,
         progress: ProgressSender
-    ): Long {
+    ): Written {
         // The ZIP stream closes `counting` (and with it `out`) when the export returns, so
         // the count is read afterwards — never flushed again.
         val counting = CountingOutputStream(out)
-        WhiteBearExport.export(this, cats, counting) { current, total, unit, text ->
-            progress.report(current, total, unit, text)
+        // Every entry names itself on its way in: to logcat, so a run can be followed with
+        // `adb logcat -s WhiteBearAutomation`, and to the run, so an error line can say what it
+        // was on instead of just that it stopped.
+        val leash = WhiteBearExport.Leash(ceilingMs = EXPORT_CEILING_MS) { entry ->
+            Log.d(AutomationWire.TAG, "writing $entry")
+            run.alive(entry)
         }
-        return counting.count
+        val outcome = WhiteBearExport.export(
+            context = this,
+            cats = cats,
+            out = counting,
+            onProgress = { current, total, unit, text ->
+                run.alive()
+                progress.report(current, total, unit, text)
+            },
+            leash = leash
+        )
+        return Written(counting.count, outcome.summary)
     }
 
     // ---- Foreground plumbing ----
@@ -299,7 +432,7 @@ class StateExportService : Service() {
      * Progress broadcasts with real counts — never a percentage — throttled to at most one
      * every 500 ms, re-sent as a heartbeat while a long step makes no visible progress, and
      * always sent once more when the export finishes. Reported from the export thread and the
-     * heartbeat coroutine both, hence the locking.
+     * watchdog coroutine both, hence the locking.
      */
     private class ProgressSender(
         private val context: Context,
@@ -375,6 +508,25 @@ class StateExportService : Service() {
         private const val THROTTLE_MS = 500L
         private const val HEARTBEAT_MS = 20_000L
         private const val WAKELOCK_TIMEOUT_MS = 60L * 60L * 1000L
+
+        /** How often the watchdog looks — and, while all is well, beats. */
+        private const val WATCHDOG_TICK_MS = 5_000L
+
+        /**
+         * 自由作業盤 fails an app that has been silent for 180 s and knows nothing about why.
+         * Well inside that, this app says so itself, and says what it was on when it stopped.
+         */
+        private const val STALL_MS = 90_000L
+
+        /** The export's own ceiling: it throws, so the run ends in an error, not a silence. */
+        private const val EXPORT_CEILING_MS = 8L * 60L * 1000L
+
+        /**
+         * The backstop for when that throw cannot happen because a syscall never returns — and
+         * the age past which a run is treated as wedged and superseded. Under 自由作業盤's 600 s
+         * timeout, so the batch hears an error rather than waiting the whole way out.
+         */
+        private const val CEILING_MS = 9L * 60L * 1000L
 
         /** The request, forwarded verbatim from [StateExportReceiver]. */
         fun intentFor(context: Context, request: Intent): Intent =
