@@ -5,7 +5,13 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- 白い熊 保存復元: the headless export runs as a dataSync foreground service (a receiver
+         cannot hold it without ANR-ing), and takes a partial wakelock so EMUI does not doze
+         the CPU out from under a minutes-long library export with the screen off. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!--
       白い熊 保存復元: the automation export writes ONE backup ZIP into the absolute directory
@@ -299,6 +305,15 @@
                 <action android:name="${applicationId}.action.LIST_CATEGORIES" />
             </intent-filter>
         </receiver>
+
+        <!--
+          Where that export actually runs: the receiver only gates the request and starts this,
+          because a broadcast receiver holding a real export is killed by an ANR mid-write.
+        -->
+        <service
+            android:name=".whitebear.StateExportService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -1317,6 +1317,11 @@
     <string name="section_folders">Folders</string>
     <string name="section_files">Files</string>
 
+    <!-- 白い熊 保存復元: the notification of the headless automation export. -->
+    <string name="whitebear_backup_notification_channel_name">Backup export</string>
+    <string name="whitebear_backup_notification_title">白い熊 保存復元</string>
+    <string name="whitebear_backup_notification_working">Exporting…</string>
+
     <!-- TTS settings sheet labels. TTS = Text-to-Speech. -->
     <string name="tts_notification_channel_name">Text to speech</string>
     <string name="tts_notification_channel_desc">Playback controls for text to speech.</string>
