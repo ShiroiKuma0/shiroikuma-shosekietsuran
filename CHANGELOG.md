@@ -2,6 +2,19 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.52+8
+
+Base: Episteme Android v1.0.52 (oss).
+
+### 保存復元 automation — the export now survives a real library
+
+- **The headless export no longer runs inside the broadcast receiver.** `goAsync()` does not extend Android's broadcast window — ~10 s with the app in the foreground, ~60 s otherwise — so a manifest receiver holding a real export is killed mid-write. Exporting 8444 covers, the app was ANR'd at roughly 1200: nothing replied, the ZIP was left half-written, and the 保存復元 batch sat waiting on a dead process. This supersedes +7's `goAsync()` handling, which was only ever safe for an export that cannot exceed a few seconds.
+- **A `dataSync` foreground service now owns the whole export** — the ZIP, the progress broadcasts and the one terminal reply. It goes foreground within the system's 5 s grace, shows a low-importance **Backup export** notification carrying the live progress line, and takes a partial wakelock so EMUI cannot doze the CPU out from under a minutes-long library export with the screen off. Two overlapping requests never interleave: the second is answered `ERROR:export already running`.
+- **The receiver is now a pure gate.** It checks the switch and the token, validates `items` so a bad request is refused before anything is written, starts the service and returns at once. `goAsync()` is gone entirely, so the ANR class is structurally impossible rather than merely unlikely.
+- **Progress doubles as a heartbeat.** The last line is re-sent every 20 s while a single long step makes no visible progress, so an app zipping one huge library is never presumed dead by a caller that gives up on silence. Real counts and the structured `current` / `total` / `unit` extras are unchanged.
+- If the service cannot be started at all, the receiver still answers — `ERROR:cannot start the export service: …` — so the batch is never left waiting for a reply that cannot come.
+- Declares `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_DATA_SYNC` and `WAKE_LOCK` for the above.
+
 ## 1.0.52+7
 
 Base: Episteme Android v1.0.52 (oss).

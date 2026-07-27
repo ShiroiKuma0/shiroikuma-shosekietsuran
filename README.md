@@ -10,7 +10,7 @@ A fork of [Episteme](https://github.com/Aryan-Raj3112/episteme) with **major add
 
 Installs **side-by-side** with Episteme (app id `shiroikuma.shosekietsuran`).
 
-**📥 Latest release: [`1.0.52+7`](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases/latest)** — [all releases & APK downloads »](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases)
+**📥 Latest release: [`1.0.52+8`](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases/latest)** — [all releases & APK downloads »](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases)
 
 </div>
 
@@ -34,7 +34,7 @@ Pure-black surfaces, pure-yellow text, accents and borders — and every one of 
 ## 💾 Backup — the whole app in one ZIP, by hand or unattended
 The UI page opens with an Export/Import panel: pick a directory once, and one tap writes a timestamped `shiroikuma-shosekietsuran_<date>.zip` holding **everything** — the six settings categories (白い熊 UI, gestures & page turning, library view, writing 縦書き, app settings, reader settings) and the library itself: every book with its reading position, bookmarks and highlights, plus shelves & tags, annotation sidecars, covers and custom fonts, each selectable by checkbox with sub-options indented under their parent. Settings serialize generically and type-tagged, tables as JSON lines; import merges key by key and row by row (never clears), drops columns a newer schema no longer has, skips what the ZIP doesn't carry, and offers an in-place restart.
 
-That same export runs **headlessly on request**: turn on the automation switch in that section and the app answers a token-gated broadcast from a sister-app task — 白い熊's 自由作業盤 backs up every app in one batch — writing one ZIP wherever the batch says, reporting live counts (`書籍 1234/8942`) as it goes and replying with the path and byte size. The token is copied from the settings row with a tap, regenerable, and never travels inside a backup.
+That same export runs **headlessly on request**: turn on the automation switch in that section and the app answers a token-gated broadcast from a sister-app task — 白い熊's 自由作業盤 backs up every app in one batch — writing one ZIP wherever the batch says, reporting live counts (`書籍 1234/8942`) as it goes and replying with the path and byte size. That run is carried by a foreground service with a wakelock, so a library of nine thousand covers exports to the end with the screen off instead of being killed halfway; it keeps reporting even through its longest single step, and answers with a real error rather than going silent. The token is copied from the settings row with a tap, regenerable, and never travels inside a backup.
 
 ## 👆 Reading gestures — tap zones, swipe control, page-turn sound
 Side-third taps turn real pages in every render mode (instant full-viewport jumps that snap the top line whole and cross chapter boundaries); a right-third vertical swipe steps font size and a left-third swipe steps screen brightness, with a live on-page readout; page turns click with a choice of five bundled sounds. Every gesture has its own toggle.
