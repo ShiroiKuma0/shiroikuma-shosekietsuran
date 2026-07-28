@@ -6,6 +6,7 @@ import android.content.SharedPreferences
 import android.database.Cursor
 import android.net.Uri
 import android.os.SystemClock
+import android.provider.DocumentsContract
 import android.util.Base64
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
@@ -165,9 +166,26 @@ object WhiteBearExport {
         "${cat.id}\t${cat.label}\t${cat.parentId.orEmpty()}\t${if (cat.defaultSelected) "on" else "off"}"
     }
 
-    /** Reports work done while exporting — real counts, never a percentage. */
+    /**
+     * One line of progress: real counts, never a percentage.
+     *
+     * [bytes] / [bytesTotal] are the same work measured the other way, and are 0 where a step
+     * cannot know them. They exist for the cover pass: thousands of files, where the count of
+     * files says nothing about how much of the archive is written, and where 自由作業盤 draws the
+     * byte pair as the one that really moves.
+     */
+    data class Step(
+        val current: Long,
+        val total: Long,
+        val unit: String,
+        val text: String,
+        val bytes: Long = 0L,
+        val bytesTotal: Long = 0L
+    )
+
+    /** Reports work done while exporting. */
     fun interface Progress {
-        fun report(current: Long, total: Long, unit: String, text: String)
+        fun report(step: Step)
     }
 
     // ---- The leash: why a run can no longer write forever, or write nothing forever ----
@@ -205,6 +223,7 @@ object WhiteBearExport {
     class Leash(
         private val perEntryMs: Long = PER_ENTRY_MS,
         private val ceilingMs: Long = Long.MAX_VALUE,
+        private val isCancelled: () -> Boolean = { false },
         private val onEnter: (String) -> Unit = {}
     ) {
         private val startedAt = SystemClock.elapsedRealtime()
@@ -223,10 +242,27 @@ object WhiteBearExport {
 
         /** True once this entry has had its share of the run — stop copying and move on. */
         fun overrun(): Boolean =
-            SystemClock.elapsedRealtime() - entryStartedAt > perEntryMs || exhausted()
+            isCancelled() || SystemClock.elapsedRealtime() - entryStartedAt > perEntryMs || exhausted()
 
         /** True once the run as a whole is out of time — finish the current step and get out. */
         fun exhausted(): Boolean = SystemClock.elapsedRealtime() - startedAt > ceilingMs
+
+        /** True once 白い熊 has called this run off. */
+        fun cancelled(): Boolean = isCancelled()
+
+        /**
+         * Unwind a run 白い熊 called off, by throwing where the caller can act on it.
+         *
+         * Called between entries and nowhere else. A cancel is not an emergency and must never be
+         * served by interrupting the thread, closing the descriptor under it or killing the
+         * process: those are the things that leave a half-written archive behind, which is the
+         * one outcome a cancel exists to avoid. So the copy loops merely stop early — see
+         * [overrun] — and the unwinding is done here, in a place where the ZIP is between entries
+         * and the caller can take its partial file away with it.
+         */
+        fun checkCancelled() {
+            if (isCancelled()) throw Cancelled()
+        }
 
         /**
          * End the run when it is out of time. Called only from the category loop, never from
@@ -255,6 +291,13 @@ object WhiteBearExport {
             timeoutsInARow = 0
         }
     }
+
+    /**
+     * Thrown to end a run 白い熊 pressed 中止 on — not a failure of the export, and told apart
+     * from one by its type: whoever answers for the run says 「cancelled」 rather than reporting
+     * an error nothing went wrong to cause.
+     */
+    class Cancelled : IOException("cancelled")
 
     /** What a run produced: how many categories, and what it had to give up on. */
     data class Outcome(val categories: Int, val skipped: List<String>) {
@@ -289,10 +332,13 @@ object WhiteBearExport {
 
             ordered.forEachIndexed { index, cat ->
                 leash.checkCeiling()
+                leash.checkCancelled()
                 leash.enter(cat.id)
                 onProgress?.report(
-                    index.toLong(), ordered.size.toLong(), "区分",
-                    "区分 ${index + 1}/${ordered.size} — ${cat.shortLabel}"
+                    Step(
+                        index.toLong(), ordered.size.toLong(), "区分",
+                        "区分 ${index + 1}/${ordered.size} — ${cat.shortLabel}"
+                    )
                 )
                 if (cat.prefsFiles.isNotEmpty()) {
                     val json = JSONObject()
@@ -308,11 +354,15 @@ object WhiteBearExport {
                 if (cat.files.isNotEmpty()) writeFiles(context, zip, cat, onProgress, leash)
             }
             // Out of time on the last category too: an error, never a quietly half-full ZIP
-            // reported as a backup.
+            // reported as a backup. And the last moment a 中止 can still take the archive with
+            // it — after this the file is placed under its real name and the run has won.
             leash.checkCeiling()
+            leash.checkCancelled()
             onProgress?.report(
-                ordered.size.toLong(), ordered.size.toLong(), "区分",
-                "区分 ${ordered.size}/${ordered.size} — 完了"
+                Step(
+                    ordered.size.toLong(), ordered.size.toLong(), "区分",
+                    "区分 ${ordered.size}/${ordered.size} — 完了"
+                )
             )
         }
         return Outcome(cats.size, leash.skipped)
@@ -379,6 +429,79 @@ object WhiteBearExport {
 
     fun exportFileName(): String =
         EXPORT_PREFIX + SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.ROOT).format(Date()) + ".zip"
+
+    // ---- Nothing wears a backup's name until it is a backup ----
+
+    /**
+     * What an export is called while it is still being written.
+     *
+     * An interrupted export — killed, crashed, out of disk — leaves behind whatever it managed to
+     * write. Under the *final* name that is worse than leaving nothing: 白い熊 keeps every app's
+     * backups in one directory sorted by date, so a truncated archive becomes "the latest backup"
+     * and stays that way until the day it is needed. (Three of them elsewhere in the family on
+     * 2026-07-28 — 454 MB, 1007 MB, 1072 MB, none with an end-of-central-directory, all wearing
+     * good names, all deleted by hand.) So every writer here creates `<name>.part`, streams into
+     * that, and moves it onto the real name only once the archive is closed and whole. The
+     * temporary lives in the destination directory and never in a cache directory to be copied
+     * across afterwards: same filesystem is what makes the move atomic and instant.
+     */
+    const val PART_SUFFIX = ".part"
+
+    /**
+     * `application/octet-stream`, deliberately. SAF forces a created name to carry an extension
+     * matching the type it was created with, so asking for `<name>.zip.part` as a zip yields
+     * `<name>.zip.part.zip`; octet-stream matches any extension and leaves the name alone. What
+     * the finished file reports is read from its extension, so the type is right again after the
+     * rename.
+     */
+    private const val PART_MIME = "application/octet-stream"
+
+    /** Longer than any run may last: past this a `.part` is a corpse, not a live export. */
+    private const val PART_STALE_MS = 60L * 60L * 1000L
+
+    fun partName(name: String): String = name + PART_SUFFIX
+
+    private fun stalePart(name: String?, lastModified: Long): Boolean =
+        name != null && name.startsWith(EXPORT_PREFIX) && name.endsWith(".zip$PART_SUFFIX") &&
+            System.currentTimeMillis() - lastModified > PART_STALE_MS
+
+    /**
+     * Take away what a killed run left behind. The `finally` that deletes a partial cannot run
+     * when the process itself is gone, so the next export sweeps for it — matched by our own
+     * prefix and by age, so an export running right now is never the one swept.
+     */
+    fun sweepStaleParts(dir: File) {
+        runCatching {
+            dir.listFiles()?.forEach { file ->
+                if (file.isFile && stalePart(file.name, file.lastModified())) file.delete()
+            }
+        }
+    }
+
+    fun sweepStaleParts(dir: DocumentFile) {
+        runCatching {
+            dir.listFiles().forEach { file ->
+                if (file.isFile && stalePart(file.name, file.lastModified())) file.delete()
+            }
+        }
+    }
+
+    /** The file a SAF export streams into, under [partName]. */
+    fun createPart(dir: DocumentFile, name: String): DocumentFile? =
+        runCatching { dir.createFile(PART_MIME, partName(name)) }.getOrNull()
+
+    /**
+     * Rename by uri: [DocumentFile.renameTo] refuses outright for the single-document uri the
+     * system's "save as" picker hands back, and that file is created under its final name before
+     * a byte is written — so it has to be moved aside the same way, by hand.
+     */
+    fun renameDocument(context: Context, uri: Uri, newName: String): Uri? =
+        runCatching { DocumentsContract.renameDocument(context.contentResolver, uri, newName) }
+            .getOrNull()
+
+    fun deleteDocument(context: Context, uri: Uri): Boolean =
+        runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }
+            .getOrDefault(false)
 
     /** `4.6 MB`, `1.20 GB` — the display size the automation reply carries. */
     fun humanSize(bytes: Long): String {
@@ -533,14 +656,19 @@ object WhiteBearExport {
                             // or the watchdog is right to call the run dead.
                             leash.enter("${cat.id}.jsonl: $table $done/$total")
                             onProgress?.report(
-                                done, total, cat.progressUnit, "${cat.progressUnit} $done/$total"
+                                Step(done, total, cat.progressUnit, "${cat.progressUnit} $done/$total")
                             )
                         }
                         // A cursor still yielding rows well past the count the same table just
-                        // reported is not a cursor we keep reading.
-                        if (done > total + ROW_SLACK || leash.exhausted()) break
+                        // reported is not a cursor we keep reading. Cancelling breaks out the
+                        // same way rather than throwing: the throw would be swallowed by the
+                        // `runCatching` around this loop, and the category loop above rethrows
+                        // it properly on the next turn anyway.
+                        if (done > total + ROW_SLACK || leash.exhausted() || leash.cancelled()) break
                     }
-                    onProgress?.report(done, total, cat.progressUnit, "${cat.progressUnit} $done/$total")
+                    onProgress?.report(
+                        Step(done, total, cat.progressUnit, "${cat.progressUnit} $done/$total")
+                    )
                 }
             }
         }
@@ -684,22 +812,36 @@ object WhiteBearExport {
         leash.enter("${cat.id}: scanning")
         val files = collectFiles(context, cat)
         val total = files.size.toLong()
+        // Stat'd once, up front: for the covers this is the only number that says how much of the
+        // archive is really written, and it must be known before the first file goes in.
+        val bytesTotal = files.sumOf { it.length() }
+        var bytes = 0L
         for ((index, file) in files.withIndex()) {
             if (leash.exhausted()) break
+            // Between entries, with the ZIP at rest — the one safe place to walk away from
+            // thousands of covers, and near enough to instant while they are what is being
+            // written.
+            leash.checkCancelled()
             val relative = file.toRelativeString(root).replace(File.separatorChar, '/')
             val entry = "${cat.id}/$relative"
             leash.enter(entry)
-            val copied = runCatching { copyEntry(zip, file, entry, leash) }
+            val outcome = runCatching { copyEntry(zip, file, entry, leash) }
+            val copied = outcome.getOrNull()
+            bytes += copied?.bytes ?: 0L
             when {
-                copied.isFailure ->
-                    leash.skip(entry, copied.exceptionOrNull()?.message ?: "unreadable")
-                copied.getOrDefault(false) -> leash.done()
+                copied == null ->
+                    leash.skip(entry, outcome.exceptionOrNull()?.message ?: "unreadable")
+                copied.complete -> leash.done()
                 else -> leash.skip(entry, "did not finish in time", timedOut = true)
             }
+            // Every file, not every twenty-fifth: a step whose numbers do not change for three
+            // minutes is written off as hung by 自由作業盤 however hard it is really working, and
+            // thousands of covers is the one step long enough for that to happen. What actually
+            // goes on the wire is throttled by the sender upstream, so this costs nothing.
             val done = (index + 1).toLong()
-            if (done % 25L == 0L || done == total) {
-                onProgress?.report(done, total, cat.progressUnit, "${cat.progressUnit} $done/$total")
-            }
+            onProgress?.report(
+                Step(done, total, cat.progressUnit, "${cat.progressUnit} $done/$total", bytes, bytesTotal)
+            )
         }
     }
 
@@ -707,15 +849,15 @@ object WhiteBearExport {
      * Copy one file into the archive, and stop copying rather than wait forever: a stream that
      * keeps yielding well past the length its own file reports is one that will never EOF, and
      * a copy that outlives its slice of the run is one nothing is gained by waiting on. Either
-     * way the entry is closed, so the archive stays readable — `false` says it is short, and the
-     * caller counts it as skipped. Returns true when the whole file went in.
+     * way the entry is closed, so the archive stays readable — an incomplete [Copied] says it is
+     * short, and the caller counts it as skipped.
      */
-    private fun copyEntry(zip: ZipOutputStream, file: File, entry: String, leash: Leash): Boolean {
+    private fun copyEntry(zip: ZipOutputStream, file: File, entry: String, leash: Leash): Copied {
         var complete = false
+        var copied = 0L
         zip.putNextEntry(ZipEntry(entry))
         try {
             val cap = file.length() + SIZE_SLACK
-            var copied = 0L
             val buffer = ByteArray(COPY_BUFFER)
             file.inputStream().use { input ->
                 while (true) {
@@ -732,8 +874,11 @@ object WhiteBearExport {
         } finally {
             runCatching { zip.closeEntry() }
         }
-        return complete
+        return Copied(copied, complete)
     }
+
+    /** What one entry cost the archive: the bytes that went in, and whether all of them did. */
+    private data class Copied(val bytes: Long, val complete: Boolean)
 
     private fun importFile(context: Context, cat: Cat, entryName: String, input: InputStream): Int {
         val relative = entryName.removePrefix("${cat.id}/")

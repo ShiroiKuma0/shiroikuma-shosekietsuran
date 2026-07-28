@@ -14,6 +14,7 @@ import androidx.core.content.ContextCompat
  * `<pkg>.action.EXPORT_STATE` — run the ordinary Export/Import export with no UI, into the
  * `path` directory when one is given, otherwise into the configured export directory.
  * `<pkg>.action.LIST_CATEGORIES` — answer with the selectable categories.
+ * `<pkg>.action.CANCEL_EXPORT` — stop a running export, and answer nothing at all.
  *
  * **This receiver never exports.** It checks the switch and the token, validates `items` so a
  * bad request is refused before anything is written, hands the work to [StateExportService]
@@ -39,6 +40,24 @@ class StateExportReceiver : BroadcastReceiver() {
                 AutomationWire.sendReply(app, replyAction, replyPackage, replyId, result)
             }
             if (isOrderedBroadcast) runCatching { setResult(Activity.RESULT_OK, result, null) }
+        }
+
+        // 中止, and the one action that answers nobody. It carries no reply extras — the export
+        // being cancelled owns the single terminal reply, and will send it itself — so it has to
+        // be served before those extras are demanded, and it is gated on the switch and the
+        // token like everything else. A cancel that finds nothing running is not an error; it is
+        // 白い熊 pressing 中止 a moment after the run ended, and costs nothing.
+        if (action == "${app.packageName}.action.CANCEL_EXPORT") {
+            if (!WhiteBearAutomation.isEnabled(app)) return
+            if (!WhiteBearAutomation.matches(app, intent.getStringExtra(AutomationWire.EXTRA_TOKEN))) {
+                Log.w(AutomationWire.TAG, "CANCEL_EXPORT with a bad token — ignored")
+                return
+            }
+            Log.i(
+                AutomationWire.TAG,
+                "CANCEL_EXPORT — " + if (StateExportService.cancel()) "unwinding" else "nothing running"
+            )
+            return
         }
 
         if (replyAction.isEmpty() || replyPackage.isEmpty() || replyId.isEmpty()) {
