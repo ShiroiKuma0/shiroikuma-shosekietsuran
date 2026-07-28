@@ -10,7 +10,7 @@ A fork of [Episteme](https://github.com/Aryan-Raj3112/episteme) with **major add
 
 Installs **side-by-side** with Episteme (app id `shiroikuma.shosekietsuran`).
 
-**📥 Latest release: [`1.0.52+12`](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases/latest)** — [all releases & APK downloads »](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases)
+**📥 Latest release: [`1.0.52+14`](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases/latest)** — [all releases & APK downloads »](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases)
 
 </div>
 
@@ -37,6 +37,8 @@ The UI page opens with an Export/Import panel: pick a directory once, and one ta
 That same export runs **headlessly on request**: turn on the automation switch in that section and the app answers a token-gated broadcast from a sister-app task — 白い熊's 自由作業盤 backs up every app in one batch — writing one ZIP wherever the batch says, reporting live counts (`書籍 1234/8942`) as it goes and replying with the path and byte size. That run is carried by a foreground service with a wakelock, so a multi-gigabyte library exports to the end with the screen off instead of being killed halfway. The token is copied from the settings row with a tap, regenerable, and never travels inside a backup.
 
 **And it cannot hang.** Every step of the export is bounded — a cover stream that never ends, a cursor that never stops, a write that stalls — and whatever will not finish is skipped, counted, and **named in the result**, because a backup that quietly lost half your covers is worse than one that failed. Watching from outside, a watchdog answers for a run that stops moving (naming the very entry it stopped on), lets go of it without waiting, and hands the slot to your next attempt — so "already running" can never be said by a run that died half an hour ago. The heartbeat is sent by that same watchdog, so it can never outlive the work it reports on.
+
+**Nothing ever wears a backup's name until it is one.** Every export — by hand or unattended — is written to a `.part` file and moved onto its real name only once the archive is closed and whole, so a crash, a kill, a full disk or a cancelled run leaves your backup directory with **no file at all** rather than a truncated ZIP sorting to the top as "the latest backup" and waiting for the day you need it. Whatever a killed run does manage to leave is swept away by the next one. And a long export can be **stopped**: 中止 unwinds it between entries — never mid-write, never by killing anything — deletes the partial, and reports it as cancelled, leaving the directory exactly as it found it.
 
 ## 👆 Reading gestures — tap zones, swipe control, page-turn sound
 Side-third taps turn real pages in every render mode (instant full-viewport jumps that snap the top line whole and cross chapter boundaries); a right-third vertical swipe steps font size and a left-third swipe steps screen brightness, with a live on-page readout; page turns click with a choice of five bundled sounds. Every gesture has its own toggle.
