@@ -45,12 +45,29 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.OutputStream
 
 /** Warning color for the unset-directory / no-export states, as in the sister forks. */
 private val WarnColor = Color(0xFFFF5252)
+
+/**
+ * Where one export is going, in the three steps that keep a half-written one from being mistaken
+ * for a backup: [open] the file it streams into, [place] it under the name a backup really wears
+ * once the archive is closed and whole, and [discard] whatever is there when it never gets that
+ * far. Only [place] may leave a file behind. A backup written by hand is interrupted exactly as
+ * easily as an automated one, and 白い熊 cannot tell from the directory listing which is which —
+ * see [WhiteBearExport.PART_SUFFIX].
+ */
+private class Destination(
+    val open: () -> OutputStream?,
+    /** Where the finished archive ended up, for the result dialog — null if it could not be placed. */
+    val place: () -> String?,
+    val discard: () -> Unit
+)
 
 /**
  * 白い熊 export/import panel — same idea and flow as the sister forks: a bordered box
@@ -115,7 +132,7 @@ fun WhiteBearExportImportSheet(
         }
     }
 
-    fun exportTo(open: () -> java.io.OutputStream?, shownTarget: String) {
+    fun exportTo(destination: Destination) {
         val cats = selectedCats()
         if (cats.isEmpty()) {
             resultTitle = "Export"
@@ -127,18 +144,21 @@ fun WhiteBearExportImportSheet(
         scope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
-                    val out = open() ?: error("Cannot open the output file.")
-                    out.use { WhiteBearExport.export(context, cats, it) }
-                }
+                    val out = destination.open() ?: error("Cannot open the output file.")
+                    val written = out.use { WhiteBearExport.export(context, cats, it) }
+                    written to (destination.place() ?: error("Cannot put the finished file in place."))
+                    // Anything that stopped us short of a placed file — including failing to
+                    // place it — takes the half-written archive away with it.
+                }.onFailure { destination.discard() }
             }
             refresh()
             resultTitle = "Export"
             resultText = outcome.fold(
-                onSuccess = { written ->
+                onSuccess = { (written, where) ->
                     // A backup that had to give up on something says so here too — a partial
                     // one is only safe to keep if it is visibly partial.
                     buildString {
-                        append("Exported ${written.summary} to $shownTarget.")
+                        append("Exported ${written.summary} to $where.")
                         if (written.skipped.isNotEmpty()) {
                             append("\n\nSkipped:\n")
                             append(written.skipped.take(10).joinToString("\n"))
@@ -155,13 +175,60 @@ fun WhiteBearExportImportSheet(
         }
     }
 
+    /** The configured export directory: a `.part` beside the backups, renamed onto its name at the end. */
+    fun directoryDestination(dir: DocumentFile, name: String): Destination {
+        var part: DocumentFile? = null
+        val shown = "${dirName ?: "the export directory"}/$name"
+        return Destination(
+            open = {
+                WhiteBearExport.sweepStaleParts(dir)
+                val created = WhiteBearExport.createPart(dir, name) ?: error("Cannot create the file.")
+                part = created
+                context.contentResolver.openOutputStream(created.uri)
+            },
+            place = {
+                val created = part
+                if (created != null && created.renameTo(name)) shown else null
+            },
+            discard = { runCatching { part?.delete() } }
+        )
+    }
+
+    /**
+     * A location 白い熊 picked by hand. The system's picker creates the file under its final name
+     * before a byte is written, so keeping that name off a half-written archive means moving the
+     * file aside first and moving it back once the archive is whole. A provider that will not
+     * rename gets the plain write — and either way, a run that fails takes the file with it
+     * instead of leaving a corpse under a backup's name.
+     */
+    fun chosenFileDestination(uri: Uri): Destination {
+        var writing = uri
+        var shown = uri.lastPathSegment?.substringAfterLast('/') ?: "the chosen file"
+        return Destination(
+            open = {
+                // Here rather than in the picker callback: every line of this talks to the
+                // provider, and the callback runs on the main thread.
+                val name = DocumentFile.fromSingleUri(context, uri)?.name?.takeIf { it.isNotBlank() }
+                if (name != null) {
+                    shown = name
+                    writing = WhiteBearExport.renameDocument(context, uri, WhiteBearExport.partName(name))
+                        ?: uri
+                }
+                context.contentResolver.openOutputStream(writing)
+            },
+            place = {
+                // Unmoved means it is already under the name 白い熊 chose, and there is nothing
+                // to put back.
+                if (writing == uri) shown
+                else WhiteBearExport.renameDocument(context, writing, shown)?.let { shown }
+            },
+            discard = { WhiteBearExport.deleteDocument(context, writing) }
+        )
+    }
+
     val exportSaver = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/zip")
-    ) { uri ->
-        if (uri != null) {
-            exportTo({ context.contentResolver.openOutputStream(uri) }, uri.lastPathSegment ?: "the chosen file")
-        }
-    }
+    ) { uri -> if (uri != null) exportTo(chosenFileDestination(uri)) }
 
     fun openImport(uri: Uri) = context.contentResolver.openInputStream(uri)
         ?: error("Cannot read the file.")
@@ -220,17 +287,7 @@ fun WhiteBearExportImportSheet(
     fun onExport() {
         val dir = WhiteBearExport.exportDir(context)
         val name = WhiteBearExport.exportFileName()
-        if (dir != null) {
-            exportTo(
-                {
-                    val file = dir.createFile("application/zip", name) ?: error("Cannot create the file.")
-                    context.contentResolver.openOutputStream(file.uri)
-                },
-                "${dirName ?: "the export directory"}/$name"
-            )
-        } else {
-            exportSaver.launch(name)
-        }
+        if (dir != null) exportTo(directoryDestination(dir, name)) else exportSaver.launch(name)
     }
 
     ModalBottomSheet(

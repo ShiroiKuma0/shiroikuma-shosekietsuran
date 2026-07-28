@@ -118,13 +118,16 @@ internal object AutomationWire {
  * last really did, answers for it when it stops, and gives up the slot without waiting for it;
  * a request that finds the slot held by a run older than any run may live takes it over; and the
  * heartbeat is sent by the watchdog itself, so it cannot outlive the work it reports on.
+ *
+ * **And a run 白い熊 no longer wants must be able to stop.** With 「Book covers」 ticked an export
+ * is a many-minute job, and 保存復元's 中止 used to stop only 自由作業盤 listening — the app carried
+ * on and delivered a backup that had been called off. So [cancel] marks the run, the export
+ * notices between entries, and it unwinds itself: partial file deleted, `ERROR:cancelled` sent,
+ * wakelock and service given up exactly as on any other ending.
  */
 class StateExportService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-
-    /** The run that owns this service, or none. Never a bare flag — see [claim]. */
-    private val current = AtomicReference<Run?>(null)
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -211,7 +214,13 @@ class StateExportService : Service() {
         }
         val worker = Thread({
             val result = runCatching { export(request, run, progress) }
-                .getOrElse { "ERROR:${it.message ?: it.javaClass.simpleName}" }
+                .getOrElse { error ->
+                    // 中止 is not a failure, and is answered for by type rather than by the flag:
+                    // a cancel that arrives after the export already placed its file cancelled
+                    // nothing, and must not report away a backup that is sitting there complete.
+                    if (error is WhiteBearExport.Cancelled) "ERROR:cancelled"
+                    else "ERROR:${error.message ?: error.javaClass.simpleName}"
+                }
             run.reply(this, result)
             run.watchdog?.cancel()
             run.releaseWakeLock()
@@ -266,6 +275,10 @@ class StateExportService : Service() {
 
         @Volatile var lastProgressAt: Long = startedAt
         @Volatile var item: String = "開始"
+
+        /** 白い熊 pressed 中止. Read by the export between entries, and by nothing else. */
+        @Volatile var cancelled: Boolean = false
+
         @Volatile var worker: Thread? = null
         @Volatile var watchdog: Job? = null
         @Volatile var sink: OutputStream? = null
@@ -302,7 +315,7 @@ class StateExportService : Service() {
         val cats = AutomationWire.resolveCategories(request.getStringExtra(AutomationWire.EXTRA_ITEMS))
             .getOrElse { return it.message ?: "ERROR:bad items" }
         // A first line before any directory work, so the caller hears us immediately.
-        progress.report(0L, cats.size.toLong(), "区分", "区分 0/${cats.size} — 開始")
+        progress.report(WhiteBearExport.Step(0L, cats.size.toLong(), "区分", "区分 0/${cats.size} — 開始"))
         run.alive("開始")
 
         val name = WhiteBearExport.exportFileName()
@@ -313,28 +326,53 @@ class StateExportService : Service() {
             true
         }
 
+        // Both branches below write to `<name>.part` and move it onto `<name>` only once the ZIP
+        // is closed and whole — see [WhiteBearExport.PART_SUFFIX] for why. Every way out that is
+        // not that move takes the partial with it, so the directory is left with no file at all
+        // rather than a short one; the size in the reply is read from the placed file, after the
+        // move, and the caller never sees the `.part` name.
         if (requested.isNotEmpty() && allFilesAccess) {
             val dir = File(requested)
             if (!dir.isDirectory && !dir.mkdirs()) return "ERROR:cannot create directory $requested"
+            WhiteBearExport.sweepStaleParts(dir)
             val file = File(dir, name)
-            val out = file.outputStream()
-            run.sink = out
-            val written = out.use { writeExport(cats, it, run, progress) }
-            val bytes = if (file.length() > 0L) file.length() else written.bytes
-            progress.finish()
-            return "OK:${file.absolutePath}|$bytes|${WhiteBearExport.humanSize(bytes)}|${written.summary}"
+            val part = File(dir, WhiteBearExport.partName(name))
+            var placed = false
+            try {
+                val out = part.outputStream()
+                run.sink = out
+                val written = out.use { writeExport(cats, it, run, progress) }
+                if (!part.renameTo(file)) return "ERROR:cannot put the finished file in place"
+                placed = true
+                val bytes = if (file.length() > 0L) file.length() else written.bytes
+                progress.finish()
+                return "OK:${file.absolutePath}|$bytes|${WhiteBearExport.humanSize(bytes)}|${written.summary}"
+            } finally {
+                if (!placed) runCatching { part.delete() }
+            }
         }
 
         val dir = WhiteBearExport.exportDir(this)
             ?: return if (requested.isNotEmpty()) "ERROR:no-storage-access" else "ERROR:no-directory"
-        val target = dir.createFile("application/zip", name) ?: return "ERROR:cannot create the file"
-        val out = contentResolver.openOutputStream(target.uri) ?: return "ERROR:cannot open the file for writing"
-        run.sink = out
-        val written = out.use { writeExport(cats, it, run, progress) }
-        val bytes = if (target.length() > 0L) target.length() else written.bytes
-        progress.finish()
-        val path = target.uri.path ?: target.uri.toString()
-        return "OK:$path|$bytes|${WhiteBearExport.humanSize(bytes)}|${written.summary}"
+        WhiteBearExport.sweepStaleParts(dir)
+        val target = WhiteBearExport.createPart(dir, name) ?: return "ERROR:cannot create the file"
+        var placed = false
+        try {
+            val out = contentResolver.openOutputStream(target.uri)
+                ?: return "ERROR:cannot open the file for writing"
+            run.sink = out
+            val written = out.use { writeExport(cats, it, run, progress) }
+            // A successful rename re-points `target` at the placed document, so its length and
+            // its uri below are the finished file's.
+            if (!target.renameTo(name)) return "ERROR:cannot put the finished file in place"
+            placed = true
+            val bytes = if (target.length() > 0L) target.length() else written.bytes
+            progress.finish()
+            val path = target.uri.path ?: target.uri.toString()
+            return "OK:$path|$bytes|${WhiteBearExport.humanSize(bytes)}|${written.summary}"
+        } finally {
+            if (!placed) runCatching { target.delete() }
+        }
     }
 
     private data class Written(val bytes: Long, val summary: String)
@@ -351,7 +389,10 @@ class StateExportService : Service() {
         // Every entry names itself on its way in: to logcat, so a run can be followed with
         // `adb logcat -s WhiteBearAutomation`, and to the run, so an error line can say what it
         // was on instead of just that it stopped.
-        val leash = WhiteBearExport.Leash(ceilingMs = EXPORT_CEILING_MS) { entry ->
+        val leash = WhiteBearExport.Leash(
+            ceilingMs = EXPORT_CEILING_MS,
+            isCancelled = { run.cancelled }
+        ) { entry ->
             Log.d(AutomationWire.TAG, "writing $entry")
             run.alive(entry)
         }
@@ -359,9 +400,9 @@ class StateExportService : Service() {
             context = this,
             cats = cats,
             out = counting,
-            onProgress = { current, total, unit, text ->
+            onProgress = { step ->
                 run.alive()
-                progress.report(current, total, unit, text)
+                progress.report(step)
             },
             leash = leash
         )
@@ -426,8 +467,6 @@ class StateExportService : Service() {
         stopSelf()
     }
 
-    private data class Step(val current: Long, val total: Long, val unit: String, val text: String)
-
     /**
      * Progress broadcasts with real counts — never a percentage — throttled to at most one
      * every 500 ms, re-sent as a heartbeat while a long step makes no visible progress, and
@@ -442,11 +481,10 @@ class StateExportService : Service() {
         private val onText: (String) -> Unit
     ) {
         private var lastSentAt = 0L
-        private var last: Step? = null
+        private var last: WhiteBearExport.Step? = null
 
         @Synchronized
-        fun report(current: Long, total: Long, unit: String, text: String) {
-            val step = Step(current, total, unit, text)
+        fun report(step: WhiteBearExport.Step) {
             last = step
             if (SystemClock.elapsedRealtime() - lastSentAt < THROTTLE_MS) return
             send(step)
@@ -465,7 +503,7 @@ class StateExportService : Service() {
             last?.let { send(it) }
         }
 
-        private fun send(step: Step) {
+        private fun send(step: WhiteBearExport.Step) {
             lastSentAt = SystemClock.elapsedRealtime()
             onText(step.text)
             if (action.isNullOrEmpty() || replyPackage.isEmpty()) return
@@ -480,6 +518,11 @@ class StateExportService : Service() {
                         putExtra("current", step.current)
                         putExtra("total", step.total)
                         putExtra("unit", step.unit)
+                        // The same work measured the other way, 0 where the step cannot know it.
+                        // 自由作業盤 draws both counters, and through the covers this is the pair
+                        // that visibly moves.
+                        putExtra("bytes", step.bytes)
+                        putExtra("bytes_total", step.bytesTotal)
                     }
                 )
             }
@@ -503,6 +546,34 @@ class StateExportService : Service() {
     }
 
     companion object {
+
+        /**
+         * The run this process owns, or none. Never a bare flag — see [claim].
+         *
+         * Static, and reachable without the service, so [cancel] can answer for a 中止 without
+         * starting anything: a cancel that finds nothing running must cost nothing at all. It is
+         * as authoritative here as it was on the instance — an export lives in this process or
+         * nowhere, and if the process went, so did the run.
+         */
+        private val current = AtomicReference<Run?>(null)
+
+        /**
+         * 白い熊 pressed 中止 — mark the run and return.
+         *
+         * Nothing here interrupts a thread, closes a descriptor or stops the service. A cancel
+         * that tore the work down from under itself would leave behind exactly the half-written
+         * archive it exists to prevent; instead the export notices between entries, unwinds
+         * itself, takes its partial file with it and sends the one terminal reply. A cancel with
+         * nothing to cancel — nothing running, or a run that already finished — is a no-op, and
+         * says so rather than answering for a run it does not have.
+         */
+        fun cancel(): Boolean {
+            val run = current.get() ?: return false
+            run.cancelled = true
+            Log.i(AutomationWire.TAG, "中止 — cancelling the export at ${run.item}")
+            return true
+        }
+
         private const val CHANNEL_ID = "whitebear_backup"
         private const val NOTIFICATION_ID = 4979
         private const val THROTTLE_MS = 500L
@@ -518,15 +589,25 @@ class StateExportService : Service() {
          */
         private const val STALL_MS = 90_000L
 
-        /** The export's own ceiling: it throws, so the run ends in an error, not a silence. */
-        private const val EXPORT_CEILING_MS = 8L * 60L * 1000L
+        /**
+         * The export's own ceiling: it throws, so the run ends in an error, not a silence.
+         *
+         * Long, because a run that carries 「Book covers」 legitimately is one: thousands of files
+         * and most of the archive's bytes, minutes rather than seconds. The old 8-minute ceiling
+         * was set when this was a settings dump, and would now fail the very run it exists to
+         * protect. Being slow is not the failure mode this guards against — being *silent* is,
+         * and [STALL_MS] guards that, unchanged.
+         */
+        private const val EXPORT_CEILING_MS = 50L * 60L * 1000L
 
         /**
          * The backstop for when that throw cannot happen because a syscall never returns — and
-         * the age past which a run is treated as wedged and superseded. Under 自由作業盤's 600 s
-         * timeout, so the batch hears an error rather than waiting the whole way out.
+         * the age past which a run is treated as wedged and superseded. Under 自由作業盤's
+         * timeout, which is 3600 s for this app, so the batch hears an error rather than waiting
+         * the whole way out; under [WAKELOCK_TIMEOUT_MS] too, so no run outlives the wakelock
+         * that keeps its CPU on.
          */
-        private const val CEILING_MS = 9L * 60L * 1000L
+        private const val CEILING_MS = 55L * 60L * 1000L
 
         /** The request, forwarded verbatim from [StateExportReceiver]. */
         fun intentFor(context: Context, request: Intent): Intent =
