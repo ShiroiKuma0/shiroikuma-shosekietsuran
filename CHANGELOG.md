@@ -2,6 +2,36 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.52+14
+
+Base: Episteme Android v1.0.52 (oss).
+
+### A backup is never a backup until it is finished
+
+Every export wrote straight into its final filename, so anything that ended a run part-way — a crash, an OOM kill, a full disk, force-stopping the app — left a truncated archive wearing a good backup's name. Sorted by date in a directory of backups, the newest of those corpses *is* "the latest backup" as far as anything can tell, and stays that way until the day it is needed.
+
+- **Every export now writes to `<name>.zip.part` and renames it onto the real name only once the ZIP is closed and whole.** The temporary lives in the destination directory, never in a cache directory to be copied across afterwards: same filesystem is what makes the move atomic and instant. Every other way out — an exception, an error return, a failed rename, a cancelled run — deletes the partial. **A run that does not finish leaves the directory with no file at all, not a short one.**
+- **This covers the app's own Export/Import page too**, not just the automation path. A backup written by hand is interrupted exactly as easily, and nothing in a directory listing says which is which. The awkward case is a location you pick by hand: the system's file picker creates the file under its final name before a byte is written, so it is moved aside and moved back once the archive is whole; a storage provider that refuses to rename gets a plain write, and a failed run still takes the file away rather than leaving a corpse under a backup's name.
+- **The size reported to a caller is read from the placed file, after the move** — the `.part` name never reaches anyone.
+- **A killed process cannot clean up after itself**, so each export first sweeps its destination for stale parts — matched by this app's own backup prefix and older than an hour, so a run in progress is never the one swept.
+- Files are created as `application/octet-stream` while provisional: SAF forces a created name to carry an extension matching its type, so asking for `<name>.zip.part` as a zip yields `<name>.zip.part.zip`. The finished file reports its type from its extension again after the rename.
+
+### 中止 now actually stops the export
+
+The calling batch's **中止** button stopped only the caller listening: this app carried on to the end and delivered a backup that had been cancelled, while its reply arrived with nobody waiting. With **Book covers** ticked an export is a many-minute job, so it needed a real escape hatch.
+
+- **A third broadcast action, `shiroikuma.shosekietsuran.action.CANCEL_EXPORT`**, gated on the same switch and token as everything else and answering nobody — the export being cancelled owns the one terminal reply and sends it itself.
+- **The export unwinds itself between entries** — per category, per file through the covers, and once more before the archive is placed. Nothing interrupts the worker thread, closes the descriptor under it or kills the process: those are precisely what leave a half-written archive behind, which is what a cancel exists to avoid. A large file's copy simply stops at the next 64 KB boundary instead of running out its 60 s share.
+- **Then it takes everything with it**: the partial file is deleted by the same path as any other failure, `ERROR:cancelled` goes out through the existing one-reply guard, and the wakelock, foreground service and slot are given up exactly as on the success path. **A cancelled export leaves the backup directory exactly as it found it.**
+- **A cancel with nothing to cancel is a silent no-op** — no error, no reply, no service start, no notification, no crash — because it arrives whenever you press 中止, without knowing how far the run got. A cancel landing after the archive was already placed reports the finished backup rather than reporting it away.
+- Cancelling responds in milliseconds during the cover pass; at worst, one 64 KB chunk anywhere else.
+
+### Progress that survives a cover export
+
+- **The internal time ceilings were sized against a 600 s caller timeout** and would have failed the very runs they exist to protect now that the caller waits 3600 s: the export's own ceiling goes from 8 to **50 minutes** and the wedged-run backstop from 9 to **55 minutes**, both still inside the wakelock. The 90-second silence watchdog is unchanged — being slow is not what it guards against, being silent is.
+- **The cover counter ticks per file** rather than every twenty-fifth, so `表紙 4213/8444` advances instead of the progress panel sitting on `区分 7/7` while thousands of files go by. What actually goes on the wire is still throttled to one broadcast every 500 ms.
+- **Progress broadcasts now carry `bytes` / `bytes_total`** alongside `current` / `total`, from a pre-stat of the category's files. For a cover export that is the pair that visibly moves; it is 0 where a step cannot know it.
+
 ## 1.0.52+12
 
 Base: Episteme Android v1.0.52 (oss).
