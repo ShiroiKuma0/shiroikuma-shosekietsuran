@@ -2,6 +2,22 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.52+16
+
+Base: Episteme Android v1.0.52 (oss).
+
+### The author under a book is now the way to that author's other books
+
+Both layouts of the library print an author under every book — under the cover and title in the grid, beside the cover in the list — and it was the one name on screen that did nothing. Finding that author's other books meant opening the Author pull-down and looking the same name up again, in a list of every author in the library.
+
+- **Tapping an author name filters the library to that author**, in the grid and in the list alike. It drives the very same filter the pull-down does, so the Author button updates to show the name, the **Show all** button clears it, and a tag filter stays on alongside it.
+- **Tapping that name again clears the filter** — while it is on, every book on screen carries it, so the way back out is wherever you happen to be looking. The author lines render in the accent colour for as long as a filter is active, so it is visible which line is the toggle.
+- **"No author listed" is inert**: with nothing to filter on, the tap falls through and opens the book as before.
+- **Long-pressing an author still selects the book**, so the line is not a hole in the grid's or list's selection gesture — and while books are selected the tap is disabled outright, so it toggles the selection like the rest of the cell rather than filtering out from under you.
+- **Filtering now returns the view to the top.** Filtering from deep in a 9000-book library used to leave it at whatever offset it happened to be at, showing an arbitrary slice of the results. A scroll position restored on re-entering the library is untouched by this.
+- The trim-and-drop-"Unknown" normalisation that the Author pull-down, the new tap and the visible-books test all key off now lives in one place, so a name can never be offered by one and missed by another.
+- The shelf-detail and add-books screens share the same list row and are deliberately left alone: the library's author filter has no meaning inside a shelf.
+
 ## 1.0.52+14
 
 Base: Episteme Android v1.0.52 (oss).
