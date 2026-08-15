@@ -61,6 +61,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -891,10 +892,17 @@ fun LibraryScreenContent(
     var wbAuthorFilter by rememberSaveable { mutableStateOf<String?>(null) }
     var wbTagFilterId by rememberSaveable { mutableStateOf<String?>(null) }
     val wbAuthors = remember(rawLibraryFiles) {
-        rawLibraryFiles.mapNotNull { it.author?.trim() }
-            .filter { it.isNotBlank() && !it.equals("Unknown", ignoreCase = true) }
+        rawLibraryFiles.mapNotNull { it.filterAuthor() }
             .distinct()
             .sortedBy { it.lowercase() }
+    }
+    // 白い熊 UI: tapping an author name under a cover filters the grid to that author,
+    // and tapping the same name again clears the filter. Suppressed while books are
+    // being selected, so the tap falls through to the cell and toggles the selection.
+    val onWbAuthorTap: ((String) -> Unit)? = if (isBookContextualModeActive) {
+        null
+    } else {
+        { author -> wbAuthorFilter = if (wbAuthorFilter == author) null else author }
     }
     val searchFocusRequester = remember { FocusRequester() }
     val selectedBookIds = remember(selectedItems) { selectedItems.mapTo(mutableSetOf()) { it.bookId } }
@@ -1250,7 +1258,7 @@ fun LibraryScreenContent(
                 0 -> {
                     val wbVisibleFiles = remember(recentFiles, wbAuthorFilter, wbTagFilterId) {
                         recentFiles.filter { item ->
-                            (wbAuthorFilter == null || item.author?.trim() == wbAuthorFilter) &&
+                            (wbAuthorFilter == null || item.filterAuthor() == wbAuthorFilter) &&
                                 (wbTagFilterId == null || item.tags.any { it.id == wbTagFilterId })
                         }
                     }
@@ -1271,6 +1279,14 @@ fun LibraryScreenContent(
                         }
                     } else if (wbLibraryState.gridLayout) {
                         val wbGridState = rememberLazyGridState()
+                        // A filter change re-shortens the grid, so jump back to the top —
+                        // dropping the first emission keeps the restored scroll position
+                        // when the library is merely re-entered.
+                        LaunchedEffect(wbGridState) {
+                            androidx.compose.runtime.snapshotFlow { wbAuthorFilter to wbTagFilterId }
+                                .drop(1)
+                                .collect { wbGridState.scrollToItem(0) }
+                        }
                         Box(modifier = Modifier.fillMaxSize()) {
                             LazyVerticalGrid(
                                 columns = GridCells.Adaptive(
@@ -1292,7 +1308,9 @@ fun LibraryScreenContent(
                                         onItemClick = { onItemClick(item) },
                                         onItemLongClick = { onItemLongClick(item) },
                                         usePdfFileNameAsDisplayName = usePdfFileNameAsDisplayName,
-                                        menuActions = bookMenuActions
+                                        menuActions = bookMenuActions,
+                                        onAuthorClick = onWbAuthorTap,
+                                        isAuthorFilterActive = wbAuthorFilter != null
                                     )
                                 }
                             }
@@ -1302,7 +1320,16 @@ fun LibraryScreenContent(
                             )
                         }
                     } else {
+                        val wbListState = rememberLazyListState()
+                        // Same as the grid: a filter change re-shortens the list, so jump back
+                        // to the top without disturbing a restored scroll position.
+                        LaunchedEffect(wbListState) {
+                            androidx.compose.runtime.snapshotFlow { wbAuthorFilter to wbTagFilterId }
+                                .drop(1)
+                                .collect { wbListState.scrollToItem(0) }
+                        }
                         LazyColumn(
+                            state = wbListState,
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -1316,7 +1343,9 @@ fun LibraryScreenContent(
                                     onItemLongClick = { onItemLongClick(item) },
                                     isDownloading = item.bookId in downloadingBookIds,
                                     usePdfFileNameAsDisplayName = usePdfFileNameAsDisplayName,
-                                    menuActions = bookMenuActions
+                                    menuActions = bookMenuActions,
+                                    onAuthorClick = onWbAuthorTap,
+                                    isAuthorFilterActive = wbAuthorFilter != null
                                 )
                             }
                         }
@@ -2613,8 +2642,13 @@ private fun WhiteBearLibraryGridItem(
     onItemClick: () -> Unit,
     onItemLongClick: () -> Unit,
     usePdfFileNameAsDisplayName: Boolean,
-    menuActions: WhiteBearBookMenuActions? = null
+    menuActions: WhiteBearBookMenuActions? = null,
+    onAuthorClick: ((String) -> Unit)? = null,
+    isAuthorFilterActive: Boolean = false
 ) {
+    // Only a real author name can be filtered on; "No author listed" stays inert and lets
+    // the tap through to the cell, so those covers still open on a single tap.
+    val filterableAuthor = item.filterAuthor()?.takeIf { onAuthorClick != null }
     Column(
         modifier = Modifier
             .clip(MaterialTheme.shapes.medium)
@@ -2672,9 +2706,23 @@ private fun WhiteBearLibraryGridItem(
             item.cardAuthor(),
             fontSize = authorFontSp.sp,
             lineHeight = (authorFontSp * 1.15f).sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (filterableAuthor != null && isAuthorFilterActive) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
+            modifier = if (filterableAuthor != null && onAuthorClick != null) {
+                // Long press keeps selecting the book, so the author line does not
+                // become a hole in the grid's selection gesture.
+                Modifier.combinedClickable(
+                    onClick = { onAuthorClick(filterableAuthor) },
+                    onLongClick = onItemLongClick
+                )
+            } else {
+                Modifier
+            }
         )
     }
 }
@@ -2690,7 +2738,13 @@ private fun LibraryListItem(
     isDownloading: Boolean,
     usePdfFileNameAsDisplayName: Boolean = false,
     menuActions: WhiteBearBookMenuActions? = null,
+    onAuthorClick: ((String) -> Unit)? = null,
+    isAuthorFilterActive: Boolean = false,
 ) {
+    // Only a real author name can be filtered on; "No author listed" stays inert and lets
+    // the tap through to the card. Null on the shelf and add-books screens, where the
+    // library author filter does not apply.
+    val filterableAuthor = item.filterAuthor()?.takeIf { onAuthorClick != null }
     androidx.compose.material3.ElevatedCard(
         shape = MaterialTheme.shapes.large,
         colors = androidx.compose.material3.CardDefaults.elevatedCardColors(
@@ -2779,7 +2833,21 @@ private fun LibraryListItem(
                             maxLines = 1,
                             minLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (filterableAuthor != null && isAuthorFilterActive) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            modifier = if (filterableAuthor != null && onAuthorClick != null) {
+                                // Long press keeps selecting the book, so the author line does
+                                // not become a hole in the list's selection gesture.
+                                Modifier.combinedClickable(
+                                    onClick = { onAuthorClick(filterableAuthor) },
+                                    onLongClick = onItemLongClick
+                                )
+                            } else {
+                                Modifier
+                            }
                         )
                     }
 

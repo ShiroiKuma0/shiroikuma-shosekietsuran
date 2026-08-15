@@ -2089,6 +2089,15 @@ fun RecentFileItem.cardAuthor(): String {
         ?: UNKNOWN_AUTHOR_LABEL
 }
 
+/**
+ * 白い熊 UI: the author exactly as the library author filter keys it — trimmed, and null
+ * when the book has nothing worth filtering by. The filter row, the tap-the-author-name
+ * shortcut and the visible-books predicate all go through this so they cannot drift apart.
+ */
+fun RecentFileItem.filterAuthor(): String? {
+    return author?.trim()?.takeIf { it.isNotBlank() && !it.equals("Unknown", ignoreCase = true) }
+}
+
 fun RecentFileItem.progressPercentValue(): Int {
     return (progressPercentage ?: 0f).coerceIn(0f, 100f).roundToInt()
 }
