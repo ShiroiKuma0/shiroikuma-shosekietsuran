@@ -426,15 +426,22 @@ object LocalSyncUtils {
     }
     }
 
+    /**
+     * 白い熊: [shouldStop] is polled between sidecar reads. This phase opens one file per book,
+     * so on a large library it runs for minutes — without a stop check a cancelled worker keeps
+     * grinding through it, and anything waiting on the folder-sync lock waits with it.
+     */
     suspend fun preloadAnnotationSidecars(
         context: Context,
-        sourceFolderUri: Uri
+        sourceFolderUri: Uri,
+        shouldStop: () -> Boolean = { false }
     ): Map<String, Pair<Long, String>> = withContext(Dispatchers.IO) {
         val results = mutableMapOf<String, Pair<Long, String>>()
 
         try {
             val parsedSidecars = querySyncSubfolderFiles(context, sourceFolderUri)
                 .asSequence()
+                .takeWhile { !shouldStop() }
                 .filter { isAnnotationSidecarCandidateName(it.name) }
                 .mapNotNull { file ->
                     parseAnnotationSidecar(
@@ -741,9 +748,11 @@ object LocalSyncUtils {
         }
     }
 
+    /** [shouldStop] is polled between sidecar reads — see [preloadAnnotationSidecars]. */
     suspend fun getAllFolderMetadata(
         context: Context,
-        sourceFolderUri: Uri
+        sourceFolderUri: Uri,
+        shouldStop: () -> Boolean = { false }
     ): Map<String, FolderBookMetadata> = withContext(Dispatchers.IO) {
         val finalResults = mutableMapOf<String, FolderBookMetadata>()
 
@@ -751,6 +760,7 @@ object LocalSyncUtils {
             val allFiles = querySyncSubfolderFiles(context, sourceFolderUri)
             val groupedMetadata = allFiles
                 .asSequence()
+                .takeWhile { !shouldStop() }
                 .filter { isMetadataSidecarCandidateName(it.name) }
                 .mapNotNull { file ->
                     try {

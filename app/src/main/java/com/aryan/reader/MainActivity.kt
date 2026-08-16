@@ -154,6 +154,17 @@ open class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        // 白い熊: books dropped into a synced folder while the app sat in the background stay
+        // invisible until something scans. The ViewModel throttles this to a rescan every
+        // 10 minutes at most, so returning to the app repeatedly costs nothing. A one-off
+        // external file open is not a library visit, so it does not trigger one.
+        if (!isTemporaryExternalOpen) {
+            viewModel.onAppForegrounded()
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)

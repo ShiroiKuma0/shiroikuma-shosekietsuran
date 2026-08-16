@@ -93,6 +93,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
@@ -102,6 +103,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -512,6 +514,8 @@ fun LibraryScreen(
             onSelectFileClick = onSelectFileClick,
             onScanNowClick = viewModel::scanSyncedFolder,
             onSyncMetadataClick = viewModel::syncFolderMetadata,
+            onRescanClick = { viewModel.rescanLibraryForNewBooks() },
+            onScanFolderClick = viewModel::scanFolderForNewBooks,
             onSelectSyncFolderClick = onSelectSyncFolderClick,
             onEditFolderFiltersClick = { folder, filters -> viewModel.updateFolderFilters(folder, filters) },
             syncedFolders = uiState.syncedFolders,
@@ -866,7 +870,7 @@ fun ShelfScreen(
 }
 
 @Suppress("unused")
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreenContent(
     tabTitles: List<String>,
@@ -909,6 +913,9 @@ fun LibraryScreenContent(
     onSelectFileClick: () -> Unit,
     onScanNowClick: () -> Unit,
     onSyncMetadataClick: () -> Unit,
+    // 白い熊: the fast "find new books" rescan, on the library's own top bar and pull-to-refresh.
+    onRescanClick: () -> Unit = {},
+    onScanFolderClick: (SyncedFolder) -> Unit = {},
     onSelectSyncFolderClick: () -> Unit,
     onEditFolderFiltersClick: (SyncedFolder, Set<FileType>) -> Unit,
     onDisconnectSyncFolderClick: () -> Unit,
@@ -1075,6 +1082,26 @@ fun LibraryScreenContent(
                 )
                 IconButton(onClick = { onSearchActiveChange(true) }) { Icon(Icons.Default.Search, stringResource(R.string.action_search)) }
             }
+            // 白い熊: force a rescan without digging into the Folders tab.
+            if (pagerState.currentPage == 0) {
+                IconButton(
+                    onClick = onRescanClick,
+                    enabled = !isRefreshing,
+                    modifier = Modifier.testTag("LibraryRescanButton")
+                ) {
+                    if (isRefreshing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = stringResource(R.string.action_rescan_library)
+                        )
+                    }
+                }
+            }
             // Fork: central annotation library across all books.
             IconButton(onClick = onAnnotationLibraryClick) {
                 Icon(Icons.Default.CollectionsBookmark, contentDescription = "Annotations")
@@ -1128,7 +1155,14 @@ fun LibraryScreenContent(
         },
         pageContent = { page ->
             when (page) {
-                0 -> {
+                0 -> PullToRefreshBox(
+                    // 白い熊: pulling down here forces the "find new books" rescan. The stock
+                    // gesture on Home only re-read metadata sidecars, which can never surface
+                    // a file that is not in the library yet.
+                    isRefreshing = isRefreshing,
+                    onRefresh = onRescanClick,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
                     // 白い熊 UI: the author/tag pull-downs narrow both layouts.
                     val wbVisibleFiles = remember(recentFiles, wbAuthorFilter, wbTagFilterId) {
                         recentFiles.filter { item ->
@@ -1235,6 +1269,7 @@ fun LibraryScreenContent(
                     isProUser = isProUser,
                     onCloudFolderSettingsClick = onCloudFolderSettingsClick,
                     onIncomingCloudFolderClick = onIncomingCloudFolderClick,
+                    onScanFolderClick = onScanFolderClick,
                 )
                 3 -> if (!BuildConfig.IS_OFFLINE) OpdsTab(
                     localLibraryFiles = rawLibraryFiles,
@@ -2407,6 +2442,8 @@ internal fun FolderSyncScreen(
     onScanNowClick: () -> Unit,
     onSyncMetadataClick: () -> Unit,
     isLoading: Boolean,
+    // 白い熊: rescan a single folder instead of every linked folder.
+    onScanFolderClick: (SyncedFolder) -> Unit = {},
     cloudFolderSelection: CloudFolderSyncSelection? = null,
     cloudSyncEnabled: Boolean = false,
     isProUser: Boolean = false,
@@ -2427,6 +2464,8 @@ internal fun FolderSyncScreen(
             }
     }
     com.aryan.reader.shared.ui.SharedAndroidFolderSyncScreen(
+        onScanFolder = onScanFolderClick,
+        scanFolderLabel = stringResource(R.string.menu_scan_this_folder),
         folders = syncedFolders,
         statsByFolderUri = folderStatsByUri,
         syncableFileTypes = ANDROID_SYNCABLE_FILE_TYPES.toList(),

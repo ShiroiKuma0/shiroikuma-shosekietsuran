@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <plurals name="banner_folder_scan_result_added">
+        <item quantity="other">%1$d 件を %2$s 秒でスキャン — %3$d 冊を追加しました。</item>
+        <item quantity="one">%1$d 件を %2$s 秒でスキャン — %3$d 冊を追加しました。</item>
+    </plurals>
+    <plurals name="banner_folder_scan_result_added_waited">
+        <item quantity="other">%1$s 秒待機、%2$d 件を %3$s 秒でスキャン — %4$d 冊を追加しました。</item>
+        <item quantity="one">%1$s 秒待機、%2$d 件を %3$s 秒でスキャン — %4$d 冊を追加しました。</item>
+    </plurals>
     <plurals name="book_count">
         <item quantity="other">%1$d冊の本</item>
         <item quantity="one">%1$d本</item>

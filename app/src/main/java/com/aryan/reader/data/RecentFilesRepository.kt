@@ -116,6 +116,11 @@ class RecentFilesRepository(
         return@withContext recentFileDao.getFilesBySourceFolder(sourceFolderUri).map { it.toRecentFileItem() }
     }
 
+    /** 白い熊: the ids already in the library for a folder, for the fast discovery walk. */
+    suspend fun getBookIdsBySourceFolder(sourceFolderUri: String): Set<String> = withContext(Dispatchers.IO) {
+        return@withContext recentFileDao.getBookIdsBySourceFolder(sourceFolderUri).toHashSet()
+    }
+
     override suspend fun getAllFilesForSync(): List<RecentFileItem> = withContext(Dispatchers.IO) {
         return@withContext recentFileDao.getAllFiles().map { it.toRecentFileItem() }
     }
