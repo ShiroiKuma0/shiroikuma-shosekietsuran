@@ -25,9 +25,15 @@ if (localPropertiesFile.exists()) {
 }
 
 // --- shiroikuma fork: per-build version tail ---
-// forkVersionName = "<upstream>+N", forkVersionCode = <upstream> * 10000 + N,
+// forkVersionName = "<upstream>+NNN", forkVersionCode = <upstream> * 10000 + N,
 // where N = BUILD_NUMBER from gradle.properties (bumped by buildApk, reset to 1 on upstream sync).
 val forkBuildNumber = (project.findProperty("BUILD_NUMBER") as String?)?.trim()?.toIntOrNull() ?: 1
+
+// The counter is zero-padded to three digits wherever it is TEXT — the versionName, and with it
+// the APK filename and the release tag — because file and release lists sort lexicographically,
+// and unpadded counters sort wrongly: "+10" lands before "+3", burying the newest build in the
+// middle of the list. The versionCode keeps the plain integer; padding is presentation only.
+val forkBuildNumberPadded = forkBuildNumber.toString().padStart(3, '0')
 
 // --- shiroikuma fork: release signing from a gitignored keystore.properties ---
 // Maps our standard keystore.properties keys onto the upstream MYAPP_RELEASE_* entries
@@ -86,8 +92,8 @@ android {
         versionName = "1.0.54"
 
         // shiroikuma fork: keep upstream's literals above untouched (rebase-friendly);
-        // derive our real version from them: "<upstream>+N" / <upstream> * 10000 + N.
-        versionName = "$versionName+$forkBuildNumber"
+        // derive our real version from them: "<upstream>+NNN" / <upstream> * 10000 + N.
+        versionName = "$versionName+$forkBuildNumberPadded"
         versionCode = versionCode!! * 10000 + forkBuildNumber
 
         // shiroikuma fork: single-ABI build (matches the shiroikuma-shosekietsuran_*_arm64-v8a.apk name).
