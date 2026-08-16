@@ -1,5 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Result of a rescan that found something. %1$d = files checked, %2$s = seconds it took, %3$d = new books added. -->
+    <plurals name="banner_folder_scan_result_added">
+        <item quantity="one">Scanned %1$d files in %2$s s — added %3$d new book.</item>
+        <item quantity="other">Scanned %1$d files in %2$s s — added %3$d new books.</item>
+    </plurals>
+
+    <!-- Same, when the scan spent a noticeable time queued first. %1$s = seconds waited, %2$d = files checked, %3$s = seconds scanning, %4$d = new books added. -->
+    <plurals name="banner_folder_scan_result_added_waited">
+        <item quantity="one">Waited %1$s s, scanned %2$d files in %3$s s — added %4$d new book.</item>
+        <item quantity="other">Waited %1$s s, scanned %2$d files in %3$s s — added %4$d new books.</item>
+    </plurals>
+
     <!-- Full book count phrase shown on book cards and in dialogs. %1$d = number of books. Example: "3 books". -->
     <plurals name="book_count">
         <item quantity="one">%1$d book</item>

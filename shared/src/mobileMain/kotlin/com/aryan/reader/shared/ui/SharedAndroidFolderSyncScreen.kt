@@ -112,6 +112,9 @@ fun SharedAndroidFolderSyncScreen(
     onLocalSyncChange: (SyncedFolder, enabled: Boolean, removeSyncData: Boolean) -> Unit,
     onFileTypesChange: (SyncedFolder, Set<FileType>) -> Unit,
     onScanAll: () -> Unit,
+    // shiroikuma fork: rescan a single folder instead of every linked folder.
+    onScanFolder: ((SyncedFolder) -> Unit)? = null,
+    scanFolderLabel: String? = null,
     onSyncMetadata: () -> Unit,
     formatLastScan: (Long) -> String,
     syncIcon: @Composable () -> Unit,
@@ -205,6 +208,8 @@ fun SharedAndroidFolderSyncScreen(
                         onRemove = { onRemoveFolder(folder) },
                         onToggle = { if (folder.localSyncEnabled) disablingFolder = folder else onLocalSyncChange(folder, true, false) },
                         onEdit = { editingFolder = folder },
+                        onScanFolder = onScanFolder?.let { scan -> { scan(folder) } },
+                        scanFolderLabel = scanFolderLabel,
                         onOpenCloudSettings = onCloudFolderSettingsClick,
                         onOpenIncomingCloudFolder = onOpenIncomingCloudFolder,
                     )
@@ -256,6 +261,8 @@ private fun SharedAndroidFolderCard(
     onEdit: () -> Unit,
     onOpenCloudSettings: (() -> Unit)?,
     onOpenIncomingCloudFolder: ((String) -> Unit)?,
+    onScanFolder: (() -> Unit)? = null,
+    scanFolderLabel: String? = null,
 ) {
     var showMenu by remember { mutableStateOf(false) }
     ElevatedCard(
@@ -302,6 +309,14 @@ private fun SharedAndroidFolderCard(
                     Box {
                         IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, strings.optionsDescription) }
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                            // shiroikuma fork: rescanning just the folder the new books landed
+                            // in is far cheaper than walking every linked folder.
+                            if (folder.localSyncEnabled && onScanFolder != null && scanFolderLabel != null) {
+                                DropdownMenuItem(
+                                    text = { Text(scanFolderLabel) },
+                                    onClick = { showMenu = false; onScanFolder() },
+                                )
+                            }
                             DropdownMenuItem(text = { Text(strings.editFilters) }, onClick = { showMenu = false; onEdit() })
                             DropdownMenuItem(
                                 text = { Text(if (folder.localSyncEnabled) strings.disableLocalSync else strings.enableLocalSync) },
