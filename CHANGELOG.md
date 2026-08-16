@@ -2,6 +2,37 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.52+19
+
+Base: Episteme Android v1.0.52 (oss).
+
+### Books added to a synced folder now appear when you ask, not when the app happens to look
+
+Dropping new books into a synced folder and waiting for them to show up was a matter of luck. Three separate things had to be wrong at once, and all three were.
+
+- **Nothing rescanned while the app stayed warm.** The only automatic scan ran once, when the ViewModel was created — so unless the process had been killed and cold-started, the folder was never looked at again. Returning to the app now runs a scan, throttled to once every ten minutes, and skipped for a one-off "open this file with…" launch, which is not a library visit.
+- **Pull-to-refresh could not find a new book by construction.** It ran a metadata-only pass, and that mode skips the folder walk outright: it re-reads the sidecars of books already known and returns. Pulling down on a library that was missing a book you had just added did nothing, convincingly. It now runs a real scan.
+- **The one honest rescan was buried in another tab**, behind **Scan All** in Folders. The Books tab now has a rescan button in its own top bar and pull-to-refresh on the grid itself, and every folder card offers **Scan this folder** — rescanning only the folder you dropped books into, which the sync worker already supported and nothing exposed.
+
+### The scan itself: seconds instead of minutes
+
+- **New books are found without reading a single sidecar.** A full sync opens one file per book for metadata and again for annotations, twice over — and on a 9000-book library those thousands of round-trips *are* the wait; the folder walk never was. Finding what is new needs none of them: the walk lists each directory once and compares against what the library already holds.
+- **They appear while the walk is still running.** Rows are written every 200 books instead of once at the end, so the grid fills as the scan goes rather than staying empty until the last folder is done. The rows match what the full sync would have written, so the reconciliation that follows finds them unchanged and leaves them alone.
+- **The cold-start scan takes this path too**, so a fresh launch shows new books straight away instead of after the whole reconciliation. Cover and title extraction is still kicked off for the new books only, in its existing batches.
+
+### The rescan button no longer waits for something else to finish
+
+- **A scan is not queued behind the reconciliation any more.** One process-wide lock serialises folder passes, and the slow full sync holds it for minutes — so pressing rescan during one bought a spinner until it finished, ~25 s in practice, before the walk could even start. A discovery pass now runs outside that lock: it only inserts books the folder does not have, and a reconciliation running alongside it computes its removals from a snapshot taken before those rows existed, so it cannot delete them.
+- **The reconciliation is no longer chained behind every scan.** It runs at most once every six hours; **Scan All** still forces one whenever you want it.
+- **Cancelling a sync now stops it.** WorkManager cancellation only raises a flag, and the two sidecar phases never looked at it — a cancelled sync kept opening thousands of files, and kept holding the lock while it did. They now check it between reads.
+
+### A banner that says what actually happened
+
+- **The result names the numbers** — 「9214 件を 1.3 秒でスキャン — 新しい本はありません。」 A scan that never ran says `0 件`, which is the only thing that distinguishes it from a fast one.
+- **Waiting is reported apart from scanning** — 「24.0 秒待機、9214 件を 1.3 秒でスキャン」 — because folding the two together is exactly what hid the stall above inside an innocent-looking scan time.
+- **Progress ticks as the walk runs**, every 100 entries, instead of a static "scanning…" indistinguishable from a hang.
+- Every new string is translated into Japanese.
+
 ## 1.0.52+16
 
 Base: Episteme Android v1.0.52 (oss).

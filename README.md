@@ -10,7 +10,7 @@ A fork of [Episteme](https://github.com/Aryan-Raj3112/episteme) with **major add
 
 Installs **side-by-side** with Episteme (app id `shiroikuma.shosekietsuran`).
 
-**📥 Latest release: [`1.0.52+16`](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases/latest)** — [all releases & APK downloads »](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases)
+**📥 Latest release: [`1.0.52+19`](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases/latest)** — [all releases & APK downloads »](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases)
 
 </div>
 
@@ -45,6 +45,9 @@ Side-third taps turn real pages in every render mode (instant full-viewport jump
 
 ## 🗄️ Library, remade
 A grid layout with live-adjustable thumbnail, title and author sizes; author and tag pull-down filters (with search-as-you-type and first/last-name sorting) — **or just tap the author printed under any book** to filter the shelf to that author, and tap it again to clear; a three-dot menu on every cover for parallel reading, file info, tags, sharing and deletion; and deletion that actually deletes — folder-synced files included — confirmed by a yellow-framed dialog and an instant library update. A thick black-and-yellow **fast scroller** floats over the grid's right edge: tap anywhere on its track to jump, or grab the fat yellow thumb and sweep a 9000-book library end to end in one swipe.
+
+## 🔎 Rescan on demand — new books in seconds, not minutes
+Add books to a synced folder and make the library notice **now**: a rescan button in the library's own top bar, pull-to-refresh on the grid, and **Scan this folder** on any folder card. Finding what is new reads no per-book sidecars at all — the part that turned a rescan into a minutes-long wait — so a 9000-book shelf answers in seconds, and the new books appear *while* the scan is still running instead of after it. Returning to the app rescans by itself, and the result says what it covered: 「9214 件を 1.3 秒でスキャン」, with time spent waiting reported separately from time spent scanning, so a stall can never hide inside a scan.
 
 ## 🏷️ Metadata that round-trips into your files
 Embedded subjects (EPUB `dc:subject`, MOBI EXTH, FB2 genres, PDF Keywords) become library tags on import, and tag edits write back into the files — EPUB OPF rewriting and PDF info-dictionary editing included. Publication date, publisher, language, rating and ISBN are read live from the file; author, title, summary and date are editable for EPUBs and PDFs alike.
