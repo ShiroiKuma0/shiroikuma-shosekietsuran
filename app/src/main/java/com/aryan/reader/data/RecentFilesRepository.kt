@@ -156,6 +156,10 @@ class RecentFilesRepository(private val context: Context) {
         return@withContext recentFileDao.getFilesBySourceFolder(sourceFolderUri).map { it.toRecentFileItem() }
     }
 
+    suspend fun getBookIdsBySourceFolder(sourceFolderUri: String): Set<String> = withContext(Dispatchers.IO) {
+        return@withContext recentFileDao.getBookIdsBySourceFolder(sourceFolderUri).toHashSet()
+    }
+
     suspend fun getAllFilesForSync(): List<RecentFileItem> = withContext(Dispatchers.IO) {
         return@withContext recentFileDao.getAllFiles().map { it.toRecentFileItem() }
     }

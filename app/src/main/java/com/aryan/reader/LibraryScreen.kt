@@ -93,6 +93,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
@@ -102,6 +103,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -467,6 +469,8 @@ fun LibraryScreen(
             onSelectFileClick = onSelectFileClick,
             onScanNowClick = viewModel::scanSyncedFolder,
             onSyncMetadataClick = viewModel::syncFolderMetadata,
+            onRescanClick = { viewModel.rescanLibraryForNewBooks() },
+            onScanFolderClick = viewModel::scanFolderForNewBooks,
             onSelectSyncFolderClick = onSelectSyncFolderClick,
             onEditFolderFiltersClick = { folder, filters -> viewModel.updateFolderFilters(folder, filters) },
             syncedFolders = uiState.syncedFolders,
@@ -818,7 +822,7 @@ fun ShelfScreen(
 }
 
 @Suppress("unused")
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreenContent(
     tabTitles: List<String>,
@@ -861,6 +865,9 @@ fun LibraryScreenContent(
     onSelectFileClick: () -> Unit,
     onScanNowClick: () -> Unit,
     onSyncMetadataClick: () -> Unit,
+    // 白い熊: the fast "find new books" rescan, on the library's own top bar and pull-to-refresh.
+    onRescanClick: () -> Unit = {},
+    onScanFolderClick: (SyncedFolder) -> Unit = {},
     onSelectSyncFolderClick: () -> Unit,
     onEditFolderFiltersClick: (SyncedFolder, Set<FileType>) -> Unit,
     onDisconnectSyncFolderClick: () -> Unit,
@@ -1111,6 +1118,24 @@ fun LibraryScreenContent(
                                 IconButton(onClick = { onSearchActiveChange(true) }) {
                                     Icon(Icons.Default.Search, contentDescription = stringResource(R.string.action_search))
                                 }
+                                // 白い熊: force a rescan without digging into the Folders tab.
+                                IconButton(
+                                    onClick = onRescanClick,
+                                    enabled = !isRefreshing,
+                                    modifier = Modifier.testTag("LibraryRescanButton")
+                                ) {
+                                    if (isRefreshing) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Icon(
+                                            Icons.Default.Refresh,
+                                            contentDescription = stringResource(R.string.action_rescan_library)
+                                        )
+                                    }
+                                }
                             }
                             // Fork: central annotation library across all books.
                             IconButton(onClick = onAnnotationLibraryClick) {
@@ -1262,91 +1287,100 @@ fun LibraryScreenContent(
                                 (wbTagFilterId == null || item.tags.any { it.id == wbTagFilterId })
                         }
                     }
-                    if (recentFiles.isEmpty() && searchQuery.isNotEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(stringResource(R.string.no_results_found, searchQuery))
-                        }
-                    } else if (recentFiles.isEmpty()) {
-                        EmptyState(
-                            title = stringResource(R.string.your_library_empty),
-                            message = stringResource(R.string.library_empty_desc),
-                            onSelectFileClick = onSelectFileClick,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else if (wbVisibleFiles.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("No books match the author/tag filter.")
-                        }
-                    } else if (wbLibraryState.gridLayout) {
-                        val wbGridState = rememberLazyGridState()
-                        // A filter change re-shortens the grid, so jump back to the top —
-                        // dropping the first emission keeps the restored scroll position
-                        // when the library is merely re-entered.
-                        LaunchedEffect(wbGridState) {
-                            androidx.compose.runtime.snapshotFlow { wbAuthorFilter to wbTagFilterId }
-                                .drop(1)
-                                .collect { wbGridState.scrollToItem(0) }
-                        }
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            LazyVerticalGrid(
-                                columns = GridCells.Adaptive(
-                                    minSize = (wbLibraryState.thumbnailHeight * 0.7f).dp.coerceAtLeast(72.dp)
-                                ),
-                                state = wbGridState,
+                    // 白い熊: pulling down here forces the "find new books" rescan. The stock
+                    // gesture on Home only re-read metadata sidecars, which can never surface
+                    // a file that was added to the folder after the last scan.
+                    PullToRefreshBox(
+                        isRefreshing = isRefreshing,
+                        onRefresh = onRescanClick,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        if (recentFiles.isEmpty() && searchQuery.isNotEmpty()) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text(stringResource(R.string.no_results_found, searchQuery))
+                            }
+                        } else if (recentFiles.isEmpty()) {
+                            EmptyState(
+                                title = stringResource(R.string.your_library_empty),
+                                message = stringResource(R.string.library_empty_desc),
+                                onSelectFileClick = onSelectFileClick,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else if (wbVisibleFiles.isEmpty()) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("No books match the author/tag filter.")
+                            }
+                        } else if (wbLibraryState.gridLayout) {
+                            val wbGridState = rememberLazyGridState()
+                            // A filter change re-shortens the grid, so jump back to the top —
+                            // dropping the first emission keeps the restored scroll position
+                            // when the library is merely re-entered.
+                            LaunchedEffect(wbGridState) {
+                                androidx.compose.runtime.snapshotFlow { wbAuthorFilter to wbTagFilterId }
+                                    .drop(1)
+                                    .collect { wbGridState.scrollToItem(0) }
+                            }
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                LazyVerticalGrid(
+                                    columns = GridCells.Adaptive(
+                                        minSize = (wbLibraryState.thumbnailHeight * 0.7f).dp.coerceAtLeast(72.dp)
+                                    ),
+                                    state = wbGridState,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    gridItems(wbVisibleFiles, key = { it.bookId }) { item ->
+                                        WhiteBearLibraryGridItem(
+                                            item = item,
+                                            isSelected = item.bookId in selectedBookIds,
+                                            thumbnailHeightDp = wbLibraryState.thumbnailHeight,
+                                            titleFontSp = wbLibraryState.titleFontSize,
+                                            authorFontSp = wbLibraryState.authorFontSize,
+                                            onItemClick = { onItemClick(item) },
+                                            onItemLongClick = { onItemLongClick(item) },
+                                            usePdfFileNameAsDisplayName = usePdfFileNameAsDisplayName,
+                                            menuActions = bookMenuActions,
+                                            onAuthorClick = onWbAuthorTap,
+                                            isAuthorFilterActive = wbAuthorFilter != null
+                                        )
+                                    }
+                                }
+                                WhiteBearFastScrollbar(
+                                    gridState = wbGridState,
+                                    modifier = Modifier.align(Alignment.TopEnd)
+                                )
+                            }
+                        } else {
+                            val wbListState = rememberLazyListState()
+                            // Same as the grid: a filter change re-shortens the list, so jump back
+                            // to the top without disturbing a restored scroll position.
+                            LaunchedEffect(wbListState) {
+                                androidx.compose.runtime.snapshotFlow { wbAuthorFilter to wbTagFilterId }
+                                    .drop(1)
+                                    .collect { wbListState.scrollToItem(0) }
+                            }
+                            LazyColumn(
+                                state = wbListState,
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                gridItems(wbVisibleFiles, key = { it.bookId }) { item ->
-                                    WhiteBearLibraryGridItem(
+                                items(wbVisibleFiles, key = { it.bookId }) { item ->
+                                    LibraryListItem(
                                         item = item,
                                         isSelected = item.bookId in selectedBookIds,
-                                        thumbnailHeightDp = wbLibraryState.thumbnailHeight,
-                                        titleFontSp = wbLibraryState.titleFontSize,
-                                        authorFontSp = wbLibraryState.authorFontSize,
+                                        isPinned = item.bookId in pinnedLibraryBookIds,
                                         onItemClick = { onItemClick(item) },
                                         onItemLongClick = { onItemLongClick(item) },
+                                        isDownloading = item.bookId in downloadingBookIds,
                                         usePdfFileNameAsDisplayName = usePdfFileNameAsDisplayName,
                                         menuActions = bookMenuActions,
                                         onAuthorClick = onWbAuthorTap,
                                         isAuthorFilterActive = wbAuthorFilter != null
                                     )
                                 }
-                            }
-                            WhiteBearFastScrollbar(
-                                gridState = wbGridState,
-                                modifier = Modifier.align(Alignment.TopEnd)
-                            )
-                        }
-                    } else {
-                        val wbListState = rememberLazyListState()
-                        // Same as the grid: a filter change re-shortens the list, so jump back
-                        // to the top without disturbing a restored scroll position.
-                        LaunchedEffect(wbListState) {
-                            androidx.compose.runtime.snapshotFlow { wbAuthorFilter to wbTagFilterId }
-                                .drop(1)
-                                .collect { wbListState.scrollToItem(0) }
-                        }
-                        LazyColumn(
-                            state = wbListState,
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(wbVisibleFiles, key = { it.bookId }) { item ->
-                                LibraryListItem(
-                                    item = item,
-                                    isSelected = item.bookId in selectedBookIds,
-                                    isPinned = item.bookId in pinnedLibraryBookIds,
-                                    onItemClick = { onItemClick(item) },
-                                    onItemLongClick = { onItemLongClick(item) },
-                                    isDownloading = item.bookId in downloadingBookIds,
-                                    usePdfFileNameAsDisplayName = usePdfFileNameAsDisplayName,
-                                    menuActions = bookMenuActions,
-                                    onAuthorClick = onWbAuthorTap,
-                                    isAuthorFilterActive = wbAuthorFilter != null
-                                )
                             }
                         }
                     }
@@ -1369,6 +1403,7 @@ fun LibraryScreenContent(
                         onEditFolderFiltersClick = onEditFolderFiltersClick,
                         onScanNowClick = onScanNowClick,
                         onSyncMetadataClick = onSyncMetadataClick,
+                        onScanFolderClick = onScanFolderClick,
                         isLoading = isLoading || isRefreshing
                     )
                 }
@@ -3053,6 +3088,8 @@ internal fun FolderSyncScreen(
     onEditFolderFiltersClick: (SyncedFolder, Set<FileType>) -> Unit,
     onScanNowClick: () -> Unit,
     onSyncMetadataClick: () -> Unit,
+    // 白い熊: rescan a single folder instead of every linked folder.
+    onScanFolderClick: (SyncedFolder) -> Unit = {},
     isLoading: Boolean
 ) {
     var editingFolder by remember { mutableStateOf<SyncedFolder?>(null) }
@@ -3138,6 +3175,7 @@ internal fun FolderSyncScreen(
                     FolderCard(
                         folder = folder,
                         stats = folderStatsByUri[folder.uriString] ?: FolderFileStats.Empty,
+                        onScanFolderClick = onScanFolderClick,
                         onRemoveClick = onRemoveFolderClick,
                         onLocalSyncToggleClick = { selectedFolder ->
                             if (selectedFolder.localSyncEnabled) {
@@ -3219,6 +3257,7 @@ private data class FolderFileStats(
 private fun FolderCard(
     folder: SyncedFolder,
     stats: FolderFileStats,
+    onScanFolderClick: (SyncedFolder) -> Unit,
     onRemoveClick: (SyncedFolder) -> Unit,
     onLocalSyncToggleClick: (SyncedFolder) -> Unit,
     onEditFiltersClick: (SyncedFolder) -> Unit
@@ -3269,6 +3308,18 @@ private fun FolderCard(
                         Icon(Icons.Default.MoreVert, "Options")
                     }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        // 白い熊: rescanning just the folder the new books landed in is far
+                        // cheaper than walking every linked folder.
+                        if (folder.localSyncEnabled) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.menu_scan_this_folder)) },
+                                leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) },
+                                onClick = {
+                                    showMenu = false
+                                    onScanFolderClick(folder)
+                                }
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.menu_edit_filters)) },
                             onClick = {

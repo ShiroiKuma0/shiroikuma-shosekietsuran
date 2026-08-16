@@ -541,6 +541,18 @@
     <string name="banner_folder_sync_updating">Folder Sync: Updating metadata…</string>
     <string name="banner_folder_sync_scanning">Scanning folder for new books…</string>
     <string name="banner_folder_sync_complete">Folder Sync: Scan complete.</string>
+    <!-- Live progress while a rescan walks the folder tree. %1$d = files checked so far, %2$d = new books found so far. -->
+    <string name="banner_folder_scan_progress">Scanning… %1$d files, %2$d new</string>
+    <!-- Live progress for the deep "Scan All" pass, which reconciles rather than only adding. %1$d = files checked so far. -->
+    <string name="banner_folder_walk_progress">Scanning… %1$d files</string>
+    <!-- Result of a rescan that added nothing. %1$d = files checked, %2$s = seconds it took. -->
+    <string name="banner_folder_scan_result_none">Scanned %1$d files in %2$s s — no new books.</string>
+    <!-- Same, when the scan spent a noticeable time queued first. %1$s = seconds waited, %2$d = files checked, %3$s = seconds scanning. -->
+    <string name="banner_folder_scan_result_none_waited">Waited %1$s s, scanned %2$d files in %3$s s — no new books.</string>
+    <!-- Result of the deep "Scan All" pass. %1$d = files checked, %2$s = seconds it took. -->
+    <string name="banner_folder_sync_complete_stats">Folder Sync: scanned %1$d files in %2$s s.</string>
+    <string name="action_rescan_library">Rescan for new books</string>
+    <string name="menu_scan_this_folder">Scan this folder</string>
     <string name="error_sync_failed">Sync failed.</string>
     <string name="error_no_enabled_folder_sync">No local folders have sync enabled.</string>
     <string name="banner_folder_local_sync_disabled">Local folder sync disabled.</string>

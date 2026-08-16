@@ -58,17 +58,63 @@ class FolderSyncWorker(
 
     private val recentFilesRepository = RecentFilesRepository(appContext)
 
+    // Entries walked across every folder this run, reported back in the worker's output data.
+    private var filesSeenTotal = 0
+
     companion object {
         const val WORK_NAME = "FolderSyncWorker"
         const val WORK_NAME_ONETIME = "FolderSyncWorker_OneTime"
+
+        // Fork: a discovery pass may chain the full reconciliation behind itself. It runs
+        // under its own unique name so enqueueing it cannot cancel the pass that spawned it.
+        const val WORK_NAME_FOLLOWUP = "FolderSyncWorker_FollowUp"
+
         const val KEY_METADATA_ONLY = "key_metadata_only"
         const val KEY_TARGET_FOLDER_URI = "key_target_folder_uri"
+
+        // Fork: "find new files only" mode — walks the folder tree and inserts the books the
+        // library does not have yet, skipping every per-book sidecar read. On a 9000-book
+        // folder those sidecar opens, not the tree walk, are what made a rescan take minutes.
+        const val KEY_DISCOVER_ONLY = "key_discover_only"
+        const val KEY_CHAIN_FULL_SYNC = "key_chain_full_sync"
+
+        const val PROGRESS_PHASE = "progress_phase"
+        const val PROGRESS_FILES_SEEN = "progress_files_seen"
+        const val PROGRESS_NEW_BOOKS = "progress_new_books"
+        const val OUTPUT_NEW_BOOKS = "output_new_books"
+
+        // Reported back so the completion banner can say what the pass actually covered —
+        // "scanned 0 files" is the difference between a fast scan and one that never ran.
+        // The wait is reported apart from the work: time spent queued or blocked behind
+        // another pass is not scanning, and folding the two together hides exactly the kind
+        // of stall this worker is prone to.
+        const val OUTPUT_FILES_SEEN = "output_files_seen"
+        const val OUTPUT_WAIT_MS = "output_wait_ms"
+        const val OUTPUT_WORK_MS = "output_work_ms"
+
+        const val PHASE_DISCOVER = "discover"
+        const val PHASE_SCAN = "scan"
+
+        // Newly found books are written to the DB in batches while the walk is still
+        // running, so they show up in the library instead of waiting for the whole pass.
+        private const val DISCOVER_FLUSH_SIZE = 200
+        private const val PROGRESS_REPORT_INTERVAL = 100
+
+        // 白い熊: the full reconciliation reads every per-book sidecar and takes minutes on a
+        // large library. Chaining it behind every discovery pass meant the next rescan blocked
+        // on syncMutex until it finished — 25 s of spinner before the walk could even start.
+        // It now runs at most this often; a manual "Scan All" still forces one at any time.
+        private const val FULL_SYNC_MIN_INTERVAL_MS = 6 * 60 * 60 * 1000L
+        private const val KEY_LAST_FULL_SYNC_TIME = "last_full_folder_sync_time"
+
         private val syncMutex = Mutex()
     }
 
     override suspend fun doWork(): Result {
         val workerStart = ReaderPerfLog.nowNanos()
         val isMetadataOnly = inputData.getBoolean(KEY_METADATA_ONLY, false)
+        val isDiscoverOnly = inputData.getBoolean(KEY_DISCOVER_ONLY, false)
+        val chainFullSync = inputData.getBoolean(KEY_CHAIN_FULL_SYNC, false)
         val targetFolderUri = inputData.getString(KEY_TARGET_FOLDER_URI)
         val prefs = appContext.getSharedPreferences("reader_user_prefs", Context.MODE_PRIVATE)
 
@@ -98,42 +144,234 @@ class FolderSyncWorker(
 
         ReaderPerfLog.d(
             "FolderSync worker start folders=${foldersToProcess.size}/${folders.size} " +
-                "target=${targetFolderUri ?: "ALL"} metadataOnly=$isMetadataOnly"
+                "target=${targetFolderUri ?: "ALL"} metadataOnly=$isMetadataOnly discoverOnly=$isDiscoverOnly"
         )
 
-        return withContext(Dispatchers.IO) {
-            syncMutex.withLock {
-                var allSuccess = true
+        suspend fun runPass(): Result {
+            val workStart = ReaderPerfLog.nowNanos()
+            val waitMs = ReaderPerfLog.elapsedMs(workerStart)
+            var allSuccess = true
+            var newBooks = 0
 
-                for (folderConfig in foldersToProcess) {
+            for (folderConfig in foldersToProcess) {
+                if (isDiscoverOnly) {
+                    newBooks += discoverNewBooksForFolder(folderConfig)
+                } else {
                     val success = performSyncForFolder(folderConfig, isMetadataOnly)
                     if (!success) allSuccess = false
                 }
+            }
 
-                if (jsonString != null) {
-                    try {
-                        val array = org.json.JSONArray(jsonString)
-                        val now = System.currentTimeMillis()
-                        val processedUris = foldersToProcess.mapTo(mutableSetOf()) { it.uriString }
-                        for (i in 0 until array.length()) {
-                            val obj = array.getJSONObject(i)
-                            if (obj.optString("uri") in processedUris) {
-                                obj.put("lastScanTime", now)
-                            }
+            if (jsonString != null) {
+                try {
+                    val array = org.json.JSONArray(jsonString)
+                    val now = System.currentTimeMillis()
+                    val processedUris = foldersToProcess.mapTo(mutableSetOf()) { it.uriString }
+                    for (i in 0 until array.length()) {
+                        val obj = array.getJSONObject(i)
+                        if (obj.optString("uri") in processedUris) {
+                            obj.put("lastScanTime", now)
                         }
-                        prefs.edit { putString(SyncedFolderPrefs.KEY_SYNCED_FOLDERS_JSON, array.toString()) }
-                    } catch (_: Exception) {}
+                    }
+                    prefs.edit { putString(SyncedFolderPrefs.KEY_SYNCED_FOLDERS_JSON, array.toString()) }
+                } catch (_: Exception) {}
+            }
+
+            if (!isDiscoverOnly && !isMetadataOnly && !isStopped) {
+                prefs.edit { putLong(KEY_LAST_FULL_SYNC_TIME, System.currentTimeMillis()) }
+            }
+
+            if (isDiscoverOnly && chainFullSync && !isStopped) {
+                val sinceFullSync = System.currentTimeMillis() - prefs.getLong(KEY_LAST_FULL_SYNC_TIME, 0L)
+                if (sinceFullSync >= FULL_SYNC_MIN_INTERVAL_MS) {
+                    enqueueFollowUpFullSync(targetFolderUri)
+                } else {
+                    ReaderPerfLog.d("FolderDiscover full sync not chained: last one ${sinceFullSync}ms ago")
                 }
+            }
 
-                val elapsed = ReaderPerfLog.elapsedMs(workerStart)
-                ReaderPerfLog.i(
-                    "FolderSync worker finished status=${if (allSuccess) "success" else "failure"} " +
-                        "folders=${foldersToProcess.size} elapsed=${elapsed}ms"
-                )
+            val workMs = ReaderPerfLog.elapsedMs(workStart)
+            ReaderPerfLog.i(
+                "FolderSync worker finished status=${if (allSuccess) "success" else "failure"} " +
+                    "folders=${foldersToProcess.size} discoverOnly=$isDiscoverOnly " +
+                    "entries=$filesSeenTotal newBooks=$newBooks waited=${waitMs}ms work=${workMs}ms"
+            )
 
-                if (allSuccess) Result.success() else Result.failure()
+            val output = androidx.work.Data.Builder()
+                .putInt(OUTPUT_NEW_BOOKS, newBooks)
+                .putInt(OUTPUT_FILES_SEEN, filesSeenTotal)
+                .putLong(OUTPUT_WAIT_MS, waitMs)
+                .putLong(OUTPUT_WORK_MS, workMs)
+                .build()
+            return if (allSuccess) Result.success(output) else Result.failure(output)
+        }
+
+        return withContext(Dispatchers.IO) {
+            // 白い熊: a discovery pass deliberately runs OUTSIDE syncMutex. It only inserts books
+            // the folder does not have yet, and a concurrent reconciliation computes its removals
+            // from a snapshot taken before those rows existed, so it cannot delete them. Taking
+            // the lock only made the rescan button wait out whatever slow pass held it.
+            if (isDiscoverOnly) {
+                runPass()
+            } else {
+                syncMutex.withLock { runPass() }
             }
         }
+    }
+
+    /**
+     * Fork: the fast path behind every "rescan" entry point. It walks the folder tree and
+     * writes only the books the library does not know yet, in batches, so they appear while
+     * the walk is still running. Sidecar reconciliation (reading progress, annotations,
+     * removals, id migrations) is left to the full sync that may be chained behind it.
+     */
+    private suspend fun discoverNewBooksForFolder(folderConfig: SyncedFolder): Int {
+        val folderUriString = folderConfig.uriString
+        if (folderUriString.isBlank()) return 0
+        val folderUri = folderUriString.toUri()
+        val folderStart = ReaderPerfLog.nowNanos()
+
+        if (!isFolderStillLinked(folderUriString)) {
+            ReaderPerfLog.w("FolderDiscover folder skipped: no longer linked folder=$folderUriString")
+            return 0
+        }
+
+        try {
+            appContext.contentResolver.takePersistableUriPermission(
+                folderUri,
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        } catch (_: SecurityException) {
+            ReaderPerfLog.w("FolderDiscover folder skipped: no permission folder=$folderUriString")
+            return 0
+        }
+
+        val knownBookIds = ReaderPerfLog.measureSuspend(
+            name = "FolderDiscover phase load-known-ids",
+            minLogMs = 25L
+        ) {
+            recentFilesRepository.getBookIdsBySourceFolder(folderUriString).toHashSet()
+        }
+
+        val nowMillis = System.currentTimeMillis()
+        val pending = mutableListOf<RecentFileItem>()
+        var newBooks = 0
+
+        suspend fun flushPending() {
+            if (pending.isEmpty()) return
+            recentFilesRepository.addRecentFiles(pending.toList())
+            newBooks += pending.size
+            pending.clear()
+        }
+
+        val walkStats = try {
+            val stats = walkFolderFiles(
+                folderUri = folderUri,
+                folderUriString = folderUriString,
+                allowedFileTypes = folderConfig.allowedFileTypes,
+                onProgress = { filesSeen -> reportProgress(PHASE_DISCOVER, filesSeen, newBooks + pending.size) }
+            ) { file ->
+                val bookId = file.stableBookId
+                if (knownBookIds.add(bookId)) {
+                    pending += file.toDiscoveredRecentFileItem(bookId, nowMillis)
+                    if (pending.size >= DISCOVER_FLUSH_SIZE) flushPending()
+                }
+            }
+            // Do not write the tail batch into a folder that was unlinked mid-walk.
+            if (!stats.stoppedForUnlinkedFolder && isFolderStillLinked(folderUriString)) {
+                flushPending()
+            }
+            stats
+        } catch (e: Exception) {
+            Timber.tag("FolderDiscover").e(e, "Error during folder discovery.")
+            FolderWalkStats()
+        }
+
+        ReaderPerfLog.i(
+            "FolderDiscover folder finished elapsed=${ReaderPerfLog.elapsedMs(folderStart)}ms " +
+                "dirs=${walkStats.dirsScanned} entries=${walkStats.filesSeen} known=${knownBookIds.size} " +
+                "new=$newBooks unlinkedAbort=${walkStats.stoppedForUnlinkedFolder} folder=$folderUriString"
+        )
+
+        filesSeenTotal += walkStats.filesSeen
+
+        if (newBooks > 0 && !isStopped && !walkStats.stoppedForUnlinkedFolder) {
+            enqueueMetadataExtraction(folderUriString)
+        }
+
+        return newBooks
+    }
+
+    private suspend fun reportProgress(phase: String, filesSeen: Int, newBooks: Int) {
+        try {
+            setProgress(
+                androidx.work.Data.Builder()
+                    .putString(PROGRESS_PHASE, phase)
+                    .putInt(PROGRESS_FILES_SEEN, filesSeen)
+                    .putInt(PROGRESS_NEW_BOOKS, newBooks)
+                    .build()
+            )
+        } catch (_: Exception) {
+            // A cancelled worker can no longer publish progress; the scan itself still stops cleanly.
+        }
+    }
+
+    private fun enqueueMetadataExtraction(folderUriString: String) {
+        ReaderPerfLog.i("FolderSync enqueue metadata extraction folder=$folderUriString")
+        val metaRequest = OneTimeWorkRequestBuilder<MetadataExtractionWorker>()
+            .setInputData(
+                androidx.work.Data.Builder()
+                    .putString(MetadataExtractionWorker.KEY_SOURCE_FOLDER_URI, folderUriString)
+                    .build()
+            )
+            .build()
+        WorkManager.getInstance(appContext).enqueueUniqueWork(
+            MetadataExtractionWorker.WORK_NAME,
+            ExistingWorkPolicy.REPLACE,
+            metaRequest
+        )
+    }
+
+    private fun enqueueFollowUpFullSync(targetFolderUri: String?) {
+        val data = androidx.work.Data.Builder()
+            .putBoolean(KEY_METADATA_ONLY, false)
+            .apply {
+                if (!targetFolderUri.isNullOrBlank()) {
+                    putString(KEY_TARGET_FOLDER_URI, targetFolderUri)
+                }
+            }
+            .build()
+        WorkManager.getInstance(appContext).enqueueUniqueWork(
+            WORK_NAME_FOLLOWUP,
+            ExistingWorkPolicy.REPLACE,
+            OneTimeWorkRequestBuilder<FolderSyncWorker>().setInputData(data).build()
+        )
+        ReaderPerfLog.d("FolderDiscover chained full sync target=${targetFolderUri ?: "ALL"}")
+    }
+
+    private fun SharedFolderScannedFile.toDiscoveredRecentFileItem(
+        bookId: String,
+        nowMillis: Long
+    ): RecentFileItem {
+        // Mirrors what LocalFolderSyncEngine builds for a book it has never seen, so the
+        // chained full sync finds the row unchanged and does not rewrite it.
+        return RecentFileItem(
+            bookId = bookId,
+            uriString = path,
+            type = type,
+            displayName = name,
+            timestamp = nowMillis,
+            title = name.substringBeforeLast('.', missingDelimiterValue = name),
+            isRecent = false,
+            isAvailable = true,
+            lastModifiedTimestamp = nowMillis,
+            isDeleted = false,
+            sourceFolderUri = sourceFolder,
+            fileSize = size,
+            fileContentModifiedTimestamp = lastModified,
+            folderTextMetadataParsed = false,
+            folderCoverMetadataParsed = false
+        )
     }
 
     private suspend fun performSyncForFolder(folderConfig: SyncedFolder, metadataOnly: Boolean): Boolean {
@@ -176,7 +414,7 @@ class FolderSyncWorker(
                 minLogMs = 25L,
                 details = { "metadataOnly=$metadataOnly" }
             ) {
-                LocalSyncUtils.getAllFolderMetadata(appContext, folderUri).toMutableMap()
+                LocalSyncUtils.getAllFolderMetadata(appContext, folderUri) { isStopped }.toMutableMap()
             }
             ReaderPerfLog.d(
                 "FolderSync metadata-sidecars records=${folderMetadataMap.size} metadataOnly=$metadataOnly folder=$folderUriString"
@@ -206,6 +444,7 @@ class FolderSyncWorker(
             }
             dirsScanned = scanResult.dirsScanned
             filesSeen = scanResult.filesSeen
+            filesSeenTotal += scanResult.filesSeen
             supportedBooksSeen = scanResult.files.size
             stoppedForUnlinkedFolder = scanResult.stoppedForUnlinkedFolder
 
@@ -243,7 +482,7 @@ class FolderSyncWorker(
                     name = "FolderSync phase migration-sidecars",
                     minLogMs = 25L
                 ) {
-                    LocalSyncUtils.preloadAnnotationSidecars(appContext, folderUri).toMutableMap()
+                    LocalSyncUtils.preloadAnnotationSidecars(appContext, folderUri) { isStopped }.toMutableMap()
                 }
                 syncResult.idMigrations.forEach { (oldId, newId) ->
                     Timber.tag("FolderSync").i("Migrating folder book ID via shared engine $oldId -> $newId")
@@ -331,19 +570,7 @@ class FolderSyncWorker(
 
             if (!isStopped && !stoppedForUnlinkedFolder && !metadataOnly) {
                 if (recentFilesRepository.hasFolderBooksNeedingTextMetadata(folderUriString)) {
-                    ReaderPerfLog.i("FolderSync enqueue metadata extraction folder=$folderUriString")
-                    val metaRequest = OneTimeWorkRequestBuilder<MetadataExtractionWorker>()
-                        .setInputData(
-                            androidx.work.Data.Builder()
-                                .putString(MetadataExtractionWorker.KEY_SOURCE_FOLDER_URI, folderUriString)
-                                .build()
-                        )
-                        .build()
-                    WorkManager.getInstance(appContext).enqueueUniqueWork(
-                        MetadataExtractionWorker.WORK_NAME,
-                        ExistingWorkPolicy.REPLACE,
-                        metaRequest
-                    )
+                    enqueueMetadataExtraction(folderUriString)
                 } else {
                     ReaderPerfLog.d("FolderSync metadata extraction skipped: no pending books folder=$folderUriString")
                 }
@@ -373,7 +600,7 @@ class FolderSyncWorker(
             minLogMs = 25L,
             details = { "phase=$phase" }
         ) {
-            LocalSyncUtils.preloadAnnotationSidecars(appContext, folderUri)
+            LocalSyncUtils.preloadAnnotationSidecars(appContext, folderUri) { isStopped }
         }
 
         ReaderPerfLog.d(
@@ -423,18 +650,53 @@ class FolderSyncWorker(
         val stoppedForUnlinkedFolder: Boolean = false
     )
 
-    private fun scanFolderFiles(
+    private data class FolderWalkStats(
+        val dirsScanned: Int = 0,
+        val filesSeen: Int = 0,
+        val stoppedForUnlinkedFolder: Boolean = false
+    )
+
+    private suspend fun scanFolderFiles(
         folderUri: android.net.Uri,
         folderUriString: String,
         allowedFileTypes: Set<FileType>
     ): AndroidFolderScanResult {
+        val files = mutableListOf<SharedFolderScannedFile>()
+        val stats = walkFolderFiles(
+            folderUri = folderUri,
+            folderUriString = folderUriString,
+            allowedFileTypes = allowedFileTypes,
+            onProgress = { filesSeen -> reportProgress(PHASE_SCAN, filesSeen, newBooks = 0) }
+        ) { file ->
+            files += file
+        }
+        return AndroidFolderScanResult(
+            files = files,
+            dirsScanned = stats.dirsScanned,
+            filesSeen = stats.filesSeen,
+            stoppedForUnlinkedFolder = stats.stoppedForUnlinkedFolder
+        )
+    }
+
+    /**
+     * Walks the folder tree once and hands every eligible book file to [onFile]. Both the
+     * full sync (which collects them into a list) and the discovery pass (which writes them
+     * to the DB as it goes) share this walker.
+     */
+    private suspend fun walkFolderFiles(
+        folderUri: android.net.Uri,
+        folderUriString: String,
+        allowedFileTypes: Set<FileType>,
+        onProgress: suspend (filesSeen: Int) -> Unit = {},
+        onFile: suspend (SharedFolderScannedFile) -> Unit
+    ): FolderWalkStats {
         Timber.tag("FolderSync").d("Phase 2: Scanning physical files using raw ContentResolver...")
         val contentResolver = appContext.contentResolver
         val rootDocId = DocumentsContract.getTreeDocumentId(folderUri)
         val dirQueue = ArrayDeque<String>()
-        val scannedFiles = mutableListOf<SharedFolderScannedFile>()
         var dirsScanned = 0
         var filesSeen = 0
+        var lastProgressAt = 0
         var stoppedForUnlinkedFolder = false
         dirQueue.add(rootDocId)
 
@@ -477,6 +739,11 @@ class FolderSyncWorker(
                             break
                         }
 
+                        if (filesSeen - lastProgressAt >= PROGRESS_REPORT_INTERVAL) {
+                            lastProgressAt = filesSeen
+                            onProgress(filesSeen)
+                        }
+
                         if (mimeType == DocumentsContract.Document.MIME_TYPE_DIR) {
                             if (!name.startsWith(".") && name != LOCAL_FOLDER_SYNC_DATA_DIR) {
                                 dirQueue.add(docId)
@@ -497,14 +764,16 @@ class FolderSyncWorker(
 
                         val docUri = DocumentsContract.buildDocumentUriUsingTree(folderUri, docId)
                         val relativePath = buildRelativePath(rootDocId, docId, name)
-                        scannedFiles += SharedFolderScannedFile(
-                            name = name,
-                            path = docUri.toString(),
-                            sourceFolder = folderUriString,
-                            relativePath = relativePath,
-                            type = type,
-                            size = if (!cursor.isNull(sizeCol)) cursor.getLong(sizeCol) else 0L,
-                            lastModified = if (!cursor.isNull(modCol)) cursor.getLong(modCol) else 0L
+                        onFile(
+                            SharedFolderScannedFile(
+                                name = name,
+                                path = docUri.toString(),
+                                sourceFolder = folderUriString,
+                                relativePath = relativePath,
+                                type = type,
+                                size = if (!cursor.isNull(sizeCol)) cursor.getLong(sizeCol) else 0L,
+                                lastModified = if (!cursor.isNull(modCol)) cursor.getLong(modCol) else 0L
+                            )
                         )
                     }
                 }
@@ -515,8 +784,9 @@ class FolderSyncWorker(
             if (stoppedForUnlinkedFolder) break
         }
 
-        return AndroidFolderScanResult(
-            files = scannedFiles,
+        if (filesSeen > lastProgressAt) onProgress(filesSeen)
+
+        return FolderWalkStats(
             dirsScanned = dirsScanned,
             filesSeen = filesSeen,
             stoppedForUnlinkedFolder = stoppedForUnlinkedFolder

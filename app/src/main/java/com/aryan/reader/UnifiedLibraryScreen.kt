@@ -423,6 +423,7 @@ fun UnifiedLibraryScreen(
                     onAddFolder = { folderPicker.launch(null) },
                     onScan = viewModel::scanSyncedFolder,
                     onSyncMetadata = viewModel::syncFolderMetadata,
+                    onScanFolder = viewModel::scanFolderForNewBooks,
                     onToggleLocalSync = viewModel::setFolderLocalSyncEnabled,
                     onEditFolderFilters = viewModel::updateFolderFilters,
                     onRemove = viewModel::removeSyncedFolder
@@ -904,6 +905,7 @@ private fun UnifiedFoldersSection(
     onAddFolder: () -> Unit,
     onScan: () -> Unit,
     onSyncMetadata: () -> Unit,
+    onScanFolder: (SyncedFolder) -> Unit,
     onToggleLocalSync: (SyncedFolder, Boolean, Boolean) -> Unit,
     onEditFolderFilters: (SyncedFolder, Set<FileType>) -> Unit,
     onRemove: (SyncedFolder) -> Unit,
@@ -918,6 +920,7 @@ private fun UnifiedFoldersSection(
             onEditFolderFiltersClick = onEditFolderFilters,
             onScanNowClick = onScan,
             onSyncMetadataClick = onSyncMetadata,
+            onScanFolderClick = onScanFolder,
             isLoading = isLoading
         )
     }
