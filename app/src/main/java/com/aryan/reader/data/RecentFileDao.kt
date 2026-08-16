@@ -47,6 +47,11 @@ interface RecentFileDao {
     @Query("SELECT * FROM recent_files WHERE sourceFolderUri = :sourceFolderUri AND isDeleted = 0")
     suspend fun getFilesBySourceFolder(sourceFolderUri: String): List<RecentFileEntity>
 
+    // Fork: the discovery pass only needs to know which books the folder already has,
+    // so it reads the ids alone instead of hydrating every row of a huge library.
+    @Query("SELECT bookId FROM recent_files WHERE sourceFolderUri = :sourceFolderUri AND isDeleted = 0")
+    suspend fun getBookIdsBySourceFolder(sourceFolderUri: String): List<String>
+
     @Query("SELECT * FROM recent_files")
     suspend fun getAllFiles(): List<RecentFileEntity>
 

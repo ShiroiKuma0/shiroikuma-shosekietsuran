@@ -333,6 +333,13 @@
     <string name="banner_folder_sync_updating">フォルダー同期: メタデータを更新中…</string>
     <string name="banner_folder_sync_scanning">新しい本を探してフォルダーをスキャン中…</string>
     <string name="banner_folder_sync_complete">フォルダー同期: スキャンが完了しました。</string>
+    <string name="banner_folder_scan_progress">スキャン中… %1$d 件を確認、新規 %2$d 冊</string>
+    <string name="banner_folder_walk_progress">スキャン中… %1$d 件を確認</string>
+    <string name="banner_folder_scan_result_none">%1$d 件を %2$s 秒でスキャン — 新しい本はありません。</string>
+    <string name="banner_folder_scan_result_none_waited">%1$s 秒待機、%2$d 件を %3$s 秒でスキャン — 新しい本はありません。</string>
+    <string name="banner_folder_sync_complete_stats">フォルダー同期: %1$d 件を %2$s 秒でスキャンしました。</string>
+    <string name="action_rescan_library">新しい本を再スキャン</string>
+    <string name="menu_scan_this_folder">このフォルダーをスキャン</string>
     <string name="error_sync_failed">同期に失敗しました。</string>
     <string name="error_enable_sync_download">ファイルをダウンロードするには同期を有効にしてください。</string>
     <string name="error_download_failed">%1$sのダウンロードに失敗しました。</string>

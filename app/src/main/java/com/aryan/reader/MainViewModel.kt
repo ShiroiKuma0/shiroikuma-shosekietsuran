@@ -1868,7 +1868,14 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
         }
 
         if (_internalState.value.syncedFolders.any { it.localSyncEnabled }) {
-            triggerFolderSyncWorker(metadataOnly = false, showFeedback = false)
+            // 白い熊: discovery first so books added since the last run appear straight away;
+            // the full sidecar reconciliation is chained behind it.
+            triggerFolderSyncWorker(
+                metadataOnly = false,
+                showFeedback = false,
+                discoverOnly = true,
+                chainFullSync = true
+            )
         }
 
         _internalState.value.currentUser?.uid?.trim()
@@ -4417,6 +4424,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             ReaderPerfLog.d("FolderRemove request folder=${folder.uriString}")
             SafeWorkManager.cancelUniqueWork(appContext, FolderSyncWorker.WORK_NAME_ONETIME)
+            SafeWorkManager.cancelUniqueWork(appContext, FolderSyncWorker.WORK_NAME_FOLLOWUP)
             SafeWorkManager.cancelUniqueWork(appContext, MetadataExtractionWorker.WORK_NAME)
 
             val currentFolders = _internalState.value.syncedFolders.withoutSyncedFolder(folder.uriString)
@@ -4478,6 +4486,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
                 )
             } else {
                 SafeWorkManager.cancelUniqueWork(appContext, FolderSyncWorker.WORK_NAME_ONETIME)
+                SafeWorkManager.cancelUniqueWork(appContext, FolderSyncWorker.WORK_NAME_FOLLOWUP)
                 SafeWorkManager.cancelUniqueWork(appContext, MetadataExtractionWorker.WORK_NAME)
 
                 if (removeSyncDataFolder) {
@@ -4556,10 +4565,65 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
         )
     }
 
+    /**
+     * 白い熊: the fast rescan behind the library's rescan button and pull-to-refresh. It only
+     * walks the folder tree for files the library does not have yet — new books land in the
+     * grid within seconds — and chains the full sidecar reconciliation behind itself.
+     */
+    fun rescanLibraryForNewBooks(targetFolderUriString: String? = null) {
+        triggerFolderSyncWorker(
+            metadataOnly = false,
+            showFeedback = true,
+            targetFolderUriString = targetFolderUriString,
+            discoverOnly = true,
+            chainFullSync = true
+        )
+    }
+
+    fun scanFolderForNewBooks(folder: SyncedFolder) {
+        rescanLibraryForNewBooks(targetFolderUriString = folder.uriString)
+    }
+
+    /**
+     * 白い熊: books added while the app sat in the background used to stay invisible until the
+     * next cold start — the only automatic scan ran in this ViewModel's init. Coming back to
+     * the foreground now runs a discovery pass, throttled so it cannot fire on every resume.
+     */
+    fun onAppForegrounded() {
+        if (_internalState.value.isRefreshing) return
+        if (_internalState.value.syncedFolders.none { it.localSyncEnabled }) return
+
+        val now = System.currentTimeMillis()
+        val last = prefs.getLong(KEY_LAST_AUTO_DISCOVER_TIME, 0L)
+        if (now - last < AUTO_DISCOVER_MIN_INTERVAL_MS) {
+            Timber.tag("FolderDiscover").d("Foreground rescan skipped: last run ${now - last}ms ago")
+            return
+        }
+
+        triggerFolderSyncWorker(
+            metadataOnly = false,
+            showFeedback = false,
+            discoverOnly = true,
+            chainFullSync = false
+        )
+    }
+
+    /** Seconds a scan took, as a bare number the banner string pairs with its own unit. */
+    private fun formatScanSeconds(elapsedMs: Long): String {
+        val seconds = elapsedMs / 1000.0
+        return if (seconds >= 100.0) {
+            seconds.toLong().toString()
+        } else {
+            String.format(java.util.Locale.getDefault(), "%.1f", seconds)
+        }
+    }
+
     private fun triggerFolderSyncWorker(
         metadataOnly: Boolean,
         showFeedback: Boolean,
-        targetFolderUriString: String? = null
+        targetFolderUriString: String? = null,
+        discoverOnly: Boolean = false,
+        chainFullSync: Boolean = false
     ) {
         val allFolders = _internalState.value.syncedFolders
         val folders = if (targetFolderUriString.isNullOrBlank()) {
@@ -4580,14 +4644,21 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
             ?.let { target -> allFolders.firstOrNull { it.uriString == target }?.name ?: target }
         ReaderPerfLog.d(
             "FolderSync request folders=${folders.size} target=${targetFolderName ?: "ALL"} " +
-                "metadataOnly=$metadataOnly feedback=$showFeedback"
+                "metadataOnly=$metadataOnly discoverOnly=$discoverOnly feedback=$showFeedback"
         )
 
         if (!metadataOnly) {
             SafeWorkManager.cancelUniqueWork(appContext, MetadataExtractionWorker.WORK_NAME)
         }
+        // A fresh request supersedes a reconciliation still queued behind an earlier discovery.
+        workManager.cancelUniqueWork(FolderSyncWorker.WORK_NAME_FOLLOWUP)
+        if (discoverOnly) {
+            prefs.edit { putLong(KEY_LAST_AUTO_DISCOVER_TIME, System.currentTimeMillis()) }
+        }
         val data = androidx.work.Data.Builder()
             .putBoolean(FolderSyncWorker.KEY_METADATA_ONLY, metadataOnly)
+            .putBoolean(FolderSyncWorker.KEY_DISCOVER_ONLY, discoverOnly)
+            .putBoolean(FolderSyncWorker.KEY_CHAIN_FULL_SYNC, chainFullSync)
             .apply {
                 if (!targetFolderUriString.isNullOrBlank()) {
                     putString(FolderSyncWorker.KEY_TARGET_FOLDER_URI, targetFolderUriString)
@@ -4628,7 +4699,24 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
                 when (workInfo.state) {
                     WorkInfo.State.RUNNING, WorkInfo.State.ENQUEUED -> {
                         if (showFeedback) {
-                            val msg = if (metadataOnly) appContext.getString(R.string.banner_folder_sync_updating) else appContext.getString(R.string.banner_folder_sync_scanning)
+                            // 白い熊: a static "Scanning…" banner is indistinguishable from a hang
+                            // on a 9000-book folder, so report what the walk has covered so far.
+                            val filesSeen = workInfo.progress.getInt(FolderSyncWorker.PROGRESS_FILES_SEEN, 0)
+                            val newBooks = workInfo.progress.getInt(FolderSyncWorker.PROGRESS_NEW_BOOKS, 0)
+                            val phase = workInfo.progress.getString(FolderSyncWorker.PROGRESS_PHASE)
+                            val msg = when {
+                                filesSeen > 0 && phase == FolderSyncWorker.PHASE_DISCOVER -> appContext.getString(
+                                    R.string.banner_folder_scan_progress,
+                                    filesSeen,
+                                    newBooks
+                                )
+                                filesSeen > 0 -> appContext.getString(
+                                    R.string.banner_folder_walk_progress,
+                                    filesSeen
+                                )
+                                metadataOnly -> appContext.getString(R.string.banner_folder_sync_updating)
+                                else -> appContext.getString(R.string.banner_folder_sync_scanning)
+                            }
                             _internalState.update {
                                 it.copy(
                                     isLoading = false,
@@ -4640,11 +4728,63 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
                     }
 
                     WorkInfo.State.SUCCEEDED -> {
+                        // 白い熊: report what the pass actually covered, and keep queued/blocked
+                        // time apart from scanning time — folding them together is what hid the
+                        // 25-second stall behind an innocent-looking "scanned in 25 s".
+                        val filesSeen = workInfo.outputData.getInt(FolderSyncWorker.OUTPUT_FILES_SEEN, 0)
+                        val waitMs = workInfo.outputData.getLong(FolderSyncWorker.OUTPUT_WAIT_MS, 0L)
+                        val workText = formatScanSeconds(
+                            workInfo.outputData.getLong(FolderSyncWorker.OUTPUT_WORK_MS, 0L)
+                        )
+                        val waitText = formatScanSeconds(waitMs)
+                        val notableWait = waitMs >= NOTABLE_SCAN_WAIT_MS
+                        val completionMessage = when {
+                            !showFeedback -> null
+                            discoverOnly -> {
+                                val added = workInfo.outputData.getInt(FolderSyncWorker.OUTPUT_NEW_BOOKS, 0)
+                                when {
+                                    added > 0 && notableWait -> appContext.resources.getQuantityString(
+                                        R.plurals.banner_folder_scan_result_added_waited,
+                                        added,
+                                        waitText,
+                                        filesSeen,
+                                        workText,
+                                        added
+                                    )
+                                    added > 0 -> appContext.resources.getQuantityString(
+                                        R.plurals.banner_folder_scan_result_added,
+                                        added,
+                                        filesSeen,
+                                        workText,
+                                        added
+                                    )
+                                    notableWait -> appContext.getString(
+                                        R.string.banner_folder_scan_result_none_waited,
+                                        waitText,
+                                        filesSeen,
+                                        workText
+                                    )
+                                    else -> appContext.getString(
+                                        R.string.banner_folder_scan_result_none,
+                                        filesSeen,
+                                        workText
+                                    )
+                                }
+                            }
+                            metadataOnly -> appContext.getString(R.string.banner_folder_sync_complete)
+                            else -> appContext.getString(
+                                R.string.banner_folder_sync_complete_stats,
+                                filesSeen,
+                                workText
+                            )
+                        }
                         _internalState.update {
                             it.copy(
                                 isLoading = false,
                                 isRefreshing = false,
-                                bannerMessage = if (showFeedback) BannerMessage(appContext.getString(R.string.banner_folder_sync_complete)) else it.bannerMessage,
+                                bannerMessage = completionMessage
+                                    ?.let { message -> BannerMessage(message) }
+                                    ?: it.bannerMessage,
                                 lastFolderScanTime = System.currentTimeMillis(),
                                 syncedFolders = loadSyncedFoldersFromPrefs()
                             )
@@ -4716,6 +4856,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             ReaderPerfLog.d("FolderRemove disconnect all folders=${_internalState.value.syncedFolders.size}")
             SafeWorkManager.cancelUniqueWork(appContext, FolderSyncWorker.WORK_NAME_ONETIME)
+            SafeWorkManager.cancelUniqueWork(appContext, FolderSyncWorker.WORK_NAME_FOLLOWUP)
             SafeWorkManager.cancelUniqueWork(appContext, FolderSyncWorker.WORK_NAME)
             SafeWorkManager.cancelUniqueWork(appContext, MetadataExtractionWorker.WORK_NAME)
 
@@ -8172,7 +8313,9 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
                 }
 
                 if (hasFolder) {
-                    syncFolderMetadata(showFeedback = true)
+                    // 白い熊: a metadata-only pass skips the folder walk entirely and can never
+                    // surface a newly added file, which made pull-to-refresh look broken.
+                    rescanLibraryForNewBooks()
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Refresh failed")
@@ -9726,6 +9869,13 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
         private const val KEY_APP_OPEN_COUNT = "app_open_count"
         internal const val KEY_SYNCED_FOLDER_URI = "synced_folder_uri"
         internal const val KEY_LAST_FOLDER_SCAN_TIME = "last_folder_scan_time"
+
+        // 白い熊: throttle for the rescan that runs when the app comes back to the foreground.
+        private const val KEY_LAST_AUTO_DISCOVER_TIME = "last_auto_discover_time"
+        private const val AUTO_DISCOVER_MIN_INTERVAL_MS = 10 * 60 * 1000L
+
+        // Below this, the time a scan spent queued is not worth putting in front of 白い熊.
+        private const val NOTABLE_SCAN_WAIT_MS = 1_000L
         internal const val KEY_PINNED_HOME = "pinned_home_books"
         internal const val KEY_PINNED_LIBRARY = "pinned_library_books"
         private const val KEY_RECENT_FILES_LIMIT = "recent_files_limit"
