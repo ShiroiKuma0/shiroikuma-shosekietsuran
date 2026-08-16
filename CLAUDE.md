@@ -34,11 +34,15 @@ multi-platform document / e-book reader. Our Android build: package `shiroikuma.
   bumps `BUILD_NUMBER`). Fast dev iteration: `./gradlew :app:assembleOssDebug`.
 - **Versioning:** upstream's `versionCode` / `versionName` literals stay in
   `app/build.gradle.kts` → `defaultConfig` (rebase-friendly); the fork lines directly below them
-  derive the real values: `versionName = "<upstream>+<BUILD_NUMBER>"`,
-  `versionCode = <upstream> * 10000 + BUILD_NUMBER` (55 → `550001`, …). `BUILD_NUMBER` lives in
+  derive the real values: `versionName = "<upstream>+<BUILD_NUMBER padded to 3 digits>"`,
+  `versionCode = <upstream> * 10000 + BUILD_NUMBER` (56 → `560020`, …). `BUILD_NUMBER` lives in
   `gradle.properties`, is bumped by every `buildApk`, and resets to `1` on each new upstream
   version. The upstream `.oss` appId suffix and `-oss` versionName suffix are removed in the `oss`
   flavor.
+- **The counter is zero-padded to three digits wherever it is text** — `versionName`, the APK
+  filename and the release tag (`1.0.52+020`, never `+20`) — so those lists sort in build order;
+  the `versionCode` keeps the plain integer. Adopted 2026-08-16, from `1.0.52+020` onward.
+  **Releases published before that keep their unpadded tags** (`1.0.52+16`, …) — never retag them.
 - **APK filename:** `shiroikuma-shosekietsuran_<versionName>_arm64-v8a.apk` (single-ABI arm64 build via
   `ndk.abiFilters`).
 - **Signing:** release signed from gitignored `keystore.properties` →

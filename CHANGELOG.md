@@ -2,7 +2,7 @@
 
 Everything built on top of stock Episteme, per release.
 
-## 1.0.52+19
+## 1.0.52+022
 
 Base: Episteme Android v1.0.52 (oss).
 
@@ -32,6 +32,11 @@ Dropping new books into a synced folder and waiting for them to show up was a ma
 - **Waiting is reported apart from scanning** — 「24.0 秒待機、9214 件を 1.3 秒でスキャン」 — because folding the two together is exactly what hid the stall above inside an innocent-looking scan time.
 - **Progress ticks as the walk runs**, every 100 entries, instead of a static "scanning…" indistinguishable from a hang.
 - Every new string is translated into Japanese.
+
+### Build numbers that sort in build order
+
+- **The counter is zero-padded to three digits wherever it is text** — the `versionName`, and with it the APK filename and the release tag: `1.0.52+022`, never `+22`. File and release lists sort lexicographically, so an unpadded counter sorts wrongly — `+10` lands before `+3` — and buries the newest build in the middle of the list. The `versionCode` keeps the plain integer; the padding is presentation only.
+- **Releases published before this keep their unpadded tags** (`1.0.52+16` and older). Nothing already published is renamed.
 
 ## 1.0.52+16
 
