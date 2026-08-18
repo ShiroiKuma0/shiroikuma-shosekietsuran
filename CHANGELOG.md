@@ -2,6 +2,19 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.52+023
+
+Base: Episteme Android v1.0.52 (oss).
+
+### The book information screen is text you can take
+
+Everything the info screen knows about a book was readable and none of it was copyable — bar two rows, ISBN and location, which carried a copy button. The title, the author, the series, the publisher, the file name, the summary, the tag names: inert text, and getting any of it out meant retyping it.
+
+- **Every item is long-press-selectable now**, with the usual handles and the system Copy toolbar — the title card with its author and provenance line, all of **Metadata** (title, author, series, publication date, publisher, language, rating, ISBN, format, size, reading progress), all of **File** (file name, added, modified, location), the summary, and the tag names. Selection runs across rows, so an author and their series come out in one drag.
+- **The HTML summary selects too.** Descriptions that arrive as HTML are rendered by a real `TextView` embedded in the Compose tree, which Compose's own selection cannot reach into; it gets Android's long-press selection instead, and the link handler is re-applied afterwards — switching selection on resets it — so links inside a description still open.
+- **The controls sitting among the text stay out of the way.** 「…more」/「Less」 and the tags' **Add / Edit** are excluded from selection, so dragging across a long value no longer sweeps a button label into it. The one-tap copy icons on ISBN and location are unchanged.
+- It is one screen everywhere — the library's long-press menu, the home screen and the reader's **Book information** all open the same dialog — so the selection is there wherever the info is.
+
 ## 1.0.52+022
 
 Base: Episteme Android v1.0.52 (oss).
