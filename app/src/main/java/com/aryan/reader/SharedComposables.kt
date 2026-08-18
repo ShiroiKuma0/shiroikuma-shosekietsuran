@@ -73,6 +73,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.text.selection.DisableSelection
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -933,113 +935,124 @@ private fun BookMetadataInfoContent(
     onOpenTags: () -> Unit,
     extraMetadata: com.aryan.reader.whitebear.WhiteBearExtraMetadata? = null
 ) {
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+    // 白い熊 UI: the whole info body lives in a SelectionContainer, so every value —
+    // title, author, path, summary, tags — can be long-pressed, selected and copied.
+    SelectionContainer {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                item.cardTitle(usePdfFileNameAsDisplayName),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis
-            )
-            item.author
-                ?.takeIf { it.isNotBlank() && !it.equals("Unknown", ignoreCase = true) }
-                ?.let {
+            OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     Text(
-                        it,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
+                        item.cardTitle(usePdfFileNameAsDisplayName),
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 3,
                         overflow = TextOverflow.Ellipsis
                     )
+                    item.author
+                        ?.takeIf { it.isNotBlank() && !it.equals("Unknown", ignoreCase = true) }
+                        ?.let {
+                            Text(
+                                it,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    val provenance = when {
+                        item.type == FileType.EPUB && hasMetadataChanges -> stringResource(R.string.metadata_provenance_epub_edited)
+                        item.type == FileType.EPUB -> stringResource(R.string.metadata_provenance_from_epub)
+                        !item.customName.isNullOrBlank() -> stringResource(R.string.metadata_provenance_display_name_changed)
+                        else -> stringResource(R.string.metadata_provenance_from_file)
+                    }
+                    Text(
+                        provenance,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (hasMetadataChanges) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-            val provenance = when {
-                item.type == FileType.EPUB && hasMetadataChanges -> stringResource(R.string.metadata_provenance_epub_edited)
-                item.type == FileType.EPUB -> stringResource(R.string.metadata_provenance_from_epub)
-                !item.customName.isNullOrBlank() -> stringResource(R.string.metadata_provenance_display_name_changed)
-                else -> stringResource(R.string.metadata_provenance_from_file)
             }
-            Text(
-                provenance,
-                style = MaterialTheme.typography.labelMedium,
-                color = if (hasMetadataChanges) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
 
-    FileInfoSection(title = stringResource(R.string.section_metadata)) {
-        InfoRowDetailed(stringResource(R.string.label_title), item.title?.takeIf { it.isNotBlank() } ?: item.displayName, maxLines = 3)
-        item.author?.takeIf { it.isNotBlank() && !it.equals("Unknown", ignoreCase = true) }?.let {
-            InfoRowDetailed(stringResource(R.string.author), it, maxLines = 2)
-        }
-        item.seriesLabel()?.let {
-            InfoRowDetailed(stringResource(R.string.label_series), it, maxLines = 2)
-        }
-        extraMetadata?.publicationDate?.takeIf { it.isNotBlank() }?.let {
-            InfoRowDetailed(stringResource(R.string.label_publication_date), it)
-        }
-        extraMetadata?.publisher?.takeIf { it.isNotBlank() }?.let {
-            InfoRowDetailed(stringResource(R.string.label_publisher), it, maxLines = 2)
-        }
-        extraMetadata?.language?.takeIf { it.isNotBlank() }?.let {
-            InfoRowDetailed(stringResource(R.string.label_language), it)
-        }
-        extraMetadata?.rating?.takeIf { it > 0.0 }?.let {
-            InfoRowDetailed(stringResource(R.string.label_rating), formatBookRating(it))
-        }
-        extraMetadata?.isbn?.takeIf { it.isNotBlank() }?.let {
-            InfoRowDetailed(stringResource(R.string.label_isbn), it, onCopy = { onCopy(it) })
-        }
-        InfoRowDetailed(stringResource(R.string.format), item.type.name)
-        InfoRowDetailed(stringResource(R.string.size), formatFileSize(item.fileSize))
-        InfoRowDetailed(stringResource(R.string.label_reading), item.readingProgressText(), maxLines = 2)
-    }
-
-    FileInfoSection(title = stringResource(R.string.section_file)) {
-        InfoRowDetailed(stringResource(R.string.label_file_name_simple), item.displayName, maxLines = 2)
-        InfoRowDetailed(stringResource(R.string.added), formattedDate)
-        lastModifiedDate?.let { InfoRowDetailed(stringResource(R.string.label_modified), it) }
-        InfoRowDetailed(
-            label = stringResource(R.string.location),
-            value = pathText,
-            maxLines = 4,
-            onCopy = { onCopy(pathText) }
-        )
-    }
-
-    item.description?.takeIf { it.isNotBlank() }?.let { summary ->
-        OutlinedCard(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(stringResource(R.string.label_summary), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                ExpandableSummaryText(summary, collapsedMaxLines = 4)
+            FileInfoSection(title = stringResource(R.string.section_metadata)) {
+                InfoRowDetailed(stringResource(R.string.label_title), item.title?.takeIf { it.isNotBlank() } ?: item.displayName, maxLines = 3)
+                item.author?.takeIf { it.isNotBlank() && !it.equals("Unknown", ignoreCase = true) }?.let {
+                    InfoRowDetailed(stringResource(R.string.author), it, maxLines = 2)
+                }
+                item.seriesLabel()?.let {
+                    InfoRowDetailed(stringResource(R.string.label_series), it, maxLines = 2)
+                }
+                extraMetadata?.publicationDate?.takeIf { it.isNotBlank() }?.let {
+                    InfoRowDetailed(stringResource(R.string.label_publication_date), it)
+                }
+                extraMetadata?.publisher?.takeIf { it.isNotBlank() }?.let {
+                    InfoRowDetailed(stringResource(R.string.label_publisher), it, maxLines = 2)
+                }
+                extraMetadata?.language?.takeIf { it.isNotBlank() }?.let {
+                    InfoRowDetailed(stringResource(R.string.label_language), it)
+                }
+                extraMetadata?.rating?.takeIf { it > 0.0 }?.let {
+                    InfoRowDetailed(stringResource(R.string.label_rating), formatBookRating(it))
+                }
+                extraMetadata?.isbn?.takeIf { it.isNotBlank() }?.let {
+                    InfoRowDetailed(stringResource(R.string.label_isbn), it, onCopy = { onCopy(it) })
+                }
+                InfoRowDetailed(stringResource(R.string.format), item.type.name)
+                InfoRowDetailed(stringResource(R.string.size), formatFileSize(item.fileSize))
+                InfoRowDetailed(stringResource(R.string.label_reading), item.readingProgressText(), maxLines = 2)
             }
-        }
-    }
 
-    FileInfoSection(title = stringResource(R.string.section_tags)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(stringResource(R.string.label_library_tags), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            TextButton(onClick = onOpenTags) { Text(stringResource(R.string.action_add_edit)) }
-        }
+            FileInfoSection(title = stringResource(R.string.section_file)) {
+                InfoRowDetailed(stringResource(R.string.label_file_name_simple), item.displayName, maxLines = 2)
+                InfoRowDetailed(stringResource(R.string.added), formattedDate)
+                lastModifiedDate?.let { InfoRowDetailed(stringResource(R.string.label_modified), it) }
+                InfoRowDetailed(
+                    label = stringResource(R.string.location),
+                    value = pathText,
+                    maxLines = 4,
+                    onCopy = { onCopy(pathText) }
+                )
+            }
 
-        if (item.tags.isNotEmpty()) {
-            BookTagChipsRow(tags = item.tags, compact = false)
-        } else {
-            Text(
-                stringResource(R.string.msg_no_tags_assigned),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            item.description?.takeIf { it.isNotBlank() }?.let { summary ->
+                OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(stringResource(R.string.label_summary), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        ExpandableSummaryText(summary, collapsedMaxLines = 4)
+                    }
+                }
+            }
+
+            FileInfoSection(title = stringResource(R.string.section_tags)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(stringResource(R.string.label_library_tags), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    DisableSelection {
+                        TextButton(onClick = onOpenTags) { Text(stringResource(R.string.action_add_edit)) }
+                    }
+                }
+
+                if (item.tags.isNotEmpty()) {
+                    BookTagChipsRow(tags = item.tags, compact = false)
+                } else {
+                    Text(
+                        stringResource(R.string.msg_no_tags_assigned),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }
@@ -1461,18 +1474,20 @@ private fun ExpandableValueText(
         modifier = Modifier.padding(top = 2.dp)
     )
     if (canExpand) {
-        TextButton(
-            onClick = { expanded = !expanded },
-            contentPadding = PaddingValues(0.dp),
-            modifier = Modifier.height(32.dp)
-        ) {
-            Text(if (expanded) "Less" else "...more")
-            Spacer(modifier = Modifier.width(2.dp))
-            Icon(
-                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp)
-            )
+        DisableSelection {
+            TextButton(
+                onClick = { expanded = !expanded },
+                contentPadding = PaddingValues(0.dp),
+                modifier = Modifier.height(32.dp)
+            ) {
+                Text(if (expanded) "Less" else "...more")
+                Spacer(modifier = Modifier.width(2.dp))
+                Icon(
+                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
     }
 }
@@ -1511,18 +1526,20 @@ private fun ExpandableSummaryText(
     }
 
     if (canExpand) {
-        TextButton(
-            onClick = { expanded = !expanded },
-            contentPadding = PaddingValues(0.dp),
-            modifier = Modifier.height(32.dp)
-        ) {
-            Text(if (expanded) "Less" else "...more")
-            Spacer(modifier = Modifier.width(2.dp))
-            Icon(
-                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp)
-            )
+        DisableSelection {
+            TextButton(
+                onClick = { expanded = !expanded },
+                contentPadding = PaddingValues(0.dp),
+                modifier = Modifier.height(32.dp)
+            ) {
+                Text(if (expanded) "Less" else "...more")
+                Spacer(modifier = Modifier.width(2.dp))
+                Icon(
+                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
     }
 }
@@ -1541,6 +1558,10 @@ private fun HtmlSummaryText(
         factory = { context ->
             TextView(context).apply {
                 includeFontPadding = false
+                // 白い熊 UI: Compose's SelectionContainer cannot reach into an AndroidView, so the
+                // HTML summary uses the TextView's own long-press selection. setTextIsSelectable()
+                // resets the movement method, so the link handler is re-applied after it.
+                setTextIsSelectable(true)
                 movementMethod = LinkMovementMethod.getInstance()
             }
         },
