@@ -42,6 +42,8 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.text.selection.DisableSelection
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -485,6 +487,10 @@ fun SharedBookInfoDialog(
                             )
                         }
                     } else {
+                        // shiroikuma fork: the whole read-only body is selectable, so every
+                        // value — title, author, series, publisher, file name, tags — can be
+                        // long-pressed and copied, not just the two rows with copy buttons.
+                        SelectionContainer {
                         SharedBookMetadataInfoContent(
                             extraInfoRows = extraInfoRows,
                             book = book,
@@ -513,6 +519,7 @@ fun SharedBookInfoDialog(
                             },
                             clipboardErrorMessage = clipboardErrorMessage,
                         )
+                        }
                     }
                 }
 
@@ -744,8 +751,11 @@ private fun SharedBookMetadataInfoContent(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                TextButton(onClick = onOpenTags) {
-                    Text(readerString("action_add_edit", "Add / Edit"))
+                // shiroikuma fork: keep the button label out of a selection drag.
+                DisableSelection {
+                    TextButton(onClick = onOpenTags) {
+                        Text(readerString("action_add_edit", "Add / Edit"))
+                    }
                 }
             }
         }
