@@ -10,7 +10,7 @@ A fork of [Episteme](https://github.com/Aryan-Raj3112/episteme) with **major add
 
 Installs **side-by-side** with Episteme (app id `shiroikuma.shosekietsuran`).
 
-**📥 Latest release: [`1.0.52+022`](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases/latest)** — [all releases & APK downloads »](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases)
+**📥 Latest release: [`1.0.52+023`](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases/latest)** — [all releases & APK downloads »](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases)
 
 </div>
 
@@ -50,7 +50,7 @@ A grid layout with live-adjustable thumbnail, title and author sizes; author and
 Add books to a synced folder and make the library notice **now**: a rescan button in the library's own top bar, pull-to-refresh on the grid, and **Scan this folder** on any folder card. Finding what is new reads no per-book sidecars at all — the part that turned a rescan into a minutes-long wait — so a 9000-book shelf answers in seconds, and the new books appear *while* the scan is still running instead of after it. Returning to the app rescans by itself, and the result says what it covered: 「9214 件を 1.3 秒でスキャン」, with time spent waiting reported separately from time spent scanning, so a stall can never hide inside a scan.
 
 ## 🏷️ Metadata that round-trips into your files
-Embedded subjects (EPUB `dc:subject`, MOBI EXTH, FB2 genres, PDF Keywords) become library tags on import, and tag edits write back into the files — EPUB OPF rewriting and PDF info-dictionary editing included. Publication date, publisher, language, rating and ISBN are read live from the file; author, title, summary and date are editable for EPUBs and PDFs alike.
+Embedded subjects (EPUB `dc:subject`, MOBI EXTH, FB2 genres, PDF Keywords) become library tags on import, and tag edits write back into the files — EPUB OPF rewriting and PDF info-dictionary editing included. Publication date, publisher, language, rating and ISBN are read live from the file; author, title, summary and date are editable for EPUBs and PDFs alike. Everything the info screen shows — title, author, series, publisher, path, summary, tag names — is long-press-selectable and copyable, HTML summaries included.
 
 ## 🔠 Per-book format settings & external fonts
 Font, size, line height, margins and alignment are book-unique by default — set a mincho for the Japanese novels without touching anything else. Import any ttf/otf; the font picker groups families, detects variable weights, and previews every entry in its own glyphs.
