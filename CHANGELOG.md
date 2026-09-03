@@ -2,6 +2,48 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.54+001
+
+Base: Episteme Android v1.0.54 (oss) — up from v1.0.52, so this release carries **two** upstream releases at once, with every fork feature replayed on top of them.
+
+### What upstream brings
+
+**Listen — audiobooks and eBook listening in one place (1.0.53).** A whole new section: import MP3, M4A, M4B, AAC, OGG, Opus and FLAC audiobooks, or turn a supported eBook into one with text-to-speech. A dedicated player, a transcript view that follows the reading position live, and a sleep timer. Playback lifecycle and TTS engine reliability were reworked around it.
+
+**PDF split view (1.0.54).** Two PDFs side by side in their own reader panes, driven from the PDF toolbar, with independent toolbar visibility per pane. This is upstream's own take on split reading and sits alongside the fork's EPUB parallel reading rather than replacing it.
+
+**Realistic PDF page turns (1.0.54).** Upstream's own curl animation, with sizing that copes with mixed page aspect ratios. The fork's five page-turn styles are unchanged and still drive the EPUB reader.
+
+**Cloud sync now covers local folders (1.0.54).** Books, reading progress, bookmarks, highlights and annotations sync across devices, with a new cloud-folder management screen, conflict resolution and progress reporting.
+
+**Okular-style reverse colour modes for PDF (1.0.54)**, more inversion choices than the previous single mode.
+
+**EPUB reader.** Font weight and letter-spacing are now adjustable (1.0.53); the current time appears on the progress bar; there is an option to hide images in a book (1.0.54). Pagination got a lot of correctness work: CSS style resolution in paginated mode, footnote handling across every reader mode, nested lists and list markers, stale pagination caches, typography overrides that now match WebView behaviour, and documents that used to collapse under a publication's root-height rules.
+
+**Text colours no longer break OpenType shaping (1.0.54)** — overlays are painted rather than restyled, which matters directly for Japanese rendering.
+
+**Legacy text encodings (1.0.54)** are decoded properly, so older non-UTF-8 text files open as intended.
+
+**Annotations export to JSON and CSV (1.0.54).**
+
+**TTS.** Media notifications stay pinned during playback, media-button routing and playback anchoring were fixed, and PDF text-to-speech now joins hyphenated line breaks (1.0.54).
+
+**Metadata and library.** Better metadata extraction with a record of when each book was added, EPUB 3 collection and MOBI series metadata fixed, OPDS download filenames improved and downloads matched against existing library entries, RTL layout fixed in the Library Beta continue card.
+
+**Memory and stability.** Streaming JSON decoding for PDF annotations, streaming text decoding, bounded large-file imports and reader threading fixes — all aimed at the out-of-memory crashes large files could cause. Plus the usual crash fixes, and an SDK, Gradle and dependency update.
+
+### What the fork had to do to keep up
+
+Upstream moved large parts of the app into shared, cross-platform code during these two releases, so several fork features were re-implemented against the new structure rather than simply replayed. **Nothing was dropped, and there is no behaviour change intended anywhere in this list** — it is recorded because it is where a regression would hide.
+
+- **The library screen** became a slot-based shared scaffold. The grid/list switch with its live thumbnail and font-size sliders, the author and tag quick filters, the rescan button, pull-to-refresh, the fast scroller and the tappable author names were rebuilt into the scaffold's own slots.
+- **The book information dialog** moved into shared code. The fork's additions — the delete action behind its yellow-framed confirmation, PDF metadata editing, the publication date field, the author autocomplete, the extra Published / Publisher / Language / Rating / ISBN rows, the header's edit, share, save-a-copy and select icons, and long-press selection of every value — are now supplied to the shared dialog through slots it gained for the purpose.
+- **The EPUB render surfaces** were extracted to their own composable. Tategaki 縦書き (writing mode, 振り仮名 spacing, vertical detection) is threaded through it, and the same-screen split container now wraps it, with the gesture layer on each pane.
+- **The folder sync worker** was rebuilt around cloud folders. The fork's fast discovery rescan still runs outside the sync lock and still chains the full reconciliation behind itself, while upstream's complete-scan watermark and cloud-root bookkeeping are preserved.
+- **The reader format sheet** became steppers with an adjustment dialog. The fork's border, the line height reaching down to 0.30, its 0.05 steps and two-decimal display, and the original-image-sizes switch were ported onto them.
+- **Long-press affordances** (the settings cog, the reader's ⋮) are back, via new optional hooks on the shared top bar and the shared tooltip button.
+- **The debounced library search** was ported into the shared scaffold: upstream had fixed the IME mangling but still pushed a query per keystroke, which re-projects the whole library on every letter.
+
 ## 1.0.52+023
 
 Base: Episteme Android v1.0.52 (oss).

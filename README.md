@@ -10,7 +10,7 @@ A fork of [Episteme](https://github.com/Aryan-Raj3112/episteme) with **major add
 
 Installs **side-by-side** with Episteme (app id `shiroikuma.shosekietsuran`).
 
-**📥 Latest release: [`1.0.52+023`](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases/latest)** — [all releases & APK downloads »](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases)
+**📥 Latest release: [`1.0.54+001`](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases/latest)** — [all releases & APK downloads »](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases)
 
 </div>
 
@@ -58,7 +58,7 @@ Font, size, line height, margins and alignment are book-unique by default — se
 ---
 
 ## Built on Episteme
-A fork of [Episteme](https://github.com/Aryan-Raj3112/episteme) (app id `shiroikuma.shosekietsuran`, so it coexists with the official build). Episteme is a beautiful multi-format document and e-book reader for Android; this fork stands on that foundation and keeps its code namespace intact for clean rebases. The code remains under AGPL-3.0.
+A fork of [Episteme](https://github.com/Aryan-Raj3112/episteme) (app id `shiroikuma.shosekietsuran`, so it coexists with the official build), currently tracking upstream **v1.0.54**. Episteme is a beautiful multi-format document and e-book reader for Android; this fork stands on that foundation and keeps its code namespace intact for clean rebases. The code remains under AGPL-3.0.
 
 ## Building
 ```bash
