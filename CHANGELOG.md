@@ -2,6 +2,34 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.54+002 — 2026-09-04
+
+Base: Episteme Android v1.0.54 (oss). A fork-only release — no upstream change since `1.0.54+001`.
+
+The sister-app backup contract moves to **v2**: the authorization token becomes optional, and a second door is added so this app can be backed up **with its data** and restored onto a wiped phone.
+
+### Automation — the token is now opt-in
+
+- **The automation switch ships ON.** A pasted secret cannot survive the wipe this feature exists to recover from: on a clean phone nothing has been configured and nobody has pasted anything. It stays a switch, because closing one app off has to remain possible.
+- **New 「Use authorization token?」 row, off by default.** Off means any sister app may drive the automation; on means a caller must also present the token. The token row is hidden unless it is asked for — a 48-character secret sitting under an off switch only invites being pasted somewhere it does nothing.
+- **A token sent to this app while it is not asking for one is ignored, never refused.** Tokens outlive the setting they were pasted for, and refusing one would turn "a switch was turned off" into "half the batch mysteriously fails".
+- Both checks now live in a single function, so "automation disabled" and "bad token" cannot drift apart — they stay distinct answers, because they are debugged differently.
+
+### App-data backup and restore — the new data door
+
+- **A provider at `shiroikuma.shosekietsuran.automation`** answering `describe`, `export`, `import` and `cancel`, so 白い熊 応用管理 can back this app up with its data and put it back after a factory reset.
+- **The caller is identified, not trusted.** A broadcast cannot say who sent it, so the caller is checked three ways: exact package name (never a prefix — any sideloaded app can call itself `shiroikuma.anything`), the uid the kernel reports, and a **pinned signing certificate**. The pin is the check that still holds on a clean phone, where the name of an app that is not installed yet is a name anyone can take.
+- **The backup travels through a file handle the caller opens, not a path**, so it lands inside 応用管理's encrypted and checksummed archive rather than beside it, unencrypted and unverified. The automation path no longer depends on All-files-access.
+- **`import` exists only on that door.** The broadcast receiver is exported without a permission; an import there would let any app on the phone overwrite this one.
+- `describe` answers without exporting anything — format, minimum readable format, what the backup contains and how large it is expected to be — so a restore can be judged before megabytes are streamed into an app that would reject them.
+- Long transfers run in a foreground service with a wakelock and report live counts, naming the category being written.
+
+### Fixes
+
+- **Settings restored by automation could be silently lost.** Preferences were written with an asynchronous `apply()`, while 応用管理 force-stops the app the moment an import reports success — deliberately, so cached preferences are not written back over the restore at shutdown. That force-stop is a `SIGKILL`, and an `apply()` still in flight simply disappears. Every settings category here restored through that one editor, so the whole settings half of a restore could have vanished while the reply said `OK`. Now a synchronous `commit()`, so the reply is only sent once the data is really on disk.
+- **Book files can no longer be swept into a backup.** No category named the directories that hold imported books and offline sync roots — but only because the one rule that walks the app's file directory happens to be restricted by a name prefix. A later addition would have put the entire library inside every automated backup, and 応用管理 would have faithfully copied it to the next phone. The book directories are now excluded explicitly: reading positions, bookmarks, shelves and annotations are this app's data; the books are yours.
+- **Replies to the batch were never heard.** The manifest already declared `<queries>` elements for text-to-speech and dictionary lookup, so a check for the element's presence passed — while neither named a sister app. On Android 11+ that makes the reply broadcast fail silently: the export runs, writes correctly, and is never heard of. Both callers are now named.
+
 ## 1.0.54+001
 
 Base: Episteme Android v1.0.54 (oss) — up from v1.0.52, so this release carries **two** upstream releases at once, with every fork feature replayed on top of them.
