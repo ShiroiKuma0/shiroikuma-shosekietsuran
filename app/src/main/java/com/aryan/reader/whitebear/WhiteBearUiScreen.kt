@@ -110,10 +110,15 @@ fun WhiteBearUiScreen(
         }
     }
 
-    // 保存復元 automation: a sister-app task may trigger this app's export headlessly, gated
-    // by the switch and the token below. Both live in the Export/Import section, because
-    // that is where 白い熊 looks for anything to do with backups.
+    // 保存復元 automation (contract v2): a sister app may trigger this app's export headlessly
+    // and back its data up, gated by the switch below. The token is an extra 白い熊 may ask
+    // for — off by default, because a pasted secret cannot survive the wipe this exists to
+    // recover from. All three rows live in the Export/Import section, because that is where
+    // 白い熊 looks for anything to do with backups.
     var automationOn by remember { mutableStateOf(WhiteBearAutomation.isEnabled(context)) }
+    var automationRequireToken by remember {
+        mutableStateOf(WhiteBearAutomation.requiresToken(context))
+    }
     var automationToken by remember { mutableStateOf(WhiteBearAutomation.token(context)) }
     var allFilesAccess by remember { mutableStateOf(hasAllFilesAccess()) }
     var showRegenerateTokenDialog by remember { mutableStateOf(false) }
@@ -149,17 +154,30 @@ fun WhiteBearUiScreen(
                 onToggle = { value ->
                     automationOn = value
                     WhiteBearAutomation.setEnabled(context, value)
-                    if (value) automationToken = WhiteBearAutomation.token(context)
                 }
             )
-            AutomationTokenRow(
-                token = automationToken,
-                onCopy = {
-                    clipboard.setText(AnnotatedString(automationToken))
-                    Toast.makeText(context, "Automation token copied.", Toast.LENGTH_SHORT).show()
-                },
-                onRegenerate = { showRegenerateTokenDialog = true }
-            )
+            if (automationOn) {
+                AutomationTokenSwitchRow(
+                    checked = automationRequireToken,
+                    onToggle = { value ->
+                        automationRequireToken = value
+                        WhiteBearAutomation.setRequiresToken(context, value)
+                        if (value) automationToken = WhiteBearAutomation.token(context)
+                    }
+                )
+            }
+            // Hidden while the token is not being asked for: a 48-character secret sitting
+            // under an off switch invites 白い熊 to paste it somewhere it will do nothing.
+            if (automationOn && automationRequireToken) {
+                AutomationTokenRow(
+                    token = automationToken,
+                    onCopy = {
+                        clipboard.setText(AnnotatedString(automationToken))
+                        Toast.makeText(context, "Automation token copied.", Toast.LENGTH_SHORT).show()
+                    },
+                    onRegenerate = { showRegenerateTokenDialog = true }
+                )
+            }
             if (automationOn && !allFilesAccess) {
                 ActionRow(
                     label = "Grant All-files access (needed to write to a given directory)…",
@@ -480,7 +498,11 @@ private fun openAllFilesAccessSettings(context: Context) {
 
 /**
  * The 保存復元 master switch — nothing in the automation contract answers until this is on.
- * Default OFF, like every sister app.
+ *
+ * **Default ON** since contract v2: a phone that has just been wiped has nothing configured on
+ * it, so an app that ships closed cannot be restored. It stays a switch rather than going away
+ * because closing one app off has to remain possible, and a feature that can be turned on but
+ * never off is one 白い熊 cannot retreat from.
  */
 @Composable
 private fun AutomationSwitchRow(checked: Boolean, onToggle: (Boolean) -> Unit) {
@@ -494,8 +516,41 @@ private fun AutomationSwitchRow(checked: Boolean, onToggle: (Boolean) -> Unit) {
         Column(modifier = Modifier.weight(1f)) {
             Text("Automation export", style = MaterialTheme.typography.bodyLarge)
             Text(
-                "Let a sister-app task (自由作業盤 保存復元) run this app's export headlessly " +
-                    "with the token below.",
+                "Let a sister app (自由作業盤 保存復元) run this app's export headlessly, and " +
+                    "応用管理 back up and restore its data — reading positions, bookmarks, " +
+                    "shelves and annotations. Never the book files themselves.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                modifier = Modifier.padding(top = 3.dp, end = 8.dp)
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onToggle)
+    }
+}
+
+/**
+ * 「Use authorization token?」 — **default OFF**.
+ *
+ * Off means any sister app may drive the automation; on means a caller must also present the
+ * token below. Either way the data door checks the caller's package name, its uid and its
+ * signing certificate, which is what actually keeps a stranger out — see
+ * `automation/AutomationCallers`.
+ */
+@Composable
+private fun AutomationTokenSwitchRow(checked: Boolean, onToggle: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onToggle(!checked) }
+            .padding(start = IndentStep, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Use authorization token?", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "Off: any sister app may drive the automation. On: a caller must also send the " +
+                    "token below. The data door checks the caller's identity and signature " +
+                    "either way.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                 modifier = Modifier.padding(top = 3.dp, end = 8.dp)

@@ -11,6 +11,10 @@
          cannot hold it without ANR-ing), and takes a partial wakelock so EMUI does not doze
          the CPU out from under a minutes-long library export with the screen off. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- 白い熊 保存復元 contract v2 §2a/§4: the data door's export/import runs as a specialUse
+         foreground service, because it is neither a sync nor a transfer of the user's own
+         choosing — it is another app backing this one up. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!--
@@ -27,6 +31,19 @@
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
+    </queries>
+
+    <!--
+      白い熊 保存復元 contract v2 §2a. Without these, `setPackage()` on our reply and progress
+      broadcasts fails SILENTLY on Android 11+: the export runs, writes correctly, and is never
+      heard of. BOTH callers, always — 応用管理 (shiroikuma.oyokanri) drives the data door and
+      restores a clean phone, and 自由作業盤 (shiroikuma.jiyusagyoban) drives the 保存復元 batch
+      that has been calling this app all along. Listing only one leaves the other inaudible.
+      A third caller is one line here; QUERY_ALL_PACKAGES buys nothing this needs.
+    -->
+    <queries>
+        <package android:name="shiroikuma.oyokanri" />
+        <package android:name="shiroikuma.jiyusagyoban" />
     </queries>
 
     <queries>
@@ -403,6 +420,41 @@
             android:name=".whitebear.StateExportService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <!--
+          白い熊 保存復元 contract v2 §2a — the data door. No android:permission, and this time
+          for a real reason rather than v1's: a custom permission would have to be `normal` (any
+          app may hold it) or `signature` (impossible — every app in this family has its own
+          keystore). Neither buys anything AutomationCallers does not already check, which is an
+          exact package name, the uid the kernel reports, and a pinned signing certificate.
+        -->
+        <provider
+            android:name=".whitebear.automation.AutomationProvider"
+            android:authorities="${applicationId}.automation"
+            android:exported="true" />
+
+        <!--
+          Where that export or import actually runs: a binder call would hold 応用管理's UI for
+          minutes, and a backgrounded app writing for minutes is frozen mid-stream on this phone.
+        -->
+        <service
+            android:name=".whitebear.automation.AutomationDataService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Automation data export/import" />
+        </service>
+
+        <!--
+          Capability discovery, readable without waking this app — 白い熊 freezes aggressively and
+          a frozen app cannot be asked anything, so 応用管理 reads these across every installed
+          package at once with MATCH_UNINSTALLED_PACKAGES | MATCH_DISABLED_COMPONENTS. An app
+          without them is simply not offered for data backup or restore.
+        -->
+        <meta-data android:name="shiroikuma.automation.contract" android:value="2" />
+        <meta-data android:name="shiroikuma.automation.format" android:value="2" />
+        <meta-data android:name="shiroikuma.automation.min_format" android:value="1" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
