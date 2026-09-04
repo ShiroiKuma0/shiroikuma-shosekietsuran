@@ -600,7 +600,16 @@ object WhiteBearExport {
             }
             count++
         }
-        editor.apply()
+        // `commit()`, not `apply()` — and this is load-bearing for the automation data door.
+        // 応用管理 force-stops this app the instant an import is answered `OK`, deliberately: a
+        // running process writes its cached SharedPreferences back out at orderly shutdown and
+        // would silently undo the import that just happened. But the force-stop is a SIGKILL,
+        // so an `apply()` still in flight is simply lost — the restore reports success and the
+        // settings it wrote are gone. `commit()` returns only once the file is written, which is
+        // the guarantee the reply is claiming. Every caller is already off the main thread (the
+        // Export/Import sheet runs this in `Dispatchers.IO`, the door in its own worker), so the
+        // synchronous write costs nothing anyone waits on.
+        editor.commit()
         return count
     }
 
@@ -798,8 +807,47 @@ object WhiteBearExport {
         }
         // The same file reached through two specs would be a duplicate ZIP entry, which throws
         // and costs the entries after it.
-        return found.distinctBy { it.absolutePath }
+        return found.distinctBy { it.absolutePath }.filterNot { isBookFile(root, it) }
     }
+
+    /**
+     * The books themselves are **not** this app's data, and never go in a backup.
+     *
+     * Reading positions, bookmarks, shelves, annotations and notes are what this app made and
+     * what cannot be made again; the book files are what 白い熊 put on the phone, they are
+     * gigabytes of it, and they are already his — restoring them is the file manager's job, not
+     * a settings backup's. Two directories under `filesDir` hold them: `books` (imported copies,
+     * [com.aryan.reader.BookImporter]) and `cloud-folder-sync` (offline roots,
+     * `cloudFolderAppRootDirectory`).
+     *
+     * No [FileSpec] names either today — the one that walks the `filesDir` root is restricted by
+     * a name prefix — so this changes nothing now. It exists because the failure it prevents is
+     * silent and expensive: a later `FileSpec("")` without a prefix, or a new book cache added
+     * under a directory already being swept, would put 白い熊's whole library inside every
+     * automated backup, and 応用管理 would faithfully copy it onto the next phone. A guard here
+     * costs one comparison per file (白い熊 保存復元 contract v2 sizing note, 2026-09-04).
+     */
+    private fun isBookFile(root: File, file: File): Boolean {
+        val relative = file.toRelativeString(root).replace(File.separatorChar, '/')
+        return NEVER_EXPORTED.any { relative == it || relative.startsWith("$it/") }
+    }
+
+    /** Directories under `filesDir` that hold book files rather than this app's own data. */
+    private val NEVER_EXPORTED = listOf("books", "cloud-folder-sync")
+
+    /**
+     * Roughly how many bytes an export of [cats] would carry — what 応用管理 sizes a backup from.
+     *
+     * The file categories are the whole of it: prefs dumps and table rows are kilobytes next to
+     * the annotation and cover directories. Answered from a stat walk rather than a trial export
+     * because it is read on a binder thread while 応用管理 draws its list, and the walk is over
+     * this app's own small directories — the covers, the one large category, are unticked by
+     * default and so are usually not in [cats] at all.
+     */
+    fun sizeEstimate(context: Context, cats: Set<Cat>): Long =
+        cats.filter { it.files.isNotEmpty() }.sumOf { cat ->
+            runCatching { collectFiles(context, cat).sumOf { it.length() } }.getOrDefault(0L)
+        }
 
     private fun writeFiles(
         context: Context,

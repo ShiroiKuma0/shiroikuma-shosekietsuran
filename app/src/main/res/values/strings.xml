@@ -1570,6 +1570,10 @@
     <string name="whitebear_backup_notification_channel_name">Backup export</string>
     <string name="whitebear_backup_notification_title">白い熊 保存復元</string>
     <string name="whitebear_backup_notification_working">Exporting…</string>
+    <!-- 白い熊 保存復元 contract v2 §2a: the data door, where 応用管理 backs this app up
+         with its data and puts it back on a clean phone. -->
+    <string name="whitebear_automation_data_exporting">Backing up app data…</string>
+    <string name="whitebear_automation_data_importing">Restoring app data…</string>
 
     <!-- TTS settings sheet labels. TTS = Text-to-Speech. -->
     <string name="tts_notification_channel_name">Text to speech</string>

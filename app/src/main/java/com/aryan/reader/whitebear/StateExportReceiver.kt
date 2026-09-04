@@ -8,8 +8,14 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 
 /**
- * The 保存復元 automation endpoint — 自由作業盤 fires a token-gated broadcast, this app
- * exports itself headlessly and answers with the written path and size.
+ * The 保存復元 automation endpoint — 自由作業盤 fires a broadcast, this app exports itself
+ * headlessly and answers with the written path and size.
+ *
+ * **This is the unauthenticated half of the surface, deliberately** (contract v2 §4): it only
+ * ever writes where it was told to and reports what it did, so the master switch is all that
+ * gates it and the token is an extra 白い熊 may switch on. Everything that moves data through
+ * a caller-supplied descriptor — and `import`, which overwrites this app — lives behind
+ * `automation/AutomationProvider`, which knows who is calling.
  *
  * `<pkg>.action.EXPORT_STATE` — run the ordinary Export/Import export with no UI, into the
  * `path` directory when one is given, otherwise into the configured export directory.
@@ -48,9 +54,8 @@ class StateExportReceiver : BroadcastReceiver() {
         // token like everything else. A cancel that finds nothing running is not an error; it is
         // 白い熊 pressing 中止 a moment after the run ended, and costs nothing.
         if (action == "${app.packageName}.action.CANCEL_EXPORT") {
-            if (!WhiteBearAutomation.isEnabled(app)) return
-            if (!WhiteBearAutomation.matches(app, intent.getStringExtra(AutomationWire.EXTRA_TOKEN))) {
-                Log.w(AutomationWire.TAG, "CANCEL_EXPORT with a bad token — ignored")
+            WhiteBearAutomation.refuse(app, intent.getStringExtra(AutomationWire.EXTRA_TOKEN))?.let {
+                Log.w(AutomationWire.TAG, "CANCEL_EXPORT refused — $it")
                 return
             }
             Log.i(
@@ -65,12 +70,10 @@ class StateExportReceiver : BroadcastReceiver() {
             reply("ERROR:missing reply_action/reply_package/reply_id")
             return
         }
-        if (!WhiteBearAutomation.isEnabled(app)) {
-            reply("ERROR:automation disabled")
-            return
-        }
-        if (!WhiteBearAutomation.matches(app, intent.getStringExtra(AutomationWire.EXTRA_TOKEN))) {
-            reply("ERROR:bad token")
+        // One check for both switches (contract v2 §2). A token sent to this app while it is
+        // not asking for one is ignored rather than refused — see [WhiteBearAutomation.matches].
+        WhiteBearAutomation.refuse(app, intent.getStringExtra(AutomationWire.EXTRA_TOKEN))?.let {
+            reply(it)
             return
         }
 
