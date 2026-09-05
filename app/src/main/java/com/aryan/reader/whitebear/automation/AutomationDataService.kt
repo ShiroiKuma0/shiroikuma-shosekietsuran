@@ -309,15 +309,17 @@ class AutomationDataService : Service() {
         private var item: String = ""
 
         /**
-         * The leash names every entry on its way in — `library.covers/cover_cache/x.png`, or
-         * `library.covers: scanning`. The category id is the head of that, and is checked against
-         * the catalogue so a name shape we did not anticipate leaves `item` unset rather than
-         * sending a row id nobody has.
+         * The leash names every entry on its way in; [AutomationWire.categoryOf] turns that into
+         * the category id, and answers null for a shape it does not recognise so `item` is left
+         * unset rather than carrying a row id nobody has.
+         *
+         * Shared with the §1 export service deliberately: this derivation was written twice, and
+         * the copy here quietly missed the two `<id>.jsonl: <table>` shapes — the table entries —
+         * because it did not strip the extension. One implementation cannot drift from itself.
          */
         @Synchronized
         fun enter(entry: String) {
-            val head = entry.substringBefore('/').substringBefore(':').trim()
-            if (WhiteBearExport.catById(head) != null) item = head
+            AutomationWire.categoryOf(entry)?.let { item = it }
         }
 
         @Synchronized

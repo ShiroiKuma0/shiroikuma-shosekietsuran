@@ -77,6 +77,26 @@ internal object AutomationWire {
     }
 
     /**
+     * The category id a leash entry belongs to, or null for a shape we did not anticipate.
+     *
+     * [WhiteBearExport] names every entry on its way into the ZIP, and the five shapes it uses
+     * all carry the category first: `library`, `library.covers: scanning`,
+     * `library.covers/cover_cache/a.png`, `library.shelves.jsonl: shelves`, and
+     * `library.shelves.jsonl: shelves 12/100` — note the last has a `/` of its own, which is why
+     * the path separator is cut before the colon rather than after it, and why the `.jsonl` a
+     * table entry carries has to come off before the id is recognisable.
+     *
+     * Validated against the catalogue rather than trusted, so an entry shape added later reports
+     * no `item` instead of a row id that nothing on the other side has.
+     */
+    fun categoryOf(entry: String): String? {
+        val head = entry.substringBefore('/').substringBefore(':').trim()
+            .removeSuffix(".jsonl")
+            .removeSuffix(".json")
+        return head.takeIf { WhiteBearExport.catById(it) != null }
+    }
+
+    /**
      * Absent/empty `items` = the default set, not the whole catalogue: a run that never picked
      * its items must not drag the covers in behind a default that says to leave them out. An
      * unknown id is an error and writes nothing.
@@ -395,6 +415,7 @@ class StateExportService : Service() {
         ) { entry ->
             Log.d(AutomationWire.TAG, "writing $entry")
             run.alive(entry)
+            progress.enter(entry)
         }
         val outcome = WhiteBearExport.export(
             context = this,
@@ -482,6 +503,23 @@ class StateExportService : Service() {
     ) {
         private var lastSentAt = 0L
         private var last: WhiteBearExport.Step? = null
+        private var item: String = ""
+
+        /**
+         * Which category is being written right now — sent on every broadcast as `item`.
+         *
+         * 自由作業盤 draws the categories as a list and highlights the running row from this.
+         * It cannot work that out from `current`, because `current` is whatever is being counted
+         * at that moment: categories while they are walked, files while one of them is written.
+         * Without `item` the panel falls back to reading `current` as a row position, which is
+         * only right while `total` happens to equal the number of rows — so through the cover
+         * pass, where `current` runs into the thousands against nine rows, it highlighted
+         * nothing at all.
+         */
+        @Synchronized
+        fun enter(entry: String) {
+            AutomationWire.categoryOf(entry)?.let { item = it }
+        }
 
         @Synchronized
         fun report(step: WhiteBearExport.Step) {
@@ -514,6 +552,9 @@ class StateExportService : Service() {
                         addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
                         putExtra(AutomationWire.EXTRA_REPLY_ID, replyId)
                         putExtra("app", AutomationWire.APP_LABEL)
+                        // Which row is running. Sub-options name themselves rather than their
+                        // parent, so the row that lights up is the part actually being written.
+                        if (item.isNotEmpty()) putExtra("item", item)
                         putExtra("text", step.text)
                         putExtra("current", step.current)
                         putExtra("total", step.total)
