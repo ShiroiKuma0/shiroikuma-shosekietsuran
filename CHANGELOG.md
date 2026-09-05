@@ -2,6 +2,15 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.54+003 — 2026-09-05
+
+Base: Episteme Android v1.0.54 (oss). A fork-only release, on top of `1.0.54+002`.
+
+### Fixes
+
+- **The backup panel now highlights the category being written.** Every progress broadcast carries `item` — the id of the category in progress — which the automation contract asks for and this fork had never sent. Without it 白い熊 自由作業盤 falls back to reading the progress count as a row position, which is only right while that count is walking the categories; through the cover pass, where it climbs into the thousands against nine rows, the panel highlighted nothing at all. Sub-options name themselves rather than their parent, so the row that lights up is the part actually being written.
+- The id is taken from the export's own entry names and checked against the catalogue, so a shape added later reports no `item` rather than a row id nothing on the other side has. It is derived in one place and shared by both the batch export and the app-data door — written twice, it had already gone wrong once: the newer copy silently missed the table entries because it did not strip their `.jsonl`.
+
 ## 1.0.54+002 — 2026-09-04
 
 Base: Episteme Android v1.0.54 (oss). A fork-only release — no upstream change since `1.0.54+001`.
