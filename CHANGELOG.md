@@ -2,6 +2,34 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.54+009 — 2026-09-09
+
+Base: Episteme Android v1.0.54 (oss). A fork-only release, on top of `1.0.54+003`, covering builds `+004` through `+009`.
+
+**Restoring this app through 白い熊 応用管理 did not work, and the restored library then ate itself.** Both halves are fixed here, and both were found on 白い熊's own 2.4 GB backup — 8,543 entries, of which 8,500 are book covers.
+
+### App-data restore — the import half of the data door
+
+The data door shipped in `1.0.54+002` and its **import path had never been run**. Three faults, each on its own enough to fail every restore:
+
+- **The import was mute by construction.** It was never given a progress reporter, and the heartbeat re-sent a step that stays empty for the whole of an import — so 「heard 0 progress」 was guaranteed for every import this app had ever served, working or not, and 応用管理's ten-minute silence watchdog was the only clock left. It now reports every entry it applies, and from inside a long table every 50 rows.
+- **Progress is counted in bytes read against the archive's real size**, taken from the descriptor the caller opened. A ZIP read as a stream cannot know how many entries are still to come, so counting entries produced a number over nothing (`2,527/0`); how far into the file we have read is exact, and its denominator is a number the caller already knew.
+- **Progress lines now carry their label under `result`**, which is the key the app-data contract reads. Sent only as `text`, every progress line this fork has ever emitted arrived with no label at all and the caller drew bare numbers.
+- **The import ran unbounded and could not be stopped.** It had no ceiling, and read the cancel flag once — after the whole archive had already been applied. Both are now checked between entries, where nothing is half-applied.
+- **The service gained the batch export's watchdog.** The same tick that finds the work stopped answers for it, closes the descriptor and gives up the slot, so a wedged run ends in a named error rather than a silence the caller has to time out.
+- **A job could be accepted and then quietly abandoned.** The descriptor crosses from the provider to the service through a static field, which only works if the service starts in the same process — and the import is the one call where that is not a given, because 応用管理 force-stops the app and calls `import` immediately, so that binder call is the sole reason the process exists. A process trimmed the instant the call returns takes the handover with it. The provider now stays inside the call until the service has taken the descriptor, which keeps the process alive across that window and makes an `OK:` answer mean what it says. A `startForegroundService` that returns null — a blocked or disabled component — is no longer discarded either.
+- Every exit from the service now ends in exactly one terminal reply, including the paths that previously stopped without a word.
+
+### The library after a restore
+
+A Storage Access Framework grant belongs to an **installation**, not to your data. A restore brings back every row, reading position and annotation, and none of the permission needed to read any of it — so a restored copy drew a perfect library in which nothing could be opened.
+
+- **A book we are not allowed to look at is no longer treated as deleted.** `DocumentFile.exists()` answers false both for 「there is no such file」 and for 「you may not ask」, and the second was taken for the first: the row was removed permanently, taking the book's cover, ink annotations, rich text, page layouts, text boxes and highlights with it. A freshly restored library was eating itself one tap at a time. A deletion is now only confirmed when the app can prove it has the access to look.
+- **Folder access is checked at start and asked for once.** The app reads the folders the library still points at, asks which of them this installation holds, names the ones it does not by their readable path, and opens the picker at that folder. Re-picking is exact rather than approximate: document ids are path-based, so the same folder yields a byte-identical tree URI and every existing row works again with nothing rewritten and no books re-imported.
+- **All-files access is asked for first and separately**, because a path-backed library is unreadable without it too. Both prompts are gates rather than settings rows — a restored copy must not reach a library it cannot open — but neither is absolute: the skip lasts for that launch and is never remembered, so the app can never become unopenable on a device that will not grant.
+- **A tap that cannot open a book now says so.** The 「could not locate this file」 message is drawn by the reader screen and by nothing else, so setting it from the library displayed nothing and the tap simply looked dead.
+- **A last-resort path fallback.** When the framework route is unavailable and all-files access is held, a document id on shared storage resolves to its real file and the book still opens. It is a fallback and stays one: the folder pipeline — scanning for new books, covers, metadata, writes — is built on the grant, and an app leaning on the path is limping.
+
 ## 1.0.54+003 — 2026-09-05
 
 Base: Episteme Android v1.0.54 (oss). A fork-only release, on top of `1.0.54+002`.
