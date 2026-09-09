@@ -479,22 +479,9 @@ fun WhiteBearUiScreen(
     }
 }
 
-/** True when the app may write a backup to any absolute path the automation names. */
-private fun hasAllFilesAccess(): Boolean =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) Environment.isExternalStorageManager() else true
-
-private fun openAllFilesAccessSettings(context: Context) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
-    val direct = Intent(
-        Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-        "package:${context.packageName}".toUri()
-    )
-    runCatching { context.startActivity(direct) }.onFailure {
-        runCatching {
-            context.startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
-        }
-    }
-}
+// `hasAllFilesAccess` and `openAllFilesAccessSettings` live in WhiteBearAllFilesGate.kt — the
+// startup gate and this settings row must never disagree about what「granted」means or about
+// which Settings page actually opens on EMUI, and two copies of that is how they would.
 
 /**
  * The 保存復元 master switch — nothing in the automation contract answers until this is on.
