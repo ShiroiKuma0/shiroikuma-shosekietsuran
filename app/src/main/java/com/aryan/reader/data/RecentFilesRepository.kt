@@ -986,6 +986,17 @@ class RecentFilesRepository(
         }
     }
 
+    /**
+     * 白い熊: every folder the library still points at, once each.
+     *
+     * Read at start so the app can tell whether this installation still holds a Storage Access
+     * Framework grant for each of them — a restored or reinstalled copy keeps all of these rows
+     * and none of the grants.
+     */
+    suspend fun getDistinctSourceFolderUris(): List<String> = withContext(Dispatchers.IO) {
+        runCatching { recentFileDao.getDistinctSourceFolderUris() }.getOrDefault(emptyList())
+    }
+
     override suspend fun deleteFilePermanently(bookIds: List<String>) = withContext(Dispatchers.IO) {
         if (bookIds.isEmpty()) return@withContext
 

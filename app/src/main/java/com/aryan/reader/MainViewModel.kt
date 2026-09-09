@@ -25,11 +25,14 @@ package com.aryan.reader
 import android.app.Application
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.SharedPreferences
 import android.database.Cursor
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
+import android.os.Process
 import com.aryan.reader.tts.TtsController
 import com.aryan.reader.tts.TtsPlaybackManager
 import com.aryan.reader.paginatedreader.LocatorConverter
@@ -43,6 +46,8 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.edit
 import androidx.core.graphics.createBitmap
 import androidx.core.net.toUri
+import com.aryan.reader.whitebear.WhiteBearFolderGrants
+import com.aryan.reader.whitebear.hasAllFilesAccess
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.NoCredentialException
 import androidx.documentfile.provider.DocumentFile
@@ -8342,6 +8347,12 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
                     ) {
                         Timber.tag(CLOUD_FOLDER_SYNC_LOG_TAG)
                             .w("event=book_open_blocked reason=account_changed")
+                        // Never a dead tap. This used to return in silence, which from the
+                        // library is indistinguishable from the app having ignored the touch.
+                        showBanner(
+                            appContext.getString(R.string.banner_book_blocked_account),
+                            isError = true
+                        )
                         return@launch
                     }
 
@@ -8355,9 +8366,16 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
                     if (location.uri == null) {
                         Timber.tag(CLOUD_FOLDER_SYNC_LOG_TAG)
                             .w("event=book_open_blocked reason=unverified_folder_uri")
-                        _internalState.update {
-                            it.copy(errorMessage = appContext.getString(R.string.error_file_location_not_found))
-                        }
+                        // `errorMessage` is drawn by the EPUB reader screen and by nothing else,
+                        // so setting it from the library showed 白い熊 exactly nothing and the
+                        // tap looked dead (2026-09-09). A banner is what the library renders.
+                        showBanner(
+                            appContext.getString(
+                                R.string.banner_book_folder_permission_lost,
+                                item.displayName
+                            ),
+                            isError = true
+                        )
                         return@launch
                     }
 
@@ -8429,11 +8447,109 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
             ?: return FolderBookLocation(null, true)
         val document = runCatching { DocumentFile.fromSingleUri(appContext, fileUri) }
             .getOrNull()
+        if (document?.exists() == true && document.isFile) return FolderBookLocation(fileUri, true)
+
+        // **The path behind the document URI, when the document URI itself will not answer.**
+        //
+        // A restored install keeps every library row and loses the grants that made them
+        // openable, so the SAF side of a perfectly present book stops working while the book sits
+        // untouched on the card. All-files access is a different key to the same door: a
+        // Storage Access Framework document id on primary storage is just a path with a volume
+        // in front of it, so with that permission held the file can be opened directly and the
+        // book comes back (白い熊, 2026-09-09 — the library survived the restore and every tap
+        // did nothing at all).
+        externalStorageFileFor(fileUri)?.let { return FolderBookLocation(it.toUri(), true) }
+
         return when {
-            document?.exists() == true && document.isFile -> FolderBookLocation(fileUri, true)
             document?.exists() == true -> FolderBookLocation(null, false)
+            // **A book we are not allowed to look at is not a book we may call deleted.**
+            //
+            // `exists()` answers false for both 「there is no such file」 and 「you have no
+            // permission to ask」, and this branch used to treat them as the same thing and
+            // delete the library row for good. On a phone where the app has simply been
+            // reinstalled that is silent, permanent data loss: a fresh install holds no
+            // persisted SAF grants and no all-files access, so **every** book reads as missing.
+            // 白い熊 hit exactly this after restoring onto a reinstalled app on 2026-09-09 —
+            // the library came back, and the first book tapped was deleted out of it.
+            !canReach(fileUri) -> FolderBookLocation(null, false)
             else -> FolderBookLocation(null, true)
         }
+    }
+
+    /**
+     * Whether this app currently holds the access needed to answer 「is that file there?」 at all.
+     *
+     * Deliberately conservative in one direction only: when it cannot prove access, the caller
+     * declines to confirm a deletion. Wrongly keeping a row costs a stale entry that a later scan
+     * tidies; wrongly deleting one costs the book, its reading position, its bookmarks and its
+     * annotations, with nothing to undo it from.
+     */
+    /**
+     * 白い熊, 2026-09-09: the folders this library points at that this **installation** no longer
+     * holds a Storage Access Framework grant for.
+     *
+     * Asked once at start rather than per book, because the failure is never about one book: a
+     * restored or reinstalled copy has lost every grant at once, and the library that draws over
+     * it looks perfect. See [com.aryan.reader.whitebear.WhiteBearFolderGrantGate].
+     */
+    suspend fun foldersNeedingGrant(): List<Uri> = withContext(Dispatchers.IO) {
+        val folders = recentFilesRepository.getDistinctSourceFolderUris()
+        WhiteBearFolderGrants.missingGrants(appContext, folders)
+    }
+
+    /**
+     * The real file behind a Storage Access Framework document URI, or null.
+     *
+     * Only ever consulted as a fallback, and only while this app holds all-files access —
+     * without it the path is unreadable and returning one would trade a clear failure for a
+     * confusing one. Document ids from `com.android.externalstorage.documents` are
+     * `<volume>:<relative path>`, which is the whole trick: `primary` is the shared storage
+     * root and anything else is a card under `/storage`.
+     */
+    private fun externalStorageFileFor(uri: Uri): File? {
+        if (!hasAllFilesAccess()) return null
+        if (!uri.authority.equals("com.android.externalstorage.documents", ignoreCase = true)) {
+            return null
+        }
+        val documentId = runCatching {
+            if (DocumentsContract.isDocumentUri(appContext, uri)) {
+                DocumentsContract.getDocumentId(uri)
+            } else {
+                null
+            }
+        }.getOrNull() ?: return null
+        val volume = documentId.substringBefore(':', missingDelimiterValue = "")
+        val relative = documentId.substringAfter(':', missingDelimiterValue = "")
+        if (volume.isEmpty() || relative.isEmpty() || relative.contains("..")) return null
+        val root = if (volume.equals("primary", ignoreCase = true)) {
+            Environment.getExternalStorageDirectory()
+        } else {
+            File("/storage/$volume")
+        }
+        return runCatching { File(root, relative).takeIf { it.isFile } }.getOrNull()
+    }
+
+    private fun canReach(uri: Uri): Boolean = when {
+        uri.scheme.equals("content", ignoreCase = true) -> runCatching {
+            appContext.checkUriPermission(
+                uri, Process.myPid(), Process.myUid(), Intent.FLAG_GRANT_READ_URI_PERMISSION
+            ) == PackageManager.PERMISSION_GRANTED
+        }.getOrDefault(false)
+
+        uri.scheme.equals("file", ignoreCase = true) -> {
+            val path = runCatching { uri.path }.getOrNull()
+            val ourOwn = appContext.filesDir.parent
+            when {
+                path == null -> false
+                // Our own storage never needs a grant.
+                ourOwn != null && path.startsWith(ourOwn) -> true
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ->
+                    Environment.isExternalStorageManager()
+                else -> true
+            }
+        }
+
+        else -> true
     }
 
     /**

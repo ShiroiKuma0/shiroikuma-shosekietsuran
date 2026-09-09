@@ -47,6 +47,16 @@ interface RecentFileDao {
     @Query("SELECT * FROM recent_files WHERE sourceFolderUri = :sourceFolderUri AND isDeleted = 0")
     suspend fun getFilesBySourceFolder(sourceFolderUri: String): List<RecentFileEntity>
 
+    /**
+     * 白い熊: every folder the library still points at, once each.
+     *
+     * Read at start to ask whether this install still holds a Storage Access Framework grant for
+     * each of them. A restored or reinstalled copy keeps all of these rows and none of the
+     * grants, which is what makes an intact-looking library entirely unopenable.
+     */
+    @Query("SELECT DISTINCT sourceFolderUri FROM recent_files WHERE sourceFolderUri IS NOT NULL AND isDeleted = 0")
+    suspend fun getDistinctSourceFolderUris(): List<String>
+
     // Fork: the discovery pass only needs to know which books the folder already has,
     // so it reads the ids alone instead of hydrating every row of a huge library.
     @Query("SELECT bookId FROM recent_files WHERE sourceFolderUri = :sourceFolderUri AND isDeleted = 0")

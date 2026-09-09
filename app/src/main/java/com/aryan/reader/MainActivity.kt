@@ -44,6 +44,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.aryan.reader.data.PlatformFeaturesRepository
 import com.aryan.reader.ui.theme.AppTheme
+import com.aryan.reader.whitebear.WhiteBearAllFilesGate
+import com.aryan.reader.whitebear.WhiteBearFolderGrantGate
 import com.aryan.reader.whitebear.WhiteBearTheme
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -141,13 +143,25 @@ open class MainActivity : AppCompatActivity() {
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
                     ) {
-                        val windowSizeClass = calculateWindowSizeClass(this)
-                        val navController = rememberNavController()
-                        AppNavigation(
-                            navController = navController,
-                            windowSizeClass = windowSizeClass,
-                            viewModel = viewModel
-                        )
+                        // 白い熊, 2026-09-09: asked for before anything else, because a restored
+                        // or reinstalled copy comes back with its whole library and none of the
+                        // permission needed to read it — so the library draws perfectly and
+                        // every book in it is unopenable. See WhiteBearAllFilesGate.
+                        WhiteBearAllFilesGate {
+                            // Then the folders themselves: all-files access is a different key
+                            // to the same door, and the folder pipeline is built on the grant.
+                            WhiteBearFolderGrantGate(
+                                missingFolders = { viewModel.foldersNeedingGrant() }
+                            ) {
+                                val windowSizeClass = calculateWindowSizeClass(this)
+                                val navController = rememberNavController()
+                                AppNavigation(
+                                    navController = navController,
+                                    windowSizeClass = windowSizeClass,
+                                    viewModel = viewModel
+                                )
+                            }
+                        }
                     }
                 }
             }
