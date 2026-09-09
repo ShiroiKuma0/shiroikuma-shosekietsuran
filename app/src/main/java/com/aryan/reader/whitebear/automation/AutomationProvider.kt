@@ -147,7 +147,13 @@ class AutomationProvider : ContentProvider() {
             // descriptor is closed here and the caller is told now rather than left waiting.
             AutomationJobs.finish(jobId)
             runCatching { dup.close() }
-            return fail("ERROR:cannot start the data service: ${error.javaClass.simpleName}")
+            // The message, not just the class: 「the data service did not start」 (a blocked or
+            // disabled component) and a ForegroundServiceStartNotAllowedException have entirely
+            // different cures, and 応用管理 shows this line to 白い熊 verbatim.
+            return fail(
+                "ERROR:cannot start the data service: " +
+                    (error.message ?: error.javaClass.simpleName)
+            )
         }
         return ok("OK:$jobId")
     }

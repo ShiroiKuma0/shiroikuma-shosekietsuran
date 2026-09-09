@@ -23,6 +23,7 @@ import java.io.FilterOutputStream
 import java.io.OutputStream
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Where a data export or import from the door in [AutomationProvider] actually runs.
@@ -67,10 +68,9 @@ class AutomationDataService : Service() {
 
         val request = intent
         val jobId = request?.getStringExtra(EXTRA_JOB)
-        val fd = jobId?.let { HANDOVER.remove(it) }
-        if (request == null || jobId == null || fd == null) {
-            // A redelivery with nothing behind it, or a job whose descriptor another start
-            // already took. Nothing to answer for and nothing to close.
+        if (request == null || jobId == null) {
+            // A redelivery with nothing behind it. No id, so nobody is waiting on an answer we
+            // could correlate, and there is nothing to close.
             Log.w(AutomationWire.TAG, "data service started with no job — stopping")
             stopEverything()
             return START_NOT_STICKY
@@ -104,6 +104,24 @@ class AutomationDataService : Service() {
             }
         }
 
+        // Taken only now, so the guard below can still answer under the id the caller holds. The
+        // descriptor going missing used to end the service in silence — the caller had already
+        // been handed `OK:<jobId>` by the provider and was left waiting out its whole timeout on
+        // a job that had stopped before it started.
+        val fd = HANDOVER.remove(jobId)
+        if (fd == null) {
+            // Which of the two it is decides the cure, and neither is guessable after the fact,
+            // so the answer says. An **empty** map means this is not the process the provider
+            // put the descriptor in — the handover is a static field, so a process rebuilt
+            // between `startForegroundService` and `onStartCommand` finds nothing. A map that
+            // still holds other jobs means a genuine id mismatch instead.
+            val why = if (HANDOVER.isEmpty()) "process was rebuilt" else "id not in the handover"
+            Log.w(AutomationWire.TAG, "job=$jobId has no descriptor — $why")
+            reply("ERROR:no descriptor for this job — $why")
+            stopEverything()
+            return START_NOT_STICKY
+        }
+
         val progress = ProgressSender(this, progressAction, replyPackage, jobId) { text ->
             updateNotification(text)
         }
@@ -111,11 +129,13 @@ class AutomationDataService : Service() {
         // when this work wedges it must be abandonable, and abandoning a pooled thread poisons
         // whatever runs on it next.
         val beating = AtomicBoolean(true)
+        val wakeLockRef = AtomicReference<PowerManager.WakeLock?>()
         val worker = Thread({
-            val wakeLock = acquireWakeLock()
+            val wakeLock = acquireWakeLock().also { wakeLockRef.set(it) }
             try {
                 val result = runCatching {
-                    if (importing) runImport(jobId, fd) else runExport(jobId, fd, items, progress)
+                    if (importing) runImport(jobId, fd, progress)
+                    else runExport(jobId, fd, items, progress)
                 }.getOrElse { error ->
                     if (error is WhiteBearExport.Cancelled) "ERROR:cancelled"
                     else "ERROR:${error.message ?: error.javaClass.simpleName}"
@@ -132,15 +152,45 @@ class AutomationDataService : Service() {
         worker.isDaemon = true
         worker.start()
 
-        // A progress broadcast is also the caller's proof we are alive, and it gives up on an app
-        // that goes quiet. One entry can legitimately take longer than that on its own — a single
-        // large annotation file, or the ZIP's final flush — so the last line is re-sent while the
-        // work is still running. It stops the moment the worker ends, so it can never outlive the
-        // work it reports on.
+        // The watchdog, and the heartbeat, and one loop for both — the §1 export service's shape,
+        // learnt there the hard way and not inherited here until this run needed it.
+        //
+        // A progress broadcast is the caller's proof we are alive, and it gives up on an app that
+        // goes quiet. One entry can legitimately take longer than a beat on its own — a single
+        // large annotation file, the ZIP's final flush — so the last line is re-sent while the
+        // work is still moving. But a beat that can outlive the work it reports on is worse than
+        // no beat at all, so the same tick that finds the work stopped is the one that says so:
+        // it answers for the run, tries to break whatever it is wedged on, and gives up the
+        // service. **Nothing may leave the caller waiting on a job that will not answer.**
+        val startedAt = SystemClock.elapsedRealtime()
         Thread({
             while (beating.get()) {
                 Thread.sleep(BEAT_TICK_MS)
-                if (beating.get()) progress.heartbeat()
+                if (!beating.get()) break
+                val now = SystemClock.elapsedRealtime()
+                val silent = now - progress.movedAt
+                val verdict = when {
+                    now - startedAt > CEILING_MS ->
+                        "ERROR:timed out after ${CEILING_MS / 1000} s at ${progress.doing}"
+                    silent > STALL_MS ->
+                        "ERROR:stalled — no progress for ${silent / 1000} s at ${progress.doing}"
+                    else -> null
+                }
+                if (verdict == null) {
+                    progress.heartbeat()
+                    continue
+                }
+                Log.w(AutomationWire.TAG, "job=$jobId $verdict")
+                beating.set(false)
+                reply(verdict)
+                // Closing the descriptor is the one thing that can break a read or a write that
+                // will not return: Android signals the threads blocked on it. The interrupt is
+                // the same bet. Neither is guaranteed and neither is waited for — the answer has
+                // already gone out.
+                runCatching { fd.close() }
+                runCatching { worker.interrupt() }
+                runCatching { wakeLockRef.get()?.takeIf { it.isHeld }?.release() }
+                stopEverything()
             }
         }, "wb-automation-beat").apply { isDaemon = true }.start()
         return START_NOT_STICKY
@@ -203,9 +253,30 @@ class AutomationDataService : Service() {
      *
      * Categories are taken from the archive rather than from our catalogue: asking for one the
      * archive lacks is how a restore ends up reporting success over nothing.
+     *
+     * ## Why this reports, when the first version of it did not
+     *
+     * It was written to say nothing at all: no [ProgressSender], no [WhiteBearExport.Leash], no
+     * ceiling, and the cancel flag read once after the whole archive had already been applied.
+     * That is survivable for an app whose backup is a few hundred kilobytes and fatal for this
+     * one. 応用管理 gives an app ten minutes of silence and then declares it dead; restoring
+     * 白い熊's library is 8,543 entries and 2.4 GB, whose *export* alone took seven minutes on
+     * this phone. So the restore was killed at exactly ten minutes, every time, with 「heard 0
+     * progress, 0 replies」 — the 0 progress not a symptom but a guarantee (白い熊, 2026-09-08).
      */
-    private fun runImport(jobId: String, fd: ParcelFileDescriptor): String {
+    private fun runImport(
+        jobId: String,
+        fd: ParcelFileDescriptor,
+        progress: ProgressSender
+    ): String {
         val cats = WhiteBearExport.Cat.entries.toSet()
+        // The denominator, when the caller handed us a real file rather than a pipe. 応用管理
+        // knows this number before it opens the descriptor, so a line carrying it is a line it
+        // can draw a real bar from; -1 (a pipe) simply reports no total.
+        val totalBytes = runCatching { fd.statSize }.getOrDefault(-1L).coerceAtLeast(0L)
+        progress.report(
+            WhiteBearExport.Step(0L, totalBytes, "bytes", "復元 — 開始", 0L, totalBytes)
+        )
         var opened = false
         val summary = WhiteBearExport.import(
             context = this,
@@ -213,7 +284,13 @@ class AutomationDataService : Service() {
                 opened = true
                 ParcelFileDescriptor.AutoCloseInputStream(fd)
             },
-            cats = cats
+            cats = cats,
+            onProgress = { step -> progress.report(step) },
+            leash = WhiteBearExport.Leash(
+                ceilingMs = IMPORT_CEILING_MS,
+                isCancelled = { AutomationJobs.isCancelled(jobId) }
+            ) { entry -> progress.enter(entry) },
+            totalBytes = totalBytes
         )
         if (!opened) return "ERROR:archive unreadable"
         if (AutomationJobs.isCancelled(jobId)) return "ERROR:cancelled"
@@ -221,6 +298,7 @@ class AutomationDataService : Service() {
         // entry we recognise — an empty file, or somebody else's backup. Reported as an error,
         // because a caller that hears OK over nothing believes the app was restored.
         if (summary == "Nothing imported.") return "ERROR:archive carries no categories"
+        progress.finish()
         // 応用管理 force-stops us straight after this, deliberately and on its side: a running
         // process writes its cached SharedPreferences back out at orderly shutdown and would
         // silently undo the import that just happened.
@@ -309,6 +387,23 @@ class AutomationDataService : Service() {
         private var item: String = ""
 
         /**
+         * When the work last really moved, and what it was on — read by the watchdog, which runs
+         * on another thread and must never be told a throttled broadcast means a stalled run.
+         *
+         * Deliberately **not** [lastSentAt]: that only moves when a line actually goes out, and
+         * lines are throttled to one every 500 ms. What the watchdog has to judge is whether the
+         * *work* is moving, which is every call that arrives here, sent or swallowed.
+         */
+        @Volatile
+        var movedAt: Long = SystemClock.elapsedRealtime()
+            private set
+
+        /** What the run is on, for the message a stall is answered with. */
+        @Volatile
+        var doing: String = "開始"
+            private set
+
+        /**
          * The leash names every entry on its way in; [AutomationWire.categoryOf] turns that into
          * the category id, and answers null for a shape it does not recognise so `item` is left
          * unset rather than carrying a row id nobody has.
@@ -320,11 +415,14 @@ class AutomationDataService : Service() {
         @Synchronized
         fun enter(entry: String) {
             AutomationWire.categoryOf(entry)?.let { item = it }
+            doing = entry
+            movedAt = SystemClock.elapsedRealtime()
         }
 
         @Synchronized
         fun report(step: WhiteBearExport.Step) {
             last = step
+            movedAt = SystemClock.elapsedRealtime()
             if (SystemClock.elapsedRealtime() - lastSentAt < THROTTLE_MS) return
             send(step)
         }
@@ -357,6 +455,11 @@ class AutomationDataService : Service() {
                         putExtra(AutomationProvider.KEY_JOB_ID, jobId)
                         putExtra(AutomationWire.EXTRA_REPLY_ID, jobId)
                         putExtra("app", AutomationWire.APP_LABEL)
+                        // The SAME line under both names. 自由作業盤 reads 「text」 (the §1
+                        // contract); 応用管理 reads 「result」, the same key its terminal reply
+                        // uses — so until now every progress line this app sent reached it with
+                        // a null label and it drew the bare numbers (白い熊, 2026-09-09).
+                        putExtra(AutomationProvider.KEY_RESULT, step.text)
                         if (item.isNotEmpty()) putExtra("item", item)
                         putExtra("text", step.text)
                         putExtra("current", step.current)
@@ -394,6 +497,23 @@ class AutomationDataService : Service() {
 
         /** How often the beat thread looks — well inside the 30 s the contract allows. */
         private const val BEAT_TICK_MS = 5_000L
+
+        /**
+         * Silence past which this run is treated as wedged and answered for.
+         *
+         * 応用管理 fails an app it has not heard from for 600 s and knows nothing about why.
+         * Well inside that, this app says so itself and says what it was on when it stopped —
+         * which is the difference between a log 白い熊 can act on and 「heard 0 progress」.
+         */
+        private const val STALL_MS = 90_000L
+
+        /**
+         * The backstop for a run that neither finishes nor stalls visibly — a syscall that never
+         * returns cannot be caught by the leash, because the leash is only asked between steps.
+         * Under [WAKELOCK_TIMEOUT_MS], so no run outlives the wakelock keeping its CPU on.
+         */
+        private const val CEILING_MS = 55L * 60L * 1000L
+
         private const val WAKELOCK_TIMEOUT_MS = 60L * 60L * 1000L
         private const val EXTRA_JOB = "job"
         private const val EXTRA_IMPORTING = "importing"
@@ -406,12 +526,36 @@ class AutomationDataService : Service() {
         private const val EXPORT_CEILING_MS = 50L * 60L * 1000L
 
         /**
+         * The same ceiling for the other direction, and for the same reason — a restore that
+         * carries 「Book covers」 writes back every one of those thousands of files. It throws,
+         * so a run that really has gone on too long ends in an error rather than a silence.
+         */
+        private const val IMPORT_CEILING_MS = 50L * 60L * 1000L
+
+        /**
+         * How long the provider call stays open waiting for the service to claim the descriptor,
+         * and how often it looks. Long enough for a cold start's `Application.onCreate` plus the
+         * main thread reaching `onStartCommand`; short enough that a door which really is broken
+         * says so in seconds instead of costing the caller its whole silence timeout.
+         */
+        private const val CLAIM_TIMEOUT_MS = 15_000L
+        private const val CLAIM_POLL_MS = 25L
+
+        /**
          * The descriptor's way across, because an Intent is the wrong vehicle for one.
          *
          * A [ParcelFileDescriptor] in an Intent extra is duplicated by the system on delivery and
          * the copy's lifetime stops being ours to reason about. Handing it through a map keyed by
          * the job id keeps exactly one open descriptor with exactly one owner — this service,
          * which closes it in a `finally`.
+         *
+         * **What that costs, and how it is paid for.** A static field only reaches the service if
+         * `onStartCommand` runs in the same process the provider wrote it from, which is not
+         * guaranteed for a job that arrives into a freshly force-stopped app. So [start] does not
+         * answer until the entry has been taken: an id still sitting here when the wait runs out
+         * means nothing claimed it, and the caller is told so instead of being promised a job
+         * that will never run. An entry is therefore only ever removed by the service that is
+         * about to do the work, or by [start] giving up on it.
          */
         private val HANDOVER = ConcurrentHashMap<String, ParcelFileDescriptor>()
 
@@ -423,35 +567,75 @@ class AutomationDataService : Service() {
             extras: Bundle?
         ) {
             HANDOVER[jobId] = fd
-            val started = runCatching {
-                context.startForegroundService(
-                    Intent(context, AutomationDataService::class.java).apply {
-                        putExtra(EXTRA_JOB, jobId)
-                        putExtra(EXTRA_IMPORTING, importing)
-                        putExtra(
-                            AutomationProvider.KEY_ITEMS,
-                            extras?.getString(AutomationProvider.KEY_ITEMS)
-                        )
-                        putExtra(
-                            AutomationProvider.KEY_REPLY_ACTION,
-                            extras?.getString(AutomationProvider.KEY_REPLY_ACTION)
-                        )
-                        putExtra(
-                            AutomationProvider.KEY_REPLY_PACKAGE,
-                            extras?.getString(AutomationProvider.KEY_REPLY_PACKAGE)
-                        )
-                        putExtra(
-                            AutomationProvider.KEY_PROGRESS_ACTION,
-                            extras?.getString(AutomationProvider.KEY_PROGRESS_ACTION)
-                        )
-                    }
+            val request = Intent(context, AutomationDataService::class.java).apply {
+                putExtra(EXTRA_JOB, jobId)
+                putExtra(EXTRA_IMPORTING, importing)
+                putExtra(
+                    AutomationProvider.KEY_ITEMS,
+                    extras?.getString(AutomationProvider.KEY_ITEMS)
                 )
+                putExtra(
+                    AutomationProvider.KEY_REPLY_ACTION,
+                    extras?.getString(AutomationProvider.KEY_REPLY_ACTION)
+                )
+                putExtra(
+                    AutomationProvider.KEY_REPLY_PACKAGE,
+                    extras?.getString(AutomationProvider.KEY_REPLY_PACKAGE)
+                )
+                putExtra(
+                    AutomationProvider.KEY_PROGRESS_ACTION,
+                    extras?.getString(AutomationProvider.KEY_PROGRESS_ACTION)
+                )
+            }
+            val started = runCatching {
+                // The return value is load-bearing, and used to be dropped on the floor.
+                // `startForegroundService` answers **null** when the component could not be
+                // started at all — disabled, or blocked by an Intent Firewall rule, which is
+                // precisely what 応用管理's own component blocker installs. Nothing throws. The
+                // door would then answer `OK:<jobId>` for a job that does not exist and the
+                // caller would wait out its whole ten-minute silence timeout on a service that
+                // was never running: a promise we cannot keep is worse than a refusal.
+                checkNotNull(context.startForegroundService(request)) {
+                    "the data service did not start"
+                }
             }
             // A descriptor left in the handover map for a service that never started would be
             // held open until this process dies, with the caller's file wedged behind it.
             started.onFailure {
                 HANDOVER.remove(jobId)
                 throw it
+            }
+
+            // Do not answer `OK:` until the service has actually taken the descriptor.
+            //
+            // This is the fix for the restore that accepted a job and then did nothing at all
+            // (白い熊, 2026-09-08). The handover is a **static field**, so it only reaches the
+            // service if `onStartCommand` runs in *this* process — and the import is the one
+            // call where that is not a given. 応用管理 force-stops us and calls `import`
+            // immediately, so this binder call is the sole reason the process exists; the
+            // export never gets there cold, because `describe()` has already warmed the process
+            // and no force-stop precedes it. A process whose only client reference is released
+            // the instant `call()` returns is exactly the process the system trims, and the
+            // queued service start then arrives in a **rebuilt** process with an empty map —
+            // `onStartCommand` finds no descriptor and stops, having already been answered
+            // `OK:` by us. From outside that is a job accepted, no CPU, no progress, no reply,
+            // for as long as the caller is willing to wait.
+            //
+            // Staying inside `call()` closes that window from both ends: the caller's provider
+            // reference keeps this process up and important while we wait, and by the time we
+            // answer, the service has the descriptor and owns the job. If it never takes it, we
+            // say so now rather than leaving 応用管理 to a ten-minute silence.
+            val deadline = SystemClock.elapsedRealtime() + CLAIM_TIMEOUT_MS
+            while (HANDOVER.containsKey(jobId) && SystemClock.elapsedRealtime() < deadline) {
+                Thread.sleep(CLAIM_POLL_MS)
+            }
+            // Generous, because a cold start has to get through `Application.onCreate` before
+            // the main thread can reach `onStartCommand`; the caller waits on a worker thread
+            // and is happy to wait minutes, so seconds here cost nothing anyone notices.
+            if (HANDOVER.remove(jobId) != null) {
+                throw IllegalStateException(
+                    "the data service did not pick the job up within ${CLAIM_TIMEOUT_MS / 1000} s"
+                )
             }
         }
     }
