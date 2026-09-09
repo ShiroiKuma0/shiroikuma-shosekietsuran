@@ -18,6 +18,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.File
+import java.io.FilterInputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.InputStreamReader
@@ -198,6 +199,9 @@ object WhiteBearExport {
 
     /** Rows past the count a table just reported before its cursor is taken for a loop. */
     private const val ROW_SLACK = 5_000L
+
+    /** How often a table being restored says so. The export's write loop beats every 50 too. */
+    private const val ROW_BEAT = 50
 
     /** Entries abandoned back to back before the whole run is called off. */
     private const val MAX_TIMEOUTS_IN_A_ROW = 5
@@ -398,25 +402,85 @@ object WhiteBearExport {
      * Apply the selected categories from a ZIP, streaming it entry by entry so a backup
      * carrying covers and annotations never has to fit in memory. Entries for categories
      * that are absent from the ZIP or unselected are skipped. Returns a summary.
+     *
+     * ## Why this reports progress, and why that is not cosmetic
+     *
+     * An import is the longest thing this app does and, until 2026-09-08, the only long thing
+     * it did **in silence**: [export] was given a [Progress] and a [Leash] and this was given
+     * neither. A caller cannot tell a restore that is working from one that is wedged except by
+     * being told, and 応用管理 fails an app it has not heard from for ten minutes — so a
+     * 2.4 GB restore, which is 8,543 entries and takes longer than that, was killed every time
+     * while it was working perfectly well. Being slow is legitimate here; being quiet is not.
+     *
+     * So every entry that is actually applied reports, and a long table reports from inside
+     * itself, which is also what lets the service's watchdog tell a stall from a big file.
+     *
+     * [totalBytes] is the archive's size when the caller can supply one (a real file rather
+     * than a pipe); 0 means unknown and the line simply carries no denominator.
      */
-    fun import(context: Context, openZip: () -> InputStream, cats: Set<Cat>): String {
+    fun import(
+        context: Context,
+        openZip: () -> InputStream,
+        cats: Set<Cat>,
+        onProgress: Progress? = null,
+        leash: Leash = Leash(),
+        totalBytes: Long = 0L
+    ): String {
         val counts = linkedMapOf<Cat, Int>()
-        ZipInputStream(openZip()).use { zip ->
+        var applied = 0L
+        // Measured on the way IN, not out: an entry's uncompressed size says nothing about how
+        // far through the file we are, and how far through the file we are is the one number
+        // the caller can draw against a total it already knows.
+        val source = CountingInputStream(openZip())
+        ZipInputStream(source).use { zip ->
             var entry = zip.nextEntry
             while (entry != null) {
+                // Between entries and nowhere else — the same place [export] unwinds, and the
+                // only place where nothing is half-applied. Until now a 中止 was read once, at
+                // the very end, so cancelling a restore did nothing at all.
+                leash.checkCeiling()
+                leash.checkCancelled()
                 val name = entry.name
                 if (!entry.isDirectory && !name.contains("..")) {
                     val cat = catOf(name, cats)
                     if (cat != null) {
+                        // Names the entry AND restarts its clock, so one large file is never
+                        // mistaken for a stall.
+                        leash.enter(name)
+                        // **Bytes are the counter, not entries** — 応用管理 draws `current/total`
+                        // and a ZIP read as a stream cannot know how many entries are still to
+                        // come, so counting entries here produced 「2,527/0 表紙」: a number over
+                        // nothing (白い熊, 2026-09-09). How far into the archive we have read is
+                        // exact, and its denominator is a number the caller already knew before
+                        // it opened the descriptor. What is being restored, and how much of it,
+                        // moves into the line's own text where it reads properly.
+                        fun say(count: Long, what: String) {
+                            leash.enter(name)
+                            onProgress?.report(
+                                Step(
+                                    source.count, totalBytes, "bytes",
+                                    "$what ($count ${cat.progressUnit})",
+                                    source.count, totalBytes
+                                )
+                            )
+                        }
                         val added = runCatching {
                             when {
-                                name.endsWith(".jsonl") -> importTables(context, zip)
+                                name.endsWith(".jsonl") -> importTables(context, zip) { rows ->
+                                    say(rows, cat.shortLabel)
+                                }
                                 name.endsWith(".json") && name == "${cat.id}.json" ->
                                     importPrefs(context, cat, zip.readBytes())
                                 else -> importFile(context, cat, name, zip)
                             }
                         }.getOrDefault(0)
                         counts[cat] = (counts[cat] ?: 0) + added
+                        applied++
+                        // Per category, not the running total across all of them — 「Book covers
+                        // (8,412 表紙)」 is a fact; the same line carrying every entry restored so
+                        // far next to one category's name is not.
+                        say((counts[cat] ?: 0).toLong(), cat.shortLabel)
+                        leash.done()
                     }
                 }
                 zip.closeEntry()
@@ -706,10 +770,14 @@ object WhiteBearExport {
      * an older backup still imports; rows whose foreign keys are missing (shelf entries for a
      * book that was not restored) are skipped instead of failing the whole category.
      */
-    private fun importTables(context: Context, input: InputStream): Int {
+    private fun importTables(context: Context, input: InputStream, tick: (Long) -> Unit = {}): Int {
         val database = db(context)
         val reader = BufferedReader(InputStreamReader(input, Charsets.UTF_8))
         var imported = 0
+        // The whole library is one entry, and a big one — 18 MB of rows in the archive that
+        // failed. Without this the run goes quiet for as long as the table takes, which is
+        // exactly what a stall looks like from outside. Same 50-row beat the export writes on.
+        var beatAt = 0
         var columns: List<String> = emptyList()
         var keptIndices: List<Int> = emptyList()
         var statement: SupportSQLiteStatement? = null
@@ -755,6 +823,10 @@ object WhiteBearExport {
                     }
                     target.executeInsert()
                     imported++
+                }
+                if (imported - beatAt >= ROW_BEAT) {
+                    beatAt = imported
+                    tick(imported.toLong())
                 }
             }
             finishTable()
@@ -927,6 +999,26 @@ object WhiteBearExport {
 
     /** What one entry cost the archive: the bytes that went in, and whether all of them did. */
     private data class Copied(val bytes: Long, val complete: Boolean)
+
+    /**
+     * How much of the archive has gone past, counted where the caller's own total applies.
+     *
+     * The mirror of the export's `CountingOutputStream`, and for the same reason: the number a
+     * restore can honestly report is how far into the file it has read, because that is the one
+     * measure both sides can name — 応用管理 knows the archive's size before it hands it over.
+     * Uncompressed entry sizes would not do: they add up to something the caller has never seen.
+     */
+    private class CountingInputStream(input: InputStream) : FilterInputStream(input) {
+        var count = 0L
+            private set
+
+        override fun read(): Int = `in`.read().also { if (it >= 0) count++ }
+
+        override fun read(b: ByteArray, off: Int, len: Int): Int =
+            `in`.read(b, off, len).also { if (it > 0) count += it }
+
+        override fun skip(n: Long): Long = `in`.skip(n).also { if (it > 0) count += it }
+    }
 
     private fun importFile(context: Context, cat: Cat, entryName: String, input: InputStream): Int {
         val relative = entryName.removePrefix("${cat.id}/")
