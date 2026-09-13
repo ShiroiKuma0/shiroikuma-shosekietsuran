@@ -700,11 +700,11 @@ internal fun CloudFolderIncomingFolderPromptDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    "Choose where Episteme should keep this folder. Its folder structure stays intact.",
+                    "Choose where 白い熊 書籍閲覧 should keep this folder. Its folder structure stays intact.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 IncomingFolderChoiceButton(
-                    title = "Keep in Episteme",
+                    title = "Keep in 白い熊 書籍閲覧",
                     summary = "Recommended · Download an offline copy to this device.",
                     onClick = { onChoice(CloudFolderIncomingChoice.DOWNLOAD_ALL) },
                     primary = true,

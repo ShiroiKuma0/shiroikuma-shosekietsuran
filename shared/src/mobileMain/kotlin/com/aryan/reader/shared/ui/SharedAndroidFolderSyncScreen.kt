@@ -334,7 +334,7 @@ private fun SharedAndroidFolderCard(
             if (folder.isCloudPlaceholder) {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "This folder is in Drive. Choose Keep in Episteme to add its books here.",
+                    "This folder is in Drive. Choose Keep in 白い熊 書籍閲覧 to add its books here.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
