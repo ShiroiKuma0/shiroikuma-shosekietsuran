@@ -496,7 +496,8 @@ class FolderSyncWorker(
                     .build()
             )
             .build()
-        WorkManager.getInstance(appContext).enqueueUniqueWork(
+        SafeWorkManager.enqueueUniqueWork(
+            appContext,
             MetadataExtractionWorker.WORK_NAME,
             ExistingWorkPolicy.REPLACE,
             metaRequest
@@ -512,7 +513,8 @@ class FolderSyncWorker(
                 }
             }
             .build()
-        WorkManager.getInstance(appContext).enqueueUniqueWork(
+        SafeWorkManager.enqueueUniqueWork(
+            appContext,
             WORK_NAME_FOLLOWUP,
             ExistingWorkPolicy.REPLACE,
             OneTimeWorkRequestBuilder<FolderSyncWorker>().setInputData(data).build()
