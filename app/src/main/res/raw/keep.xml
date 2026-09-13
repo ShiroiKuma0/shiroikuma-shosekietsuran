@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  白い熊 fork: the page-turn sound effects are resolved by name at runtime
+  (WhiteBearSound.kt: resources.getIdentifier("page$index", "raw", ...)), so the
+  resource shrinker - enabled on the release build types since upstream 1.0.55 -
+  cannot see them and would strip all five. Keep them explicitly.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/page1,@raw/page2,@raw/page3,@raw/page4,@raw/page5" />
