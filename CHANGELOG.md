@@ -2,6 +2,42 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.55+001 — 2026-09-13
+
+Base: Episteme Android v1.0.55 (oss), up from v1.0.54. An upstream-tracking release: every fork feature replayed on the new base, with no fork feature added or changed.
+
+### What upstream brings
+
+**Legacy text encodings are now identified by what the text says, not by what parses (the one that matters most here).** A byte string that decodes cleanly under several codepages is not evidence of anything — Cyrillic decodes "cleanly" as mojibake under windows-1252, and GB18030 swallows Big5 and EUC-KR payloads and hands back plausible-but-wrong Han. Upstream replaced first-that-decodes with per-codepage plausibility scoring: CJK candidates must pass a structural gate on the decoded script profile (Han, kana, Hangul ratios), single-byte candidates are ranked against character-frequency models per script family, and ISO-2022-JP/KR/CN is caught by its escape introducer before anything is attempted. For a Japanese library this is the release's headline: Shift-JIS, EUC-JP and ISO-2022-JP books that opened as mojibake should now open as text.
+
+**Markdown is parsed by md4c, and LaTeX math renders.** Flexmark is gone, replaced by the md4c C parser vendored into the existing native build — CommonMark 0.31 with tables, strikethrough, tasklists, autolinks, and `$…$` / `$$…$$` math spans. Equations are rendered to inline SVG with the bundled MathJax at import time, so every reader surface consumes rendered maths rather than raw TeX, and inline equations now stay inside the paragraph instead of being kicked onto their own line.
+
+**PDF reader.** An AI hub on the phone reader, mirroring the EPUB reader's, with a recap built from the trailing pages and a summary cache behind it. Reader themes now reach the navigation sidebar's page thumbnails instead of leaving them white. Text-selection handles are drawn as vector paths rather than a single rasterized bitmap, so they stay sharp under magnification. The text-annotation dock remembers where it was put.
+
+**A startup crash on devices with broken firmware.** Some devices report API 34+ while lacking `JobScheduler.forNamespace`, and WorkManager's startup initializer threw `NoSuchMethodError` there — killing the app before a line of app code ran. Auto-init is now off, initialization happens on first use, and every scheduling call degrades to "no background work" instead of crashing.
+
+**Read-aloud.** TTS session callbacks were being invoked from worker coroutines and crashing inside ExoPlayer's application-thread check on the first-chunk failure path; they now hop to the right thread.
+
+**EPUB chapter opening.** The per-chapter `@font-face` parse used to stat font directories and parse stylesheets inside composition, on the main thread; it moved to IO. Custom fonts may appear a moment late; the chapter no longer blocks.
+
+**OPDS** sends preemptive Basic authentication on the first request for stream pages, instead of waiting to be challenged.
+
+**Import robustness** across the single-file importer, the imported-file cache, atomic JSON writes, sidecar naming and the book-processing worker's threading.
+
+**Localization.** Persian joins the app, and Turkish, Chinese (Simplified), French, Spanish, German and Brazilian Portuguese were refreshed.
+
+Upstream also landed a large shared cloud-folder-sync layer — manifest, codec, GC planning, background-sync policy — almost entirely to bring their iOS build up to what Android already had. It changes nothing here.
+
+### What the fork had to do to keep up
+
+Five conflicts, all reconciled rather than dropped, plus three repairs that only a built APK would have caught.
+
+- **The page-turn sounds would have gone silent.** Upstream turned on resource shrinking for both release build types. The five effects are resolved by name at runtime and nothing references them statically, so the shrinker could not see them and stripped all five — with a successful build and no warning. They are pinned now, and verified present in the shipped APK under the resource names the runtime lookup actually resolves against.
+- **Three fork call sites stopped compiling.** Upstream's WorkManager migration removed the import and the property our metadata-extraction enqueue, chained follow-up sync and follow-up cancel were using. They were ported onto the new fault-tolerant entry point rather than given their imports back, so the fork's background jobs now carry the same crash guard as upstream's.
+- **The build stays single-ABI.** Upstream added a block re-widening the native build to two ABIs; it is narrowed back to `arm64-v8a`, and `armeabi-v7a` joins the excluded set.
+- **Branding.** The French and Chinese translations were retranslated over the branded strings and were swept again. Three further leftovers — the cloud-folder "Keep in Episteme" strings — were found and fixed; they predate this release and had survived every earlier sweep by being hardcoded Kotlin literals rather than string resources.
+- **Reader and startup structure.** Upstream's new Custom Tabs link handler is nested inside the fork's theme and outside its two permission gates, so the gates use it too; the tategaki whole-chapter load sits alongside upstream's off-thread font CSS rather than in place of it.
+
 ## 1.0.54+009 — 2026-09-09
 
 Base: Episteme Android v1.0.54 (oss). A fork-only release, on top of `1.0.54+003`, covering builds `+004` through `+009`.
