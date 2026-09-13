@@ -4656,7 +4656,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
             SafeWorkManager.cancelUniqueWork(appContext, MetadataExtractionWorker.WORK_NAME)
         }
         // A fresh request supersedes a reconciliation still queued behind an earlier discovery.
-        workManager.cancelUniqueWork(FolderSyncWorker.WORK_NAME_FOLLOWUP)
+        SafeWorkManager.cancelUniqueWork(appContext, FolderSyncWorker.WORK_NAME_FOLLOWUP)
         if (discoverOnly) {
             prefs.edit { putLong(KEY_LAST_AUTO_DISCOVER_TIME, System.currentTimeMillis()) }
         }
