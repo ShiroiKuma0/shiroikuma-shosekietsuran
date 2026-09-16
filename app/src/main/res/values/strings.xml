@@ -2447,4 +2447,7 @@
     <string name="whitebear_folder_grant_body">Your books live in folders this copy of the app has no permission to read. Permission belongs to an installation, not to your data, so a restored or reinstalled copy always starts out this way — the library is intact and none of it can be opened. Pick the same folder again and every book in it works exactly as before.</string>
     <string name="whitebear_folder_grant_grant">Choose the folder</string>
     <string name="whitebear_folder_grant_skip">Not now</string>
+    <string name="whitebear_global_font_offer">Font size %1$d%% — start every new book here too?</string>
+    <string name="whitebear_global_font_offer_action">Set as default</string>
+    <string name="whitebear_global_font_offer_done">New books now start at %1$d%%.</string>
 </resources>

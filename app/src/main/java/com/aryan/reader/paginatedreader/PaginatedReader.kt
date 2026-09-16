@@ -286,6 +286,14 @@ fun PaginatedReaderScreen(
             layoutTextStyle.copy(color = effectiveText)
         }
 
+        // 白い熊, 2026-09-16: what a line height under the font's natural one lets hang above
+        // the first line of a page — subtracted from the page the paginator fills and added
+        // back as top inset when it is drawn, so the two still describe the same page and the
+        // opening line keeps its capitals. Zero at every line height that does not overhang.
+        val firstLineAscentOverflowPx = remember(layoutTextStyle, textMeasurer) {
+            readerFirstLineAscentOverflowPx(textMeasurer, layoutTextStyle)
+        }
+
         if (DEBUG_PAGE_TURN_DIAG) {
             LaunchedEffect(pagerState) {
                 snapshotFlow { pagerState.currentPage }.collect { page ->
@@ -380,14 +388,16 @@ fun PaginatedReaderScreen(
         val verticalPadding = effectiveReaderPadding.second
 
         val textConstraints =
-            remember(this.constraints, density, horizontalPadding, verticalPadding) {
+            remember(this.constraints, density, horizontalPadding, verticalPadding, firstLineAscentOverflowPx) {
                 val horizontalPaddingPx = with(density) { horizontalPadding.roundToPx() }
                 val verticalPaddingPx = with(density) { verticalPadding.roundToPx() }
                 val finalConstraints = this.constraints.copy(
                     minWidth = 0,
                     maxWidth = (this.constraints.maxWidth - (2 * horizontalPaddingPx)).coerceAtLeast(1),
                     minHeight = 0,
-                    maxHeight = (this.constraints.maxHeight - (2 * verticalPaddingPx)).coerceAtLeast(1)
+                    maxHeight = (
+                        this.constraints.maxHeight - (2 * verticalPaddingPx) - firstLineAscentOverflowPx
+                        ).coerceAtLeast(1)
                 )
                 finalConstraints
             }
@@ -682,6 +692,7 @@ fun PaginatedReaderScreen(
             hideImages = debouncedHideImages,
             horizontalPadding = horizontalPadding,
             verticalPadding = verticalPadding,
+            firstLineAscentOverflowPx = firstLineAscentOverflowPx,
             onGetPage = { pageIndex ->
                 val startTime = System.currentTimeMillis()
                 val result = paginator.getPageContent(pageIndex)

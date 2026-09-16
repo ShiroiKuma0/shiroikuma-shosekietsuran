@@ -258,6 +258,36 @@ fun saveFormatIsLocal(context: Context, bookId: String, isLocal: Boolean) {
     prefs.edit { putBoolean(FORMAT_IS_LOCAL_PREFIX + bookId, isLocal) }
 }
 
+/**
+ * Whether this book has ever been given a size of its own, or is still reading at the
+ * global default it inherited when it was first opened.
+ *
+ * 白い熊, 2026-09-16: the question the reader needs in order to know whether a size change
+ * is 「this book reads better bigger」 or 「everything reads better bigger」 — see the
+ * global-default offer in `EpubReaderHost`.
+ */
+fun hasLocalReaderFontSize(context: Context, bookId: String): Boolean {
+    val prefs = context.getSharedPreferences(SETTINGS_PREFS_NAME, Context.MODE_PRIVATE)
+    return prefs.contains(LOCAL_FONT_SIZE_PREFIX + bookId)
+}
+
+/** The size every book starts at until it is given one of its own. */
+fun loadGlobalReaderFontSize(context: Context): Float {
+    val prefs = context.getSharedPreferences(SETTINGS_PREFS_NAME, Context.MODE_PRIVATE)
+    return prefs.getFloat(FONT_SIZE_KEY, DEFAULT_FONT_SIZE_VAL)
+}
+
+/**
+ * Move the global default, leaving every other global format field alone.
+ *
+ * Deliberately not [saveReaderSettings]: that writes the whole profile, and the reader
+ * asking 「should every book start here?」 is only ever asking about the size.
+ */
+fun saveGlobalReaderFontSize(context: Context, fontSize: Float) {
+    val prefs = context.getSharedPreferences(SETTINGS_PREFS_NAME, Context.MODE_PRIVATE)
+    prefs.edit { putFloat(FONT_SIZE_KEY, fontSize) }
+}
+
 fun saveLocalReaderSettings(
     context: Context,
     bookId: String,

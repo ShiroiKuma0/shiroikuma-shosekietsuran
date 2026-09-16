@@ -56,6 +56,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextIndent
@@ -319,6 +320,43 @@ internal fun UserHighlight.androidHighlightRenderLabel(): String {
 
 internal fun paginationLineHeightMultiplierForWebViewSetting(multiplier: Float): Float {
     return if (abs(multiplier - 1.0f) < 0.001f) WEB_VIEW_NORMAL_LINE_HEIGHT_MULTIPLIER else multiplier
+}
+
+/**
+ * How far the first line's ascenders reach **above** the top of their own line box, in px.
+ *
+ * ## Why a page needs this (白い熊, 2026-09-16)
+ *
+ * A line height below the font's natural one makes the line box shorter than the glyphs it
+ * carries, and `LineHeightStyle.Alignment.Proportional` then lets the shortfall hang out of
+ * both ends of the box. Between lines that is invisible — the overhang falls into the line
+ * above, where there is nothing but leading. On the **first line of a page** it falls out of
+ * the page, and the pager clips it: at line height 0.95 every page opened with its top line
+ * shaved through the capitals, which is what 白い熊 saw as 「a black bar covering part of the
+ * top line … after every new page」.
+ *
+ * Measured rather than estimated, because the answer depends on the actual resolved font —
+ * an imported serif and Roboto do not agree about ascent, and the reader lets a book use
+ * either. The probe carries both an ascender and a descender so the natural line box is the
+ * full one; the difference between the two baselines **is** the overhang, since with
+ * `Trim.None` `firstBaseline` is measured from the top of the line box in both.
+ */
+internal fun readerFirstLineAscentOverflowPx(
+    textMeasurer: TextMeasurer,
+    style: TextStyle
+): Int {
+    if (style.lineHeight == TextUnit.Unspecified) return 0
+    val probe = AnnotatedString("Ag")
+    val naturalBaseline = runCatching {
+        textMeasurer.measure(probe, style = style.copy(lineHeight = TextUnit.Unspecified)).firstBaseline
+    }.getOrNull() ?: return 0
+    val styledBaseline = runCatching {
+        textMeasurer.measure(probe, style = style).firstBaseline
+    }.getOrNull() ?: return 0
+    if (!naturalBaseline.isFinite() || !styledBaseline.isFinite()) return 0
+    // Bounded by one em: a pathological style must cost a sliver of page, never the page.
+    val oneEm = runCatching { textMeasurer.measure(probe, style = style).size.height }.getOrNull() ?: 0
+    return (naturalBaseline - styledBaseline).roundToInt().coerceIn(0, oneEm.coerceAtLeast(0))
 }
 
 internal fun createHeaderTextStyle(

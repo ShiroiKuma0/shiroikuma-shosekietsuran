@@ -89,8 +89,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
@@ -263,6 +265,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import timber.log.Timber
 import java.io.File
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.max
@@ -961,6 +964,52 @@ fun EpubReaderHost(
             saveReaderSettings(
                 context, format.currentFontSizeEm, format.currentLineHeight, format.currentParagraphGap, format.currentImageSize, format.currentHorizontalMargin, format.currentVerticalMargin, format.currentFontFamily, format.currentCustomFontPath, format.currentTextAlign, format.currentFontWeight, format.currentLetterSpacing
             )
+        }
+    }
+
+    /*
+     * 白い熊, 2026-09-16: a way back to the global default from where 白い熊 actually reads.
+     *
+     * Format settings went book-unique in 2026-07-07 so that a size chosen for one book would
+     * stop following 白い熊 into the next. It worked, and it had a cost nobody saw for ten
+     * weeks: the global default — the size every *newly* opened book starts at — stopped
+     * being written by anything the reader does, and froze at whatever it held that day.
+     * On this phone that was 208 %, so every new book since has opened at 208 % and no amount
+     * of reading ever corrected it; the only way to move it was a settings screen that is not
+     * where anyone thinks about type size.
+     *
+     * So the reader asks — once per book, and only for a book that has no size of its own yet,
+     * because that is the one moment where 「this book」 and 「books in general」 are still the
+     * same question. Ignoring the snackbar is a complete answer, and leaves the book local and
+     * the global default exactly where it was.
+     */
+    val globalFontSizeAtOpen = remember(bookId) { loadGlobalReaderFontSize(context) }
+    var globalFontOfferArmed by remember(bookId) {
+        mutableStateOf(!hasLocalReaderFontSize(context, bookId))
+    }
+    val globalFontOfferMessage = stringResource(R.string.whitebear_global_font_offer, (format.currentFontSizeEm * 100f).roundToInt())
+    val globalFontOfferAction = stringResource(R.string.whitebear_global_font_offer_action)
+    val globalFontOfferDone = stringResource(R.string.whitebear_global_font_offer_done, (format.currentFontSizeEm * 100f).roundToInt())
+
+    LaunchedEffect(bookId, isFormatLocal, format.currentFontSizeEm) {
+        // Not armed, or the book is on the global profile already — where a change *is* the
+        // global default and there is nothing to offer.
+        if (!globalFontOfferArmed || !isFormatLocal) return@LaunchedEffect
+        val chosen = format.currentFontSizeEm
+        if (abs(chosen - globalFontSizeAtOpen) < 0.001f) return@LaunchedEffect
+        // The key includes the size, so each step of a side-swipe cancels the last wait: the
+        // question is asked about the size 白い熊 stopped on, not about every size passed through.
+        delay(1_200L)
+        globalFontOfferArmed = false
+        val result = snackbarHostState.showSnackbar(
+            message = globalFontOfferMessage,
+            actionLabel = globalFontOfferAction,
+            withDismissAction = true,
+            duration = SnackbarDuration.Long
+        )
+        if (result == SnackbarResult.ActionPerformed) {
+            saveGlobalReaderFontSize(context, chosen)
+            showBanner(globalFontOfferDone)
         }
     }
 
@@ -4139,7 +4188,13 @@ fun EpubReaderHost(
                 stableTopPadding = currentTopPadding
             }
 
-            val stableChromeTopPadding = if (prefs.systemUiMode == SystemUiMode.HIDDEN) {
+            // 白い熊, 2026-09-16: the strip is reserved for 「Always Show」 only, where the
+            // status bar really does stand over the page for the whole session. 「Sync with
+            // Menus」 hides it while reading and brings it back with the chrome — and this
+            // reader draws its chrome OVER the text by design — so reserving its height
+            // bought nothing and cost a permanent black band across the top of every page,
+            // which took the first line's ascenders with it.
+            val stableChromeTopPadding = if (prefs.systemUiMode != SystemUiMode.DEFAULT) {
                 0.dp
             } else {
                 val insets = ViewCompat.getRootWindowInsets(view)

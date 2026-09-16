@@ -2413,10 +2413,12 @@ internal fun List<ContentBlock>.extractTextBlocks(): List<TextContentBlock> {
 
 internal fun LayoutCoordinates.androidEpubPageContentBounds(
     horizontalPaddingPx: Int,
-    verticalPaddingPx: Int
+    verticalPaddingPx: Int,
+    /** Top-only inset the page adds beyond [verticalPaddingPx] — see `firstLineAscentOverflowPx`. */
+    extraTopPaddingPx: Int = 0
 ): AndroidEpubPageContentBounds {
     val pageTopPx = positionInWindow().y.roundToInt()
-    val contentTopPx = pageTopPx + verticalPaddingPx
+    val contentTopPx = pageTopPx + verticalPaddingPx + extraTopPaddingPx
     val contentBottomPx = pageTopPx + size.height - verticalPaddingPx
     return AndroidEpubPageContentBounds(
         topPx = contentTopPx,
