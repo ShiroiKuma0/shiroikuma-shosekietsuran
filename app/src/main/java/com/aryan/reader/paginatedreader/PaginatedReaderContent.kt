@@ -172,6 +172,13 @@ internal fun PaginatedReaderContent(
     hideImages: Boolean = false,
     horizontalPadding: Dp,
     verticalPadding: Dp,
+    /**
+     * 白い熊, 2026-09-16: the overhang a sub-natural line height gives the first line, which
+     * the paginator has already taken off the page height. Added here as top inset so the
+     * page the reader sees is the page the paginator filled, with the opening line's
+     * ascenders inside it instead of clipped away by the pager.
+     */
+    firstLineAscentOverflowPx: Int = 0,
     onGetPage: (Int) -> Page?,
     onGetChapterIndex: (Int) -> Int?,
     onGetChapterPath: (Int) -> String?,
@@ -199,6 +206,7 @@ internal fun PaginatedReaderContent(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val density = LocalDensity.current
+    val pageFirstLineTopInset = with(density) { firstLineAscentOverflowPx.toDp() }
     val pageViewConfiguration = LocalViewConfiguration.current
     var showExternalLinkDialog by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
@@ -589,7 +597,8 @@ internal fun PaginatedReaderContent(
                 ?.takeIf { it.isAttached }
                 ?.androidEpubPageContentBounds(
                     horizontalPaddingPx = pageHorizontalPaddingPx,
-                    verticalPaddingPx = pageVerticalPaddingPx
+                    verticalPaddingPx = pageVerticalPaddingPx,
+                    extraTopPaddingPx = firstLineAscentOverflowPx
                 )
         }
         val cutoffLogSignatures = remember(bookPageIndex, uiState.generation) {
@@ -621,7 +630,8 @@ internal fun PaginatedReaderContent(
                             pageIndex = bookPageIndex,
                             pageContentBounds = coordinates.androidEpubPageContentBounds(
                                 horizontalPaddingPx = pageHorizontalPaddingPx,
-                                verticalPaddingPx = pageVerticalPaddingPx
+                                verticalPaddingPx = pageVerticalPaddingPx,
+                                extraTopPaddingPx = firstLineAscentOverflowPx
                             ),
                             diagnosticsContext = cutoffDiagnosticsContext,
                             signatureAlreadyLogged = { signature ->
@@ -675,8 +685,10 @@ internal fun PaginatedReaderContent(
                         })
                 })
                 Box(modifier = Modifier.fillMaxSize().padding(
-                    horizontal = horizontalPadding,
-                    vertical = verticalPadding
+                    start = horizontalPadding,
+                    end = horizontalPadding,
+                    top = verticalPadding + pageFirstLineTopInset,
+                    bottom = verticalPadding
                 // Paginated pages own their breaks: never let an oversize block
                 // (forced whole-table placement, unclamped indents) paint into
                 // neighboring pages or under system bars.
