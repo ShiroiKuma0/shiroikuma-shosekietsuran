@@ -2,6 +2,28 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.55+002 — 2026-09-16
+
+Base: Episteme Android v1.0.55 (oss). A fork-only release on top of `1.0.55+001`, covering build `+002`. Three reading-surface faults, all found together on 2026-09-16 and none of them from the 1.0.55 rebase — the reader profile restored onto the 2026-09-08 reinstall had carried these values since at least 2026-07-28, and two of the three had simply never been questioned.
+
+### The global font default has a way back
+
+Every book that has never been given a size of its own opens at the **global** default. Format settings went book-unique on 2026-07-07, so that a size chosen for one book would stop following 白い熊 into the next — and it worked. What nobody noticed for ten weeks is what it cost: from that day nothing the reader does wrote to the global default any more. It froze at whatever it held that afternoon — 208 % on this phone — and every newly opened book has started at 208 % ever since, with no way to correct it short of a settings screen that is not where anyone thinks about type size.
+
+A book with no size of its own now **offers**, once, to make its first size change the default for new books as well. Ignoring the snackbar is a complete answer: the book keeps its own size and the global default stays exactly where it was. The offer watches the size itself rather than any one control, so the side-swipe stepper, the format panel and the size dialog all reach it; and it waits for 1.2 s of quiet first, so a swipe through eight steps is asked about once, at the size it stopped on. A book already reading on the 「Global」 profile is never asked — there a change *is* the default.
+
+### The black band across the top of every page
+
+The reader reserved the status bar's height whenever the system-UI mode was anything but 「Always Hide」. Under 「Sync with Menus」 — where the bar is hidden while reading and comes back with the chrome, which this reader deliberately draws *over* the text — that reservation bought nothing and cost a permanent black strip along the top of every page, taking the first line's ascenders with it. The strip is now kept for 「Always Show」 alone, where the status bar really does stand over the page for the whole session.
+
+### The opening line of a page kept its capitals
+
+A line height below the font's natural one makes the line box shorter than the glyphs it carries, and proportional alignment lets the shortfall hang out of both ends of the box. Between lines that overhang falls into the leading above and is invisible. On the **first line of a page** it falls out of the page, and the pager clips it: at 白い熊's line height of 0.95 every page opened with its top line cut through the capitals — 「Плохи」 arriving as 「Ⅰ Ⅰлохи」.
+
+The overhang is now **measured** rather than estimated, for the font actually resolved — the same probe laid out twice, once at the natural line height and once at yours, with the gap between the two baselines being the answer. An imported serif and Roboto disagree about ascent, and the reader lets a book use either. The paginator takes that measurement off the page it fills and the page adds it back as top inset, so the page drawn is still exactly the page paginated. It is exactly zero at any line height that does not overhang, so nothing moves for anyone not setting lines tight.
+
+Clamping the setting up to 1.0 was the other way to end it, and was refused: 1.0 maps to the WebView-normal 1.2, so it would have snapped 0.95 to 1.2 and loosened the text far past anything that was asked for.
+
 ## 1.0.55+001 — 2026-09-13
 
 Base: Episteme Android v1.0.55 (oss), up from v1.0.54. An upstream-tracking release: every fork feature replayed on the new base, with no fork feature added or changed.
