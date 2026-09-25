@@ -6,6 +6,7 @@ import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import com.aryan.reader.data.BookMetadataEdit
 import com.aryan.reader.data.RecentFileItem
+import com.aryan.reader.data.getOpenableUri
 import com.aryan.reader.shared.reader.SharedEpubCoverSnapshot
 import com.aryan.reader.shared.reader.SharedEpubCoverUpdate
 import com.aryan.reader.shared.reader.SharedEpubMetadataEditor
@@ -33,7 +34,9 @@ class EpubMetadataFileEditor(private val context: Context) {
     ): Result<AndroidEpubMetadataEditResult> = withContext(Dispatchers.IO) {
         runCatching {
             require(item.type == FileType.EPUB) { "Only EPUB metadata editing is supported." }
-            val sourceUri = item.uriString?.toUri() ?: error("Book file is not available.")
+            // The path behind the document URI when the folder's grant is gone, so editing a
+            // book's metadata keeps working across a freeze cycle (白い熊, 2026-09-25).
+            val sourceUri = item.getOpenableUri(context) ?: error("Book file is not available.")
             val token = UUID.randomUUID().toString()
             val sourceCopy = File(context.cacheDir, "epub_metadata_source_$token.epub")
             val editedCopy = File(context.cacheDir, "epub_metadata_edited_$token.epub")

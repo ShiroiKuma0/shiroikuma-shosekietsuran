@@ -45,9 +45,14 @@ import com.aryan.reader.R
  * answer. And the answer is exact rather than approximate: re-picking the same folder yields a
  * byte-identical tree URI, so every row that pointed at it works again untouched.
  *
- * The path fallback in `MainViewModel.externalStorageFileFor` stays where it is, demoted to what
- * it always was — a way to open a file when the proper route is unavailable, not a substitute
- * for the grant the folder machinery is built on.
+ * ## What it is asked about now (白い熊, 2026-09-25)
+ *
+ * Only folders that **nothing** can reach. The path route grew up: with all-files access held,
+ * [WhiteBearPathAccess] walks, reads and writes a folder whose grant is gone, and the library
+ * behaves as though it still had one — so a missing grant on a reachable folder is no longer a
+ * question worth stopping the app for, and the freeze cycle that used to raise this screen every
+ * morning raises nothing at all. What still reaches this gate is a folder with neither key, and
+ * for that the answer below is the same as it ever was.
  */
 @Composable
 fun WhiteBearFolderGrantGate(
