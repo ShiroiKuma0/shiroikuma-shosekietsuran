@@ -6,11 +6,11 @@
 
 **A black-and-yellow e-book reader that reads Japanese the way Japan prints it.**
 
-A fork of [Episteme](https://github.com/Aryan-Raj3112/episteme) with **major additions**: tategaki 縦書き vertical-text rendering, parallel reading of up to three books in nine screen layouts, a cross-book annotation library, page-turn animations with a real paper curl, whole-line page views, a fully themeable black×yellow UI, one-ZIP backup of the whole library and every setting (headless automation, and app-data backup that survives a wipe), tap/swipe reading gestures with page-turn sound, a remade library with a grab-anywhere fast scroller, and metadata that writes back into the book files.
+A fork of [Episteme](https://github.com/Aryan-Raj3112/episteme) with **major additions**: tategaki 縦書き vertical-text rendering, parallel reading of up to three books in nine screen layouts, a cross-book annotation library, page-turn animations with a real paper curl, whole-line page views, a fully themeable black×yellow UI, one-ZIP backup of the whole library and every setting (headless automation, and app-data backup that survives a wipe), tap/swipe reading gestures with page-turn sound, a remade library with a grab-anywhere fast scroller, metadata that writes back into the book files, and a library that survives being frozen, wiped and restored.
 
 Installs **side-by-side** with Episteme (app id `shiroikuma.shosekietsuran`).
 
-**📥 Latest release: [`1.0.55+002`](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases/latest)** — [all releases & APK downloads »](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases)
+**📥 Latest release: [`1.0.55+003`](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases/latest)** — [all releases & APK downloads »](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases)
 
 </div>
 
@@ -50,6 +50,11 @@ A grid layout with live-adjustable thumbnail, title and author sizes; author and
 
 ## 🔎 Rescan on demand — new books in seconds, not minutes
 Add books to a synced folder and make the library notice **now**: a rescan button in the library's own top bar, pull-to-refresh on the grid, and **Scan this folder** on any folder card. Finding what is new reads no per-book sidecars at all — the part that turned a rescan into a minutes-long wait — so a 9000-book shelf answers in seconds, and the new books appear *while* the scan is still running instead of after it. Returning to the app rescans by itself, and the result says what it covered: 「9214 件を 1.3 秒でスキャン」, with time spent waiting reported separately from time spent scanning, so a stall can never hide inside a scan.
+
+## 🔑 A library that does not hang on a permission
+Android gives folder access to an *installation*, not to your data — so a restore, a reinstall, or freezing the app between readings (suspend + disable + **hide**, which the system treats as an uninstall where permissions are concerned) hands back every book, every reading position and every annotation, and no right to open any of them. Stock's answer is a perfect-looking library in which nothing opens; the first version of this fork's answer was to ask for the folder again, every time.
+
+It no longer asks. With all-files access held, the **whole folder pipeline runs over the path**: the library scan, the sidecars that carry your positions and annotations back into the folder, covers and metadata, opening, deleting, metadata edits and sharing. The books keep the exact identities they were scanned under, so a library indexed without permission is byte-for-byte the library indexed with it — nothing re-imported, nothing duplicated, nothing to undo when the permission returns. The old prompt survives for the one case it was meant for: a folder that *nothing* can reach.
 
 ## 🏷️ Metadata that round-trips into your files
 Embedded subjects (EPUB `dc:subject`, MOBI EXTH, FB2 genres, PDF Keywords) become library tags on import, and tag edits write back into the files — EPUB OPF rewriting and PDF info-dictionary editing included. Publication date, publisher, language, rating and ISBN are read live from the file; author, title, summary and date are editable for EPUBs and PDFs alike. Everything the info screen shows — title, author, series, publisher, path, summary, tag names — is long-press-selectable and copyable, HTML summaries included.
