@@ -51,6 +51,7 @@ import com.aryan.reader.shared.ReaderLocator
 import com.aryan.reader.shared.SharedFolderScannedFile
 import com.aryan.reader.shared.SharedReaderScreenState
 import com.aryan.reader.shared.reader.ReaderBookmark
+import com.aryan.reader.whitebear.WhiteBearPathAccess
 import java.io.File
 import java.util.concurrent.TimeUnit
 import android.provider.DocumentsContract
@@ -388,8 +389,14 @@ class FolderSyncWorker(
                 android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
         } catch (_: SecurityException) {
-            ReaderPerfLog.w("FolderDiscover folder skipped: no permission folder=$folderUriString")
-            return 0
+            // 白い熊, 2026-09-25: a lost grant is no longer the end of the walk. All-files access
+            // reaches the same folder by path, and the walk that route performs reports the same
+            // document ids, so the books it finds are the books this one would have found.
+            if (!WhiteBearPathAccess.covers(folderUri)) {
+                ReaderPerfLog.w("FolderDiscover folder skipped: no permission folder=$folderUriString")
+                return 0
+            }
+            ReaderPerfLog.w("FolderDiscover folder walked by path: grant gone folder=$folderUriString")
         }
 
         val knownBookIds = ReaderPerfLog.measureSuspend(
@@ -617,9 +624,14 @@ class FolderSyncWorker(
                         android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
                     )
                 } catch (_: SecurityException) {
-                    return FolderSyncOutcome(success = false, completedScan = false)
+                    // As in the discovery pass: without the grant the folder is still walked,
+                    // read and reconciled over its path (白い熊, 2026-09-25).
+                    if (!WhiteBearPathAccess.covers(folderUri)) {
+                        return FolderSyncOutcome(success = false, completedScan = false)
+                    }
+                    ReaderPerfLog.w("FolderSync folder walked by path: grant gone folder=$folderUriString")
                 }
-                DocumentFile.fromTreeUri(appContext, folderUri)
+                WhiteBearPathAccess.documentTree(appContext, folderUri)
                     ?.takeIf { it.isDirectory }
                     ?: return FolderSyncOutcome(success = false, completedScan = false)
             } else {
@@ -1141,6 +1153,17 @@ class FolderSyncWorker(
         onProgress: suspend (filesSeen: Int) -> Unit = {},
         onFile: suspend (SharedFolderScannedFile) -> Unit
     ): FolderWalkStats {
+        // 白い熊, 2026-09-25: the same walk, over the path, when the grant behind this folder is
+        // gone and all-files access still reaches it. See [walkFolderFilesByPath].
+        if (WhiteBearPathAccess.standsInFor(appContext, folderUri)) {
+            return walkFolderFilesByPath(
+                folderUri = folderUri,
+                folderUriString = folderUriString,
+                allowedFileTypes = allowedFileTypes,
+                onProgress = onProgress,
+                onFile = onFile
+            )
+        }
         Timber.tag("FolderSync").d("Phase 2: Scanning physical files using raw ContentResolver...")
         val contentResolver = appContext.contentResolver
         val rootDocId = DocumentsContract.getTreeDocumentId(folderUri)
@@ -1508,6 +1531,121 @@ class FolderSyncWorker(
 
     private fun getFileType(name: String, mimeType: String?): FileType? {
         return resolveFileTypeFromMetadata(name, mimeType)
+    }
+
+    /**
+     * [walkFolderFiles] over the filesystem — the walk used while the folder's grant is missing
+     * and all-files access still reaches it (白い熊, 2026-09-25).
+     *
+     * Deliberately a mirror rather than a rewrite of the one above: the framework walk is
+     * upstream's and should stay theirs, so that a rebase touches one call and not a rewritten
+     * loop. Everything the two disagree on is invisible from outside — this one reads names,
+     * sizes and timestamps from the file itself, and it builds each document id the way the
+     * external-storage provider builds it, so the URIs it reports are the URIs the rows already
+     * hold. A directory it cannot list is reported exactly as a provider returning no cursor is:
+     * an incomplete scan, which upstream never lets reconcile a book away.
+     */
+    private suspend fun walkFolderFilesByPath(
+        folderUri: android.net.Uri,
+        folderUriString: String,
+        allowedFileTypes: Set<FileType>,
+        onProgress: suspend (filesSeen: Int) -> Unit,
+        onFile: suspend (SharedFolderScannedFile) -> Unit
+    ): FolderWalkStats {
+        Timber.tag("FolderSync").d("Phase 2: Scanning physical files by path (no SAF grant)...")
+        val rootDocId = WhiteBearPathAccess.documentIdOf(folderUri)
+            ?: return FolderWalkStats(scanStatus = LocalFolderScanStatus.PARTIAL)
+        val dirQueue = ArrayDeque<String>()
+        var dirsScanned = 0
+        var filesSeen = 0
+        var lastProgressAt = 0
+        var stoppedForUnlinkedFolder = false
+        var scanStatus = LocalFolderScanStatus.COMPLETE
+        dirQueue.add(rootDocId)
+
+        while (dirQueue.isNotEmpty()) {
+            if (isStopped) {
+                scanStatus = LocalFolderScanStatus.PARTIAL
+                break
+            }
+            if (!isFolderStillLinked(folderUriString)) {
+                ReaderPerfLog.w("FolderSync folder abort: folder unlinked during scan folder=$folderUriString")
+                stoppedForUnlinkedFolder = true
+                scanStatus = LocalFolderScanStatus.PARTIAL
+                break
+            }
+            val currentDocId = dirQueue.removeFirst()
+            dirsScanned++
+
+            val children = WhiteBearPathAccess.childrenOf(currentDocId)
+            if (children == null) {
+                scanStatus = LocalFolderScanStatus.PARTIAL
+                Timber.tag("FolderSync").w("Path walk could not list docId: $currentDocId")
+                continue
+            }
+
+            for (child in children) {
+                if (isStopped || stoppedForUnlinkedFolder) break
+                filesSeen++
+
+                if (filesSeen % 100 == 0 && !isFolderStillLinked(folderUriString)) {
+                    ReaderPerfLog.w("FolderSync folder abort: folder unlinked after entries=$filesSeen folder=$folderUriString")
+                    stoppedForUnlinkedFolder = true
+                    scanStatus = LocalFolderScanStatus.PARTIAL
+                    break
+                }
+
+                if (filesSeen - lastProgressAt >= PROGRESS_REPORT_INTERVAL) {
+                    lastProgressAt = filesSeen
+                    onProgress(filesSeen)
+                }
+
+                val name = child.name
+                if (child.isDirectory) {
+                    if (!name.startsWith(".") && name != LOCAL_FOLDER_SYNC_DATA_DIR) {
+                        dirQueue.add(child.documentId)
+                    }
+                    continue
+                }
+
+                val type = getFileType(name, null)
+                if (
+                    type == null ||
+                    type !in allowedFileTypes ||
+                    !isLocalFolderSyncEligibleFile(name, null) ||
+                    name.endsWith(".json") ||
+                    name.startsWith(".")
+                ) {
+                    continue
+                }
+
+                val docUri = DocumentsContract.buildDocumentUriUsingTree(folderUri, child.documentId)
+                onFile(
+                    SharedFolderScannedFile(
+                        name = name,
+                        path = docUri.toString(),
+                        sourceFolder = folderUriString,
+                        relativePath = buildRelativePath(rootDocId, child.documentId, name),
+                        type = type,
+                        size = child.size,
+                        lastModified = child.lastModified
+                    )
+                )
+            }
+
+            if (stoppedForUnlinkedFolder) break
+        }
+
+        if (isStopped || stoppedForUnlinkedFolder) {
+            scanStatus = LocalFolderScanStatus.PARTIAL
+        }
+
+        return FolderWalkStats(
+            dirsScanned = dirsScanned,
+            filesSeen = filesSeen,
+            stoppedForUnlinkedFolder = stoppedForUnlinkedFolder,
+            scanStatus = scanStatus
+        )
     }
 
     private fun buildRelativePath(rootDocId: String, docId: String, fallbackName: String): String {

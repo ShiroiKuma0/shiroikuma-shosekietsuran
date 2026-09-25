@@ -6,6 +6,7 @@ import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import com.aryan.reader.data.BookMetadataEdit
 import com.aryan.reader.data.RecentFileItem
+import com.aryan.reader.data.getOpenableUri
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +36,9 @@ class PdfMetadataFileEditor(private val context: Context) {
     ): Result<AndroidPdfMetadataEditResult> = withContext(Dispatchers.IO) {
         runCatching {
             require(item.type == FileType.PDF) { "Only PDF metadata editing is supported here." }
-            val sourceUri = item.uriString?.toUri() ?: error("Book file is not available.")
+            // As in the EPUB editor: the path stands in for a grant that is gone
+            // (白い熊, 2026-09-25).
+            val sourceUri = item.getOpenableUri(context) ?: error("Book file is not available.")
             PDFBoxResourceLoader.init(context.applicationContext)
 
             val token = UUID.randomUUID().toString()

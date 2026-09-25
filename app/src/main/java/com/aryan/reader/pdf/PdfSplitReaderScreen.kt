@@ -62,6 +62,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
@@ -84,7 +85,8 @@ import com.aryan.reader.MainViewModel
 import com.aryan.reader.R
 import com.aryan.reader.cardTitle
 import com.aryan.reader.data.RecentFileItem
-import com.aryan.reader.data.getUri
+import com.aryan.reader.data.getOpenableUri
+import com.aryan.reader.whitebear.WhiteBearPathAccess
 import com.aryan.reader.shared.PdfSplitOrientation
 import com.aryan.reader.shared.PdfSplitPane
 import com.aryan.reader.shared.PdfSplitPaneState
@@ -835,7 +837,13 @@ private fun PdfSplitDocumentPane(
             } == true
         }
     }
-    val resolvedPdfUri = item?.getUri() ?: document.uriString.toUri()
+    // 白い熊, 2026-09-25: the pane opens the book through the same resolver the library does, so
+    // a folder whose grant the freeze cycle took still opens in a split pane.
+    val paneContext = LocalContext.current
+    val resolvedPdfUri = remember(item?.uriString, document.uriString) {
+        item?.getOpenableUri(paneContext)
+            ?: WhiteBearPathAccess.openableUri(paneContext, document.uriString.toUri())
+    }
 
     LaunchedEffect(paneId, document.sessionId, document.bookId, isFocused) {
         pdfSplitZoomDiag(

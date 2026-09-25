@@ -21,6 +21,7 @@ import com.aryan.reader.shared.ReaderPlatform
 import com.aryan.reader.shared.SharedFileCapabilities
 import com.aryan.reader.shared.parseSharedDocumentXmlMetadata
 import com.aryan.reader.shared.sharedDocumentMetadataArchivePath
+import com.aryan.reader.whitebear.WhiteBearPathAccess
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -401,7 +402,11 @@ class MetadataExtractionWorker(
         val sourceUri = sourceFolderUri.toUri()
         if (!isUriInLinkedFolderTree(sourceUri, itemUri)) return null
         if (!itemUri.scheme.equals("file", ignoreCase = true)) {
-            return itemUri
+            // 白い熊, 2026-09-25: the document URI while the framework will still open it, the
+            // path behind it when the folder's grant is gone — otherwise a frozen-and-thawed
+            // copy indexes its books and then reads no title, no author and no cover from any
+            // of them.
+            return WhiteBearPathAccess.openableUri(appContext, itemUri)
         }
 
         val managedFile = if (accountId != null) {

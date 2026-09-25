@@ -16,6 +16,8 @@ import com.aryan.reader.shared.localFolderSyncMetadataTempFileName
 import com.aryan.reader.shared.localFolderSyncSidecarStem
 import com.aryan.reader.shared.pdf.SharedPdfAnnotationSidecarCodec
 import com.aryan.reader.shared.pdf.SharedPdfAnnotationSidecarSnapshot
+import com.aryan.reader.whitebear.WhiteBearFolderGrants
+import com.aryan.reader.whitebear.WhiteBearPathAccess
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
@@ -62,6 +64,12 @@ object LocalSyncUtils {
     }
 
     private fun querySyncSubfolderFiles(context: Context, sourceFolderUri: Uri): List<SyncFileEntry> {
+        // 白い熊, 2026-09-25: the fast route is a raw provider query, which without the grant can
+        // only fail. The fallback below goes through WhiteBearPathAccess and reads the same
+        // directory off the path, so take it directly rather than through an exception.
+        if (!WhiteBearFolderGrants.isCovered(context, sourceFolderUri)) {
+            return querySyncSubfolderFilesFallback(context, sourceFolderUri, "no-saf-grant")
+        }
         val start = ReaderPerfLog.nowNanos()
         val resolver = context.contentResolver
         val rootDocId = try {
@@ -131,7 +139,7 @@ object LocalSyncUtils {
     ): List<SyncFileEntry> {
         val start = ReaderPerfLog.nowNanos()
         return try {
-            val rootTree = DocumentFile.fromTreeUri(context, sourceFolderUri)
+            val rootTree = WhiteBearPathAccess.documentTree(context, sourceFolderUri)
             val syncDir = rootTree?.findFile(SYNC_SUBFOLDER_NAME)
             if (syncDir == null || !syncDir.isDirectory) {
                 ReaderPerfLog.w("LocalSync fallback query found no sync dir reason=$reason uri=$sourceFolderUri")
@@ -208,7 +216,7 @@ object LocalSyncUtils {
         metadata: FolderBookMetadata
     ): Boolean = withContext(Dispatchers.IO) {
         try {
-            val rootTree = DocumentFile.fromTreeUri(context, sourceFolderUri)
+            val rootTree = WhiteBearPathAccess.documentTree(context, sourceFolderUri)
                 ?: return@withContext false
             val syncDir = getOrCreateSyncDir(rootTree)
                 ?: return@withContext false
@@ -327,7 +335,7 @@ object LocalSyncUtils {
     ): Boolean = annotationSidecarWriteMutex.withLock { withContext(Dispatchers.IO) {
         Timber.tag("FolderAnnotationSync").d("saveAnnotationSidecar called for bookId: $bookId, timestamp: $timestamp")
         try {
-            val rootTree = DocumentFile.fromTreeUri(context, sourceFolderUri) ?: return@withContext false
+            val rootTree = WhiteBearPathAccess.documentTree(context, sourceFolderUri) ?: return@withContext false
             val syncDir = getOrCreateSyncDir(rootTree) ?: return@withContext false
             val currentBest = resolveAnnotationConflicts(context, syncDir, bookId)
             val targetName = localFolderSyncAnnotationFileName(bookId)
@@ -470,7 +478,7 @@ object LocalSyncUtils {
         bookId: String
     ): Pair<Long, String>? = withContext(Dispatchers.IO) {
         try {
-            val rootTree = DocumentFile.fromTreeUri(context, sourceFolderUri) ?: return@withContext null
+            val rootTree = WhiteBearPathAccess.documentTree(context, sourceFolderUri) ?: return@withContext null
             val syncDir = rootTree.findFile(SYNC_SUBFOLDER_NAME) ?: return@withContext null
             val resolved = resolveAnnotationConflicts(context, syncDir, bookId) ?: return@withContext null
             if (resolved.hasUnreadableCandidate) return@withContext null
@@ -518,6 +526,11 @@ object LocalSyncUtils {
      * This is required because MediaScannerConnection does not accept content:// URIs.
      */
     private fun getPathFromUri(context: Context, uri: Uri): String? {
+        // A sidecar written over the path route comes back as a file URI, and the media scanner
+        // wants the same string either way (白い熊, 2026-09-25).
+        if (uri.scheme.equals("file", ignoreCase = true)) {
+            return uri.path?.takeIf { it.isNotBlank() }
+        }
         try {
             if (DocumentsContract.isDocumentUri(context, uri) && isExternalStorageDocument(uri)) {
                 val docId = DocumentsContract.getDocumentId(uri)
@@ -710,7 +723,7 @@ object LocalSyncUtils {
         bookId: String
     ) = withContext(Dispatchers.IO) {
         try {
-            val rootTree = DocumentFile.fromTreeUri(context, sourceFolderUri) ?: return@withContext
+            val rootTree = WhiteBearPathAccess.documentTree(context, sourceFolderUri) ?: return@withContext
             val syncDir = rootTree.findFile(SYNC_SUBFOLDER_NAME) ?: return@withContext
             val hashedStem = localFolderSyncSidecarStem(bookId)
             val hashedAnnotationStem = "$hashedStem$ANNOTATION_SUFFIX"
@@ -738,7 +751,7 @@ object LocalSyncUtils {
         sourceFolderUri: Uri
     ): Boolean = withContext(Dispatchers.IO) {
         try {
-            val rootTree = DocumentFile.fromTreeUri(context, sourceFolderUri) ?: return@withContext false
+            val rootTree = WhiteBearPathAccess.documentTree(context, sourceFolderUri) ?: return@withContext false
             val syncDir = rootTree.findFile(SYNC_SUBFOLDER_NAME) ?: return@withContext true
             if (!syncDir.isDirectory) return@withContext false
             syncDir.delete()

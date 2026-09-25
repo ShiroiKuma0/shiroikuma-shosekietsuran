@@ -47,7 +47,7 @@ import androidx.core.content.edit
 import androidx.core.graphics.createBitmap
 import androidx.core.net.toUri
 import com.aryan.reader.whitebear.WhiteBearFolderGrants
-import com.aryan.reader.whitebear.hasAllFilesAccess
+import com.aryan.reader.whitebear.WhiteBearPathAccess
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.NoCredentialException
 import androidx.documentfile.provider.DocumentFile
@@ -83,6 +83,7 @@ import com.aryan.reader.data.ShelfMetadata
 import com.aryan.reader.data.TagEntity
 import com.aryan.reader.data.effectiveAnnotationModifiedTimestamp
 import com.aryan.reader.data.effectiveReadingPositionModifiedTimestamp
+import com.aryan.reader.data.getOpenableUri
 import com.aryan.reader.data.getUri
 import com.aryan.reader.data.toBookMetadata
 import com.aryan.reader.data.toRecentFileItem
@@ -250,6 +251,10 @@ private const val CLOUD_METADATA_UPLOAD_DEBOUNCE_MILLIS = 1_500L
 private const val LOCAL_FOLDER_INVENTORY_REFRESH_MILLIS = 5L * 60L * 1_000L
 private const val LOCAL_FOLDER_INVENTORY_RETRY_MILLIS = 30L * 1_000L
 private const val LOCAL_FOLDER_INVENTORY_STALE_MILLIS = 60L * 1_000L
+
+// 白い熊, 2026-09-25: how long the list of folder roots may be reused while rebuilding the
+// document URI behind a path-served book. Folders are added by hand and almost never change.
+private const val SOURCE_FOLDER_URI_TTL_MS = 30_000L
 
 @kotlin.OptIn(ExperimentalSerializationApi::class)
 @UnstableApi
@@ -442,7 +447,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
                     return@launch
                 }
 
-                val uri = cbzItem.getUri() ?: return@launch
+                val uri = cbzItem.getOpenableUri(appContext) ?: return@launch
                 Timber.d("BUBBLE TEST START: ${cbzItem.displayName}")
 
                 var cacheFile: File? = null
@@ -901,7 +906,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
 
         persistTabState(tabState.openTabIds, tabState.activeTabBookId)
 
-        val uri = item.getUri()
+        val uri = item.getOpenableUri(appContext)
         Timber.tag("PdfTabSync").d("ViewModel: ActiveTab updated to $bookId. URI found: ${uri != null}")
 
         uri?.let {
@@ -1045,7 +1050,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
                 candidate.uriString != null &&
                 PdfSplitPaneState(candidate.bookId, candidate.uriString).samePdfDocument(document)
         } ?: return null
-        val uri = item.getUri() ?: return null
+        val uri = item.getOpenableUri(appContext) ?: return null
         val isReadable = runCatching {
             appContext.contentResolver.openFileDescriptor(uri, "r")?.use { true } == true
         }.getOrDefault(false)
@@ -1264,7 +1269,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun activatePdfPane(item: RecentFileItem) {
-        val uri = item.getUri() ?: return
+        val uri = item.getOpenableUri(appContext) ?: return
         persistReaderSession(item.bookId, item.type)
         _internalState.update { state ->
             val prepared = state.copy(
@@ -2141,7 +2146,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
 
         viewModelScope.launch {
             val item = bookStore.getFileByBookId(restoreBookId)
-            val restoreUri = item?.getUri()
+            val restoreUri = item?.getOpenableUri(appContext)
             val restoreAction = androidReaderSessionRestoreAction(
                 restoreBookId,
                 persistedTypeName,
@@ -2388,7 +2393,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun getDisplayPathFromUri(context: Context, uriString: String): String {
         val uri = uriString.toUri()
-        val fallbackName = DocumentFile.fromTreeUri(context, uri)?.name ?: "Unknown Folder"
+        val fallbackName = WhiteBearPathAccess.documentTree(context, uri)?.name ?: "Unknown Folder"
         if (DocumentsContract.isTreeUri(uri) && DocumentsContract.getTreeDocumentId(uri)
                 .isNotEmpty()
         ) {
@@ -2568,7 +2573,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
                 if (item.sourceFolderUri != null) {
                     if (item.uriString != null) {
                         try {
-                            val fileDoc = DocumentFile.fromSingleUri(appContext, item.uriString.toUri())
+                            val fileDoc = WhiteBearPathAccess.document(appContext, item.uriString.toUri())
                             if (fileDoc != null && fileDoc.exists() && !fileDoc.delete()) {
                                 Timber.e("Failed to delete folder file via SAF: ${item.displayName}")
                             }
@@ -2577,7 +2582,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
                         }
                     }
                     try {
-                        val rootDoc = DocumentFile.fromTreeUri(appContext, item.sourceFolderUri.toUri())
+                        val rootDoc = WhiteBearPathAccess.documentTree(appContext, item.sourceFolderUri.toUri())
                         rootDoc?.findFile(".${item.bookId}.json")?.delete()
                         rootDoc?.findFile("${item.bookId}.json")?.delete()
                     } catch (e: Exception) {
@@ -3068,8 +3073,9 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
     ) {
         withContext(Dispatchers.IO) {
             try {
+                val openableUri = WhiteBearPathAccess.openableUri(appContext, sourceUri)
                 val artifact = AndroidShareArtifactManager.create(appContext, filename, write = { output ->
-                    appContext.contentResolver.openInputStream(sourceUri)?.use { input ->
+                    appContext.contentResolver.openInputStream(openableUri)?.use { input ->
                         input.copyTo(output)
                     } ?: error("Could not open source file.")
                 })
@@ -3095,7 +3101,9 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun copyUriBytes(sourceUri: Uri, destUri: Uri) {
         val contentResolver = appContext.contentResolver
-        contentResolver.openInputStream(sourceUri)?.use { input ->
+        // 白い熊, 2026-09-25: read through the path when the document URI's grant is gone, so
+        // 「save the original file」 keeps working across a freeze cycle.
+        contentResolver.openInputStream(WhiteBearPathAccess.openableUri(appContext, sourceUri))?.use { input ->
             contentResolver.openOutputStream(destUri)?.use { output ->
                 input.copyTo(output)
             } ?: error("Could not open destination file.")
@@ -3753,8 +3761,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
                     "event=reader_state_wait_end operation=$closeOperation correlation=$closeCorrelation " +
                         "book=${cloudFolderSafeId(closingBookId)} result=complete",
                 )
-                val freshBook = bookStore.getFileByUri(uriString)
-                    ?: selectedBookRowForManagedFile(uriString.toUri())
+                val freshBook = bookRowForReaderUri(uriString.toUri())
                 freshBook?.let {
                     cloudFolderLogD(
                         "event=reader_close_snapshot operation=$closeOperation correlation=$closeCorrelation " +
@@ -6550,7 +6557,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
                 if (uri.scheme == "file") {
                     uri.path?.let { File(it).lastModified() } ?: 0L
                 } else {
-                    DocumentFile.fromSingleUri(appContext, uri)?.lastModified() ?: 0L
+                    WhiteBearPathAccess.document(appContext, uri)?.lastModified() ?: 0L
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to get file modified time for $uri")
@@ -7062,7 +7069,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
                 return@launch
             }
 
-            val uri = item.getUri()
+            val uri = item.getOpenableUri(appContext)
             if (uri == null) {
                 _internalState.update {
                     it.copy(errorMessage = appContext.getString(R.string.error_file_location_not_found))
@@ -7249,7 +7256,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             val currentBookUri = _internalState.value.selectedPdfUri ?: _internalState.value.selectedEpubUri
             if (currentBookUri != null) {
-                bookStore.getFileByUri(currentBookUri.toString())?.let { item ->
+                bookRowForReaderUri(currentBookUri)?.let { item ->
                     if (annotationJsonEquivalentForNoop(item.highlightsJson, highlightsJson)) {
                         logCloudSyncTrace {
                             "android.reader.highlights_save_noop book=${item.bookId} highlights=${highlightsJson.cloudSyncAnnotationSummary()}"
@@ -7290,7 +7297,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
 
             _internalState.update { it.copy(isLoading = true, errorMessage = null) }
 
-            val uri = item.getUri() ?: run {
+            val uri = item.getOpenableUri(appContext) ?: run {
                 _internalState.update {
                     it.copy(
                         isLoading = false, errorMessage = appContext.getString(R.string.error_file_location_not_found)
@@ -7502,7 +7509,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
                 if (!file.isFile) return null
                 "${file.length()}:${file.lastModified()}"
             } else {
-                val document = DocumentFile.fromSingleUri(appContext, uri) ?: return null
+                val document = WhiteBearPathAccess.document(appContext, uri) ?: return null
                 val length = document.length()
                 val modified = document.lastModified()
                 if (length <= 0L && modified <= 0L) null else "$length:$modified"
@@ -8054,8 +8061,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
     ) {
         Timber.d("Saving EPUB position locally: URI=$uri, Locator=$locator")
         enqueueReaderStateSave(uri.toString()) {
-            val existing = bookStore.getFileByUri(uri.toString())
-                ?: selectedBookRowForManagedFile(uri)
+            val existing = bookRowForReaderUri(uri)
             existing?.let { book ->
                 logCloudSyncTrace {
                     "android.reader.position_save_start book=${book.bookId} beforeTs=${book.lastModifiedTimestamp} " +
@@ -8149,7 +8155,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
         // save from one reader must not be applied to whichever reader is active
         // when that save happens to run.
         viewModelScope.launch {
-            val item = bookStore.getFileByUri(stableDocumentUri)
+            val item = bookRowByUriOrPath(stableDocumentUri)
             if (item != null) {
                 enqueueBookmarkSave(item.bookId, bookmarksJson, documentUri)
             } else {
@@ -8208,8 +8214,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
             // legacy rows may carry a differently-encoded file URI for the same
             // path, so fall back to the selected book when both decode to the
             // same canonical file before giving up.
-            val existing = bookStore.getFileByUri(uri.toString())
-                ?: selectedBookRowForManagedFile(uri)
+            val existing = bookRowForReaderUri(uri)
             existing?.let { book ->
                 logCloudSyncTrace {
                     "android.reader.pdf_position_save_start book=${book.bookId} beforeTs=${book.lastModifiedTimestamp} " +
@@ -8413,7 +8418,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
 
             Timber.d("Recent file clicked (opening): ${item.displayName}")
             if (item.isAvailable) {
-                item.getUri()?.let { uri ->
+                item.getOpenableUri(appContext)?.let { uri ->
                     openBook(uri, item.bookId, item.type, item.displayName)
                 } ?: run {
                     _internalState.update { it.copy(errorMessage = appContext.getString(R.string.error_file_location_not_found)) }
@@ -8516,7 +8521,11 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
      */
     suspend fun foldersNeedingGrant(): List<Uri> = withContext(Dispatchers.IO) {
         val folders = recentFilesRepository.getDistinctSourceFolderUris()
-        WhiteBearFolderGrants.missingGrants(appContext, folders)
+        // Only the folders nothing can reach. A folder whose grant the freeze cycle took, but
+        // whose path all-files access still walks in full, is served by
+        // [com.aryan.reader.whitebear.WhiteBearPathAccess] and is not worth a question
+        // (白い熊, 2026-09-25).
+        WhiteBearFolderGrants.unreachableFolders(appContext, folders)
     }
 
     /**
@@ -8524,32 +8533,11 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
      *
      * Only ever consulted as a fallback, and only while this app holds all-files access —
      * without it the path is unreadable and returning one would trade a clear failure for a
-     * confusing one. Document ids from `com.android.externalstorage.documents` are
-     * `<volume>:<relative path>`, which is the whole trick: `primary` is the shared storage
-     * root and anything else is a card under `/storage`.
+     * confusing one. The translation itself lives in [WhiteBearPathAccess], which the whole
+     * folder pipeline now shares.
      */
-    private fun externalStorageFileFor(uri: Uri): File? {
-        if (!hasAllFilesAccess()) return null
-        if (!uri.authority.equals("com.android.externalstorage.documents", ignoreCase = true)) {
-            return null
-        }
-        val documentId = runCatching {
-            if (DocumentsContract.isDocumentUri(appContext, uri)) {
-                DocumentsContract.getDocumentId(uri)
-            } else {
-                null
-            }
-        }.getOrNull() ?: return null
-        val volume = documentId.substringBefore(':', missingDelimiterValue = "")
-        val relative = documentId.substringAfter(':', missingDelimiterValue = "")
-        if (volume.isEmpty() || relative.isEmpty() || relative.contains("..")) return null
-        val root = if (volume.equals("primary", ignoreCase = true)) {
-            Environment.getExternalStorageDirectory()
-        } else {
-            File("/storage/$volume")
-        }
-        return runCatching { File(root, relative).takeIf { it.isFile } }.getOrNull()
-    }
+    private fun externalStorageFileFor(uri: Uri): File? =
+        WhiteBearPathAccess.fileFor(uri)?.takeIf { it.isFile }
 
     private fun canReach(uri: Uri): Boolean = when {
         uri.scheme.equals("content", ignoreCase = true) -> runCatching {
@@ -8572,6 +8560,63 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
         }
 
         else -> true
+    }
+
+    @Volatile
+    private var cachedSourceFolderUris: Pair<Long, List<String>>? = null
+
+    /**
+     * The library row a reader URI belongs to — the one lookup every save should use.
+     *
+     * ## Why a URI is not always the URI the row was written under (白い熊, 2026-09-25)
+     *
+     * A folder book is indexed as a document URI and opened as one, until the grant behind that
+     * URI is gone; then [resolveFolderBookLocation] hands the reader the `file://` the book
+     * really lives at, so it opens and reads exactly as before. What used to happen next is that
+     * the reading position, the bookmarks and the highlights were saved against *that* URI,
+     * found no row keyed by it, and were dropped without a word — the book stayed open at the
+     * right page all evening and forgot it by morning.
+     *
+     * So the translation runs the other way too: rebuild the document URI the row was scanned
+     * under, from the path and the folder roots the library knows, and the save lands where it
+     * belongs. [selectedBookRowForManagedFile] stays behind it for app-managed cloud files,
+     * whose two encodings of the same `file://` path this cannot reconcile.
+     */
+    private suspend fun bookRowForReaderUri(uri: Uri): RecentFileItem? =
+        bookRowByUriOrPath(uri.toString()) ?: selectedBookRowForManagedFile(uri)
+
+    /**
+     * The same lookup with nothing mutable behind it: an exact match on the stored URI, then the
+     * document URIs that same path would have been scanned under. Safe for a save that arrives
+     * with an explicit URI and must never be answered from whichever reader happens to be open.
+     */
+    private suspend fun bookRowByUriOrPath(uriString: String): RecentFileItem? {
+        bookStore.getFileByUri(uriString)?.let { return it }
+        val uri = runCatching { uriString.toUri() }.getOrNull() ?: return null
+        if (!uri.scheme.equals("file", ignoreCase = true)) return null
+        val file = uri.path?.takeIf { it.isNotBlank() }?.let(::File) ?: return null
+        WhiteBearPathAccess.documentUrisFor(file, knownSourceFolderUris()).forEach { candidate ->
+            bookStore.getFileByUri(candidate.toString())?.let { return it }
+        }
+        return null
+    }
+
+    /**
+     * The folder roots the library points at, re-read at most every [SOURCE_FOLDER_URI_TTL_MS].
+     *
+     * Only ever consulted after an exact URI lookup has already missed, which in a build holding
+     * its grants is never; the cache is there so that a build without them does not put a
+     * `DISTINCT` query behind every page turn.
+     */
+    private suspend fun knownSourceFolderUris(): List<String> {
+        val now = android.os.SystemClock.elapsedRealtime()
+        cachedSourceFolderUris?.let { (readAt, folders) ->
+            if (now - readAt in 0 until SOURCE_FOLDER_URI_TTL_MS) return folders
+        }
+        val folders = runCatching { recentFilesRepository.getDistinctSourceFolderUris() }
+            .getOrDefault(emptyList())
+        cachedSourceFolderUris = now to folders
+        return folders
     }
 
     /**
@@ -9055,7 +9100,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
                             if (item.uriString != null) {
                                 try {
                                     val fileUri = item.uriString.toUri()
-                                    val fileDoc = DocumentFile.fromSingleUri(appContext, fileUri)
+                                    val fileDoc = WhiteBearPathAccess.document(appContext, fileUri)
                                     if (fileDoc != null && fileDoc.exists()) {
                                         if (fileDoc.delete()) {
                                             Timber.i("Physically deleted folder file: ${item.displayName}")
@@ -9071,7 +9116,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
                             if (item.sourceFolderUri != null) {
                                 try {
                                     val rootUri = item.sourceFolderUri.toUri()
-                                    val rootDoc = DocumentFile.fromTreeUri(appContext, rootUri)
+                                    val rootDoc = WhiteBearPathAccess.documentTree(appContext, rootUri)
 
                                     if (rootDoc != null) {
                                         val hiddenMeta = rootDoc.findFile(".${item.bookId}.json")
@@ -9821,7 +9866,7 @@ open class MainViewModel(application: Application) : AndroidViewModel(applicatio
                     return@launch
                 }
 
-                val uri = cbzItem.getUri() ?: return@launch
+                val uri = cbzItem.getOpenableUri(appContext) ?: return@launch
                 Timber.d("BATCH TEST START: ${cbzItem.displayName}")
 
                 var cacheFile: File? = null
