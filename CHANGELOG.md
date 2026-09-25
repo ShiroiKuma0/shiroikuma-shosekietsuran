@@ -2,6 +2,28 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.55+003 — 2026-09-25
+
+Base: Episteme Android v1.0.55 (oss). A fork-only release on top of `1.0.55+002`, covering build `+003`. One change, and it retires a promise made on 2026-09-09: that re-granting folder access is the repair and the path is only a limp.
+
+### The folder grant is no longer something the library depends on
+
+白い熊 deep-freezes this app between readings — suspend, disable **and** hide — and every unfreeze opened on the 「Folder access needs granting again」 gate, asking for the same folder as the day before. The gate was telling the truth. The phone confirms it: while the app sits frozen it holds **no URI permission at all**, where four unfrozen sister apps still hold theirs.
+
+**Hiding a package is what takes them.** The system broadcasts a per-user package *removal* for a hidden app, and URI grants are dropped on that path exactly as they are on an uninstall. Nothing else about the app is disturbed — the runtime permissions and the all-files app-op are still granted while it is frozen — so this is not a restore, not a reinstall, and not something the app can defend against. An app that only works while it holds a grant is an app that asks the same question every morning.
+
+So the grant stops being the thing the folder pipeline stands on. A document id on shared storage is `volume:relative/path` — a path with a volume in front of it — and with all-files access held that path can be **listed, read and written** directly. The whole pipeline now takes that route whenever the grant is gone:
+
+- **The library scan.** Both passes — the quick discovery walk and the full sync — used to stop dead at the missing permission. They now walk the filesystem instead, reporting the *same* document ids the framework would have reported. That is the rule the change is built on: the document URI stays the book's identity, so a library scanned without a grant is indistinguishable from one scanned with it — no re-import, no duplicate rows, no rewritten paths, and nothing to undo when a grant comes back. A directory that cannot be listed is still reported as an incomplete scan, which never reconciles a book away.
+- **Reading position, bookmarks and highlights.** This was broken and silent, and had been since the path fallback shipped. A book opened by path arrived back at every save wearing its `file://` address, matched no library row keyed by the document URI it was scanned under, and the save was dropped without a word — the book stayed open at the right page all evening and had forgotten it by morning. The translation now runs backwards as well, rebuilding the document URI from the path and the folder roots the library knows, so the save lands on the right row.
+- **The `ShiroikumaSyncData` sidecars**, which carry positions and annotations back into the folder.
+- **Covers and metadata.** A frozen-and-thawed copy used to index its books and then read no title, no author and no cover from any of them.
+- **Opening** — the library tap, tabs, session restore and split panes alike.
+- **Deleting a book**, which was a silent no-op without a grant, so the next scan imported the file straight back.
+- **Editing metadata, sharing, and saving a copy of the original.**
+
+The gate is still there, and still asks the same question — but now only about a folder that **nothing** can reach, neither grant nor path, which is the state it was always meant for. In ordinary use it should never be seen again.
+
 ## 1.0.55+002 — 2026-09-16
 
 Base: Episteme Android v1.0.55 (oss). A fork-only release on top of `1.0.55+001`, covering build `+002`. Three reading-surface faults, all found together on 2026-09-16 and none of them from the 1.0.55 rebase — the reader profile restored onto the 2026-09-08 reinstall had carried these values since at least 2026-07-28, and two of the three had simply never been questioned.
