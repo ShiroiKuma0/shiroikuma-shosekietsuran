@@ -2,6 +2,52 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.56+001 — 2026-09-26
+
+Base: Episteme Android v1.0.56 (oss). The first build of the 1.0.56 line, rebased from `1.0.55+003`. No fork feature work: everything here is upstream's release plus what the fork had to reconcile with it. Six of the sixty-three fork commits needed hand resolution, and three of upstream's changes land squarely in territory this fork had already built out — one of them being a second implementation of its headline feature.
+
+### Upstream now renders tategaki itself
+
+The fork's 縦書き has always been the WebView reader's: publication CSS, `writing-mode: vertical-rl`, and a browser doing the hard parts. Upstream has now written a native one for the **paginated** reader — `VerticalTextEngine` (657 lines of pure geometry, with glyph measurement injected so pagination and drawing can never disagree), plus `VerticalPaginator`, `VerticalTextRendering` and `VerticalPageContent`, wired into `BookPaginator` and `SharedPaginator`. By its own description it does per-character upright/rotated orientation, kinsoku line breaking, furigana to the right of the base text, and tate-chu-yoko runs — the same list the fork's WebView route covers.
+
+So there are now two independent vertical-text implementations in the app, in two different readers, and nothing was removed to make room. Which one a vertical book lands in depends on its render mode. Worth knowing before concluding that a 縦書き book looks different than it did yesterday.
+
+Upstream also added ruby (furigana) rendering to the paginated reader in general, horizontal text included, via `RubyRendering` and `rememberHorizontalRubyDraws`.
+
+### Two-page spread, and what it did to the fork's first-line fix
+
+Upstream added a book-like double-page layout on mobile — `EpubPageSpread`, customizable spread gaps, a spine-crease animation and reworked page curls — and in doing so moved the whole per-page rendering path into a new `SpreadBookPage` composable shared by the one- and two-page routes.
+
+The fork's first-line-ascent fix from `1.0.55+002` lived in exactly that code. It was re-applied inside the new composable rather than forced back into the old shape, which means the fix now covers the two-page spread as well as the single page: the paginator still reserves the overhang a sub-natural line height gives the opening line, and the page still adds it back as top inset, so the page drawn is the page paginated. Both its layout keys (upstream's spread width, the fork's ascent overflow) are now `remember` keys, since the body reads both.
+
+### The book-metadata patches, replayed onto upstream's fix
+
+Upstream fixed EPUB 3 series collections and prefixed OPF metadata tags, and in the process moved its OPF `<meta>` parser out of `EmbeddedEbookMetadataExtractor` into shared code as `parseMobileOpfMetaElements`. The fork's embedded-metadata work read that parser's output for the calibre rating, so it was ported to the new name and the fork's now-redundant copy of the parser dropped; the fork's own `dc:date` and ISBN readers are untouched.
+
+In the metadata **writer** both sides wanted the same line: upstream's new EPUB 3 series-collection upsert and the fork's guarded `dc:date` write now sit together, so writing series metadata no longer means choosing between them.
+
+### Upstream's new account strings, rebranded
+
+1.0.56 adds `account_title` and `account_linking_desc`, and Weblate had already translated both into all nineteen locales before the tag was cut — so the rebase brought forty user-visible "Episteme" strings back at once, in a part of the settings that is actually reachable. Swept the same way as every locale pass before it: element values only, so upstream's translator comments still say "Episteme" where they explain that the brand name must not be translated. The new Malayalam locale needed nothing; it arrived with none of the branded strings filled in.
+
+### What else upstream brings
+
+- **PDF ink is editable after the fact.** A lasso selection tool for ink strokes, with movement, rotation and scaling — `PdfAnnotationSelection*`, `SharedPdfInkSelection*` and a 1200-line gesture/overlay pair. Single-point ink annotations now export as dots instead of vanishing.
+- **PDF text annotations gained formatting** — paragraph alignment (left, centre, right, justify) and bulleted/numbered lists.
+- **PDF thumbnails** render and map faster in the pages drawer.
+- **Shelves have breadcrumbs** — the nested path is visible and navigable.
+- **TTS** can filter to favourite voices, and the voice-preview text is customizable.
+- **OPDS** downloads resume after an interruption, with tightened URL handling, stream security and an updated network security config.
+- **A WorkManager crash is closed off**: upstream removes `androidx.work.impl.diagnostics.DiagnosticsReceiver` in the manifest, because it calls `WorkManager.getInstance()` directly and bypasses the `SafeWorkManager` guard on firmware with a broken JobScheduler — the same crash class the fork routes its own background jobs around. Both manifest blocks coexist.
+- **MOBI chapter splitting** no longer cuts inside an HTML tag.
+- **Author-specified colours** get a stronger contrast fixup in WebView rendering.
+- **Five fonts are bundled** (Lato, Lexend, Lora, Merriweather, Roboto Mono), auto-scroll controls were extracted into their own component, a language-selection screen was added, and the AI definition and result sheets were split out.
+- **Localizations**: nineteen languages retranslated, and Malayalam added.
+
+### Fork state
+
+Every fork customization verified intact after the replay: app id `shiroikuma.shosekietsuran` with the `com.aryan.reader` namespace untouched, the oss flavor's appId/versionName suffixes still removed, the 「白い熊 書籍閲覧」 label in the oss override and all three `main` keys, the fork version transformation over upstream's own `61` / `1.0.56` literals, single-ABI arm64, the `keystore.properties` signing bridge, the APK naming and `buildApk` task, the `ShiroikumaSyncData` sync folder, both fork repo links, and the Bubble-Zoom toast. No user-visible "Episteme" survives in any string value in any locale.
+
 ## 1.0.55+003 — 2026-09-25
 
 Base: Episteme Android v1.0.55 (oss). A fork-only release on top of `1.0.55+002`, covering build `+003`. One change, and it retires a promise made on 2026-09-09: that re-granting folder access is the repair and the path is only a limp.
