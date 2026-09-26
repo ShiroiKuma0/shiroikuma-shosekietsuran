@@ -1876,8 +1876,8 @@
     <string name="account_google_required_for_sync">Đồng bộ cần Google. Tài khoản chỉ-Apple có thể dùng Pro và tín dụng nhưng không thể đồng bộ.</string>
     <string name="account_link_apple">Liên kết đăng nhập Apple</string>
     <string name="account_link_google">Liên kết đăng nhập Google</string>
-    <string name="account_linking_desc">Liên kết thêm một cách đăng nhập vào tài khoản Episteme này. Nó không tạo hay mua tài khoản riêng.</string>
-    <string name="account_title">Tài khoản Episteme</string>
+    <string name="account_linking_desc">Liên kết thêm một cách đăng nhập vào tài khoản 白い熊 書籍閲覧 này. Nó không tạo hay mua tài khoản riêng.</string>
+    <string name="account_title">Tài khoản 白い熊 書籍閲覧</string>
     <string name="settings_clear_cloud_local_authorization_required">Đăng nhập và ủy quyền Google Drive trước khi xóa dữ liệu đám mây và cục bộ.</string>
     <string name="settings_clear_cloud_local_cleanup_missing">Đã xóa dữ liệu đám mây nhưng không thể dọn dữ liệu cục bộ.</string>
     <string name="settings_clear_cloud_local_confirmation_required">Cần xác nhận trước khi xóa dữ liệu đám mây và cục bộ.</string>

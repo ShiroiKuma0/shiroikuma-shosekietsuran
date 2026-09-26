@@ -2571,8 +2571,8 @@
     <string name="account_link_apple">Link Apple sign-in</string>
     <string name="account_link_google">Link Google sign-in</string>
     <!-- Account screen note: linking adds another sign-in method to the SAME account; it does not create or purchase a separate one. -->
-    <string name="account_linking_desc">Linking adds another way to sign in to this Episteme account. It does not create or purchase a separate account.</string>
-    <string name="account_title">Episteme Account</string>
+    <string name="account_linking_desc">Linking adds another way to sign in to this 白い熊 書籍閲覧 account. It does not create or purchase a separate account.</string>
+    <string name="account_title">白い熊 書籍閲覧 Account</string>
     <string name="settings_clear_cloud_local_authorization_required">Sign in and authorize Google Drive before clearing cloud and local data.</string>
     <string name="settings_clear_cloud_local_cleanup_missing">Cloud data cleared, but local cleanup was not available.</string>
     <string name="settings_clear_cloud_local_confirmation_required">Confirmation is required before clearing cloud and local data.</string>

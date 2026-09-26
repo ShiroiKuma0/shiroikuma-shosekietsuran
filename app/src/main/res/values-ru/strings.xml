@@ -1877,8 +1877,8 @@
     <string name="account_google_required_for_sync">Для синхронизации нужен Google. Аккаунты только с Apple могут использовать Pro и кредиты, но не синхронизацию.</string>
     <string name="account_link_apple">Подключить вход через Apple</string>
     <string name="account_link_google">Подключить вход через Google</string>
-    <string name="account_linking_desc">Привязка добавляет еще один способ входа в этот аккаунт Episteme. Она не создает и не покупает отдельный аккаунт.</string>
-    <string name="account_title">Аккаунт Episteme</string>
+    <string name="account_linking_desc">Привязка добавляет еще один способ входа в этот аккаунт 白い熊 書籍閲覧. Она не создает и не покупает отдельный аккаунт.</string>
+    <string name="account_title">Аккаунт 白い熊 書籍閲覧</string>
     <string name="settings_clear_cloud_local_authorization_required">Войдите и разрешите доступ к Google Drive, прежде чем очищать облачные и локальные данные.</string>
     <string name="settings_clear_cloud_local_cleanup_missing">Облачные данные очищены, но локальная очистка была недоступна.</string>
     <string name="settings_clear_cloud_local_confirmation_required">Перед очисткой облачных и локальных данных требуется подтверждение.</string>

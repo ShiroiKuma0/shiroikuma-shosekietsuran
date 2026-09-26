@@ -1875,8 +1875,8 @@
     <string name="account_google_required_for_sync">同步需要 Google。仅使用 Apple 登录的账号可以使用 Pro 和积分，但无法同步。</string>
     <string name="account_link_apple">关联 Apple 登录</string>
     <string name="account_link_google">关联 Google 登录</string>
-    <string name="account_linking_desc">关联后会为这个 Episteme 账号增加一种登录方式，不会创建或购买单独的账号。</string>
-    <string name="account_title">Episteme 账号</string>
+    <string name="account_linking_desc">关联后会为这个 白い熊 書籍閲覧 账号增加一种登录方式，不会创建或购买单独的账号。</string>
+    <string name="account_title">白い熊 書籍閲覧 账号</string>
     <string name="settings_clear_cloud_local_authorization_required">清除云端和本地数据前，请先登录并授权 Google Drive。</string>
     <string name="settings_clear_cloud_local_cleanup_missing">云端数据已清除，但本地清理不可用。</string>
     <string name="settings_clear_cloud_local_confirmation_required">清除云端和本地数据前需要进行确认。</string>

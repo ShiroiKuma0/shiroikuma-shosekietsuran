@@ -1887,8 +1887,8 @@
     <string name="account_google_required_for_sync">تتطلب المزامنة حساب Google. يمكن للحسابات المرتبطة بـ Apple فقط استخدام Pro والاعتمادات لكنها لا تستطيع المزامنة.</string>
     <string name="account_link_apple">ربط تسجيل الدخول عبر Apple</string>
     <string name="account_link_google">ربط تسجيل الدخول عبر Google</string>
-    <string name="account_linking_desc">يضيف الربط طريقة تسجيل دخول إضافية إلى حساب Episteme نفسه. لا ينشئ حساباً منفصلاً ولا يشتريه.</string>
-    <string name="account_title">حساب Episteme</string>
+    <string name="account_linking_desc">يضيف الربط طريقة تسجيل دخول إضافية إلى حساب 白い熊 書籍閲覧 نفسه. لا ينشئ حساباً منفصلاً ولا يشتريه.</string>
+    <string name="account_title">حساب 白い熊 書籍閲覧</string>
     <string name="settings_clear_cloud_local_authorization_required">سجِّل الدخول وصرِّح لـ Google Drive قبل محو البيانات السحابية والمحلية.</string>
     <string name="settings_clear_cloud_local_cleanup_missing">تم محو البيانات السحابية، لكن لم يكن المحو المحلي متاحاً.</string>
     <string name="settings_clear_cloud_local_confirmation_required">يلزم تأكيد قبل محو البيانات السحابية والمحلية.</string>

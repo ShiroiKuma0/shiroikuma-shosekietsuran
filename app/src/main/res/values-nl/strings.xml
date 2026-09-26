@@ -1876,8 +1876,8 @@
     <string name="account_google_required_for_sync">Synchronisatie vereist Google. Alleen-Apple-accounts kunnen Pro en credits gebruiken, maar niet synchroniseren.</string>
     <string name="account_link_apple">Apple-aanmelding koppelen</string>
     <string name="account_link_google">Google-aanmelding koppelen</string>
-    <string name="account_linking_desc">Koppelen voegt een extra manier toe om in te loggen op dit Episteme-account. Er wordt geen apart account aangemaakt of gekocht.</string>
-    <string name="account_title">Episteme-account</string>
+    <string name="account_linking_desc">Koppelen voegt een extra manier toe om in te loggen op dit 白い熊 書籍閲覧-account. Er wordt geen apart account aangemaakt of gekocht.</string>
+    <string name="account_title">白い熊 書籍閲覧-account</string>
     <string name="settings_clear_cloud_local_authorization_required">Meld u aan en autoriseer Google Drive voordat u cloud- en lokale gegevens wist.</string>
     <string name="settings_clear_cloud_local_cleanup_missing">Cloudgegevens gewist, maar lokale opschoning was niet beschikbaar.</string>
     <string name="settings_clear_cloud_local_confirmation_required">Bevestiging is vereist voordat cloud- en lokale gegevens worden gewist.</string>

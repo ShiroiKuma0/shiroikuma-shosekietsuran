@@ -1883,8 +1883,8 @@
     <string name="account_google_required_for_sync">同期には Google が必要です。Apple のみのアカウントでも Pro とクレジットは利用できますが、同期はできません。</string>
     <string name="account_link_apple">Apple サインインを連携</string>
     <string name="account_link_google">Google サインインを連携</string>
-    <string name="account_linking_desc">連携すると、この Episteme アカウントへのサインイン方法が 1 つ増えます。別のアカウントが作成されたり購入されたりすることはありません。</string>
-    <string name="account_title">Episteme アカウント</string>
+    <string name="account_linking_desc">連携すると、この 白い熊 書籍閲覧 アカウントへのサインイン方法が 1 つ増えます。別のアカウントが作成されたり購入されたりすることはありません。</string>
+    <string name="account_title">白い熊 書籍閲覧 アカウント</string>
     <string name="settings_clear_cloud_local_authorization_required">クラウドとローカルのデータを削除する前に、サインインして Google Drive を承認してください。</string>
     <string name="settings_clear_cloud_local_cleanup_missing">クラウドのデータは削除されましたが、ローカルのクリーンアップは利用できませんでした。</string>
     <string name="settings_clear_cloud_local_confirmation_required">クラウドとローカルのデータを削除する前に、確認が必要です。</string>

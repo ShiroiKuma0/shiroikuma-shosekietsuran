@@ -1885,8 +1885,8 @@
     <string name="account_google_required_for_sync">Die Synchronisierung erfordert Google. Nur-Apple-Konten können Pro und Credits verwenden, aber nicht synchronisieren.</string>
     <string name="account_link_apple">Apple-Anmeldung verknüpfen</string>
     <string name="account_link_google">Google-Anmeldung verknüpfen</string>
-    <string name="account_linking_desc">Durch die Verknüpfung wird eine zusätzliche Anmeldemethode für dasselbe Episteme-Konto hinzugefügt. Es wird kein separates Konto erstellt oder gekauft.</string>
-    <string name="account_title">Episteme-Konto</string>
+    <string name="account_linking_desc">Durch die Verknüpfung wird eine zusätzliche Anmeldemethode für dasselbe 白い熊 書籍閲覧-Konto hinzugefügt. Es wird kein separates Konto erstellt oder gekauft.</string>
+    <string name="account_title">白い熊 書籍閲覧-Konto</string>
     <string name="settings_clear_cloud_local_authorization_required">Melden Sie sich an und autorisieren Sie Google Drive, bevor Sie Cloud- und lokale Daten löschen.</string>
     <string name="settings_clear_cloud_local_cleanup_missing">Die Cloud-Daten wurden gelöscht, aber die lokale Bereinigung war nicht verfügbar.</string>
     <string name="settings_clear_cloud_local_confirmation_required">Vor dem Löschen von Cloud- und lokalen Daten ist eine Bestätigung erforderlich.</string>

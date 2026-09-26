@@ -1886,8 +1886,8 @@
     <string name="account_google_required_for_sync">Sünkroonimine nõuab Google’i kontot. Ainult-Apple kontod saavad kasutada Pro-d ja krediite, kuid ei saa sünkroonida.</string>
     <string name="account_link_apple">Ühenda Apple’i sisselogimine</string>
     <string name="account_link_google">Ühenda Google’i sisselogimine</string>
-    <string name="account_linking_desc">Ühendamine lisab sellele Episteme kontole veel ühe sisselogimisviisi. See ei loo ega osta eraldi kontot.</string>
-    <string name="account_title">Episteme konto</string>
+    <string name="account_linking_desc">Ühendamine lisab sellele 白い熊 書籍閲覧 kontole veel ühe sisselogimisviisi. See ei loo ega osta eraldi kontot.</string>
+    <string name="account_title">白い熊 書籍閲覧 konto</string>
     <string name="settings_clear_cloud_local_authorization_required">Logi enne pilve- ja kohalike andmete tühjendamist sisse ja autoriseeri Google Drive.</string>
     <string name="settings_clear_cloud_local_cleanup_missing">Pilveandmed tühjendati, kuid kohalik puhastus ei olnud saadaval.</string>
     <string name="settings_clear_cloud_local_confirmation_required">Enne pilve- ja kohalike andmete tühjendamist on vajalik kinnitus.</string>

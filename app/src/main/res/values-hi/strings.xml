@@ -1525,8 +1525,8 @@
     <string name="account_google_required_for_sync">सिंक के लिए Google ज़रूरी है। केवल-Apple खाते Pro और क्रेडिट इस्तेमाल कर सकते हैं, पर सिंक नहीं कर सकते।</string>
     <string name="account_link_apple">Apple साइन-इन जोड़ें</string>
     <string name="account_link_google">Google साइन-इन जोड़ें</string>
-    <string name="account_linking_desc">जोड़ने से इसी Episteme खाते में साइन-इन का एक और तरीका मिलता है। यह अलग खाता नहीं बनाता या खरीद नहीं करता।</string>
-    <string name="account_title">Episteme खाता</string>
+    <string name="account_linking_desc">जोड़ने से इसी 白い熊 書籍閲覧 खाते में साइन-इन का एक और तरीका मिलता है। यह अलग खाता नहीं बनाता या खरीद नहीं करता।</string>
+    <string name="account_title">白い熊 書籍閲覧 खाता</string>
     <string name="action_disable">बंद करें</string>
     <string name="action_export_annotations">एनोटेशन निर्यात करें</string>
     <string name="action_change_cover">कवर बदलें</string>

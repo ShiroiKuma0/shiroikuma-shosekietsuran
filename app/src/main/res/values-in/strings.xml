@@ -1526,8 +1526,8 @@ Pengguna Pro mendapat 10 ringkasan gratis per hari.</string>
     <string name="account_google_required_for_sync">Sinkronisasi memerlukan Google. Akun khusus Apple dapat memakai Pro dan kredit, tetapi tidak dapat menyinkronkan.</string>
     <string name="account_link_apple">Tautkan login Apple</string>
     <string name="account_link_google">Tautkan login Google</string>
-    <string name="account_linking_desc">Penautan menambah cara lain untuk login ke akun Episteme yang sama. Ini tidak membuat atau membeli akun terpisah.</string>
-    <string name="account_title">Akun Episteme</string>
+    <string name="account_linking_desc">Penautan menambah cara lain untuk login ke akun 白い熊 書籍閲覧 yang sama. Ini tidak membuat atau membeli akun terpisah.</string>
+    <string name="account_title">Akun 白い熊 書籍閲覧</string>
     <string name="action_disable">Nonaktifkan</string>
     <string name="action_export_annotations">Ekspor anotasi</string>
     <string name="action_change_cover">Ubah sampul</string>

@@ -1875,8 +1875,8 @@
     <string name="account_google_required_for_sync">La sincronización requiere Google. Las cuentas solo-Apple pueden usar Pro y créditos, pero no sincronizar.</string>
     <string name="account_link_apple">Vincular inicio de sesión con Apple</string>
     <string name="account_link_google">Vincular inicio de sesión con Google</string>
-    <string name="account_linking_desc">Vincular añade otra forma de iniciar sesión en esta cuenta de Episteme. No crea ni compra una cuenta aparte.</string>
-    <string name="account_title">Cuenta de Episteme</string>
+    <string name="account_linking_desc">Vincular añade otra forma de iniciar sesión en esta cuenta de 白い熊 書籍閲覧. No crea ni compra una cuenta aparte.</string>
+    <string name="account_title">Cuenta de 白い熊 書籍閲覧</string>
     <string name="settings_clear_cloud_local_authorization_required">Inicia sesión y autoriza Google Drive antes de borrar los datos en la nube y locales.</string>
     <string name="settings_clear_cloud_local_cleanup_missing">Se borraron los datos en la nube, pero la limpieza local no estuvo disponible.</string>
     <string name="settings_clear_cloud_local_confirmation_required">Se requiere confirmación antes de borrar los datos en la nube y locales.</string>

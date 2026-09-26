@@ -1884,8 +1884,8 @@
     <string name="account_google_required_for_sync">Eşitleme için Google gerekiyor. Yalnızca Apple hesapları Pro ve kredileri kullanabilir ama eşitleyemez.</string>
     <string name="account_link_apple">Apple ile girişi bağla</string>
     <string name="account_link_google">Google ile girişi bağla</string>
-    <string name="account_linking_desc">Bağlama, aynı Episteme hesabına ek bir giriş yöntemi ekler. Ayrı bir hesap oluşturmaz veya satın almaz.</string>
-    <string name="account_title">Episteme hesabı</string>
+    <string name="account_linking_desc">Bağlama, aynı 白い熊 書籍閲覧 hesabına ek bir giriş yöntemi ekler. Ayrı bir hesap oluşturmaz veya satın almaz.</string>
+    <string name="account_title">白い熊 書籍閲覧 hesabı</string>
     <string name="settings_clear_cloud_local_authorization_required">Bulut ve yerel verileri temizlemeden önce oturum açın ve Google Drive\'a yetki verin.</string>
     <string name="settings_clear_cloud_local_cleanup_missing">Bulut verileri temizlendi ancak yerel temizlik kullanılamadı.</string>
     <string name="settings_clear_cloud_local_confirmation_required">Bulut ve yerel verileri temizlemeden önce onay gerekir.</string>

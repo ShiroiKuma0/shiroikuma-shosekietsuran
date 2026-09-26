@@ -1883,8 +1883,8 @@
     <string name="account_google_required_for_sync">Synchronizacja wymaga Google. Konta tylko-Apple mogą używać Pro i kredytów, ale nie mogą się synchronizować.</string>
     <string name="account_link_apple">Połącz logowanie Apple</string>
     <string name="account_link_google">Połącz logowanie Google</string>
-    <string name="account_linking_desc">Połączenie dodaje dodatkowy sposób logowania do tego konta Episteme. Nie tworzy ani nie kupuje osobnego konta.</string>
-    <string name="account_title">Konto Episteme</string>
+    <string name="account_linking_desc">Połączenie dodaje dodatkowy sposób logowania do tego konta 白い熊 書籍閲覧. Nie tworzy ani nie kupuje osobnego konta.</string>
+    <string name="account_title">Konto 白い熊 書籍閲覧</string>
     <string name="settings_clear_cloud_local_authorization_required">Zaloguj się i autoryzuj Dysk Google przed czyszczeniem danych w chmurze i lokalnych.</string>
     <string name="settings_clear_cloud_local_cleanup_missing">Dane w chmurze wyczyszczone, ale czyszczenie lokalne było niedostępne.</string>
     <string name="settings_clear_cloud_local_confirmation_required">Wymagane jest potwierdzenie przed czyszczeniem danych w chmurze i lokalnych.</string>

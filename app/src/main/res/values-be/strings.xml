@@ -1884,8 +1884,8 @@
     <string name="account_google_required_for_sync">Для сінхранізацыі патрэбен Google. Уліковыя запісы толькі з Apple могуць выкарыстоўваць Pro і крэдыты, але не могуць сінхранізавацца.</string>
     <string name="account_link_apple">Злучыць уваход праз Apple</string>
     <string name="account_link_google">Злучыць уваход праз Google</string>
-    <string name="account_linking_desc">Злучэнне дадае яшчэ адзін спосаб уваходу ва ўліковы запіс Episteme. Яно не стварае і не купляе асобнага ўліковага запісу.</string>
-    <string name="account_title">Уліковы запіс Episteme</string>
+    <string name="account_linking_desc">Злучэнне дадае яшчэ адзін спосаб уваходу ва ўліковы запіс 白い熊 書籍閲覧. Яно не стварае і не купляе асобнага ўліковага запісу.</string>
+    <string name="account_title">Уліковы запіс 白い熊 書籍閲覧</string>
     <string name="settings_clear_cloud_local_authorization_required">Увайдзіце і аўтарызуйце Google Дыск перад ачысткай воблачных і лакальных даных.</string>
     <string name="settings_clear_cloud_local_cleanup_missing">Воблачныя даныя ачышчаны, але лакальная ачыстка была недаступная.</string>
     <string name="settings_clear_cloud_local_confirmation_required">Патрэбнацверджанне перад ачысткай воблачных і лакальных даных.</string>

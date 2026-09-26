@@ -1876,8 +1876,8 @@
     <string name="account_google_required_for_sync">동기화에는 Google이 필요합니다. Apple 전용 계정은 Pro와 크레딧을 사용할 수 있지만 동기화할 수 없습니다.</string>
     <string name="account_link_apple">Apple 로그인 연결</string>
     <string name="account_link_google">Google 로그인 연결</string>
-    <string name="account_linking_desc">연결하면 이 Episteme 계정에 로그인하는 방법이 하나 더 생깁니다. 별도의 계정을 만들거나 구매하지 않습니다.</string>
-    <string name="account_title">Episteme 계정</string>
+    <string name="account_linking_desc">연결하면 이 白い熊 書籍閲覧 계정에 로그인하는 방법이 하나 더 생깁니다. 별도의 계정을 만들거나 구매하지 않습니다.</string>
+    <string name="account_title">白い熊 書籍閲覧 계정</string>
     <string name="settings_clear_cloud_local_authorization_required">클라우드 및 로컬 데이터를 지우기 전에 로그인하고 Google Drive를 승인하세요.</string>
     <string name="settings_clear_cloud_local_cleanup_missing">클라우드 데이터는 지워졌지만 로컬 정리를 사용할 수 없었습니다.</string>
     <string name="settings_clear_cloud_local_confirmation_required">클라우드 및 로컬 데이터를 지우기 전에 확인이 필요합니다.</string>

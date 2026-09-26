@@ -1884,8 +1884,8 @@
     <string name="account_google_required_for_sync">Для синхронізації потрібен Google. Облікові записи лише з Apple можуть використовувати Pro та кредити, але не можуть синхронізуватися.</string>
     <string name="account_link_apple">Під’єднати вхід через Apple</string>
     <string name="account_link_google">Під’єднати вхід через Google</string>
-    <string name="account_linking_desc">Під’єднання додає ще один спосіб входу до цього облікового запису Episteme. Воно не створює та не купує окремого облікового запису.</string>
-    <string name="account_title">Обліковий запис Episteme</string>
+    <string name="account_linking_desc">Під’єднання додає ще один спосіб входу до цього облікового запису 白い熊 書籍閲覧. Воно не створює та не купує окремого облікового запису.</string>
+    <string name="account_title">Обліковий запис 白い熊 書籍閲覧</string>
     <string name="settings_clear_cloud_local_authorization_required">Увійдіть і авторизуйте Диск Google перед очищенням даних у хмарі та локально.</string>
     <string name="settings_clear_cloud_local_cleanup_missing">Дані в хмарі очищено, але локальне очищення було недоступне.</string>
     <string name="settings_clear_cloud_local_confirmation_required">Потрібне підтвердження перед очищенням даних у хмарі та локально.</string>
