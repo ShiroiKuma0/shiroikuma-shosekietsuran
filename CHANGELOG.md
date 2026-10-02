@@ -2,6 +2,43 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.57+001 — 2026-10-02
+
+Base: Episteme Android v1.0.57 (oss). The first build of the 1.0.57 line, rebased from `1.0.56+001`. No fork feature work: everything here is upstream's release plus what the fork had to reconcile with it. Five files needed hand resolution across six of the sixty-six fork commits; in two of them upstream had restructured the code the fork patches, so the fork's change was ported to the new shape rather than forced back into the old one.
+
+### Startup moved, and the fork's startup work moved with it
+
+Upstream reworked `MainActivity`: the splash screen now stays up until the library database has emitted (or three seconds pass), so Home no longer flashes empty, and the window-size class, nav controller and link handler are now built outside the themed `Surface`. Everything the fork hangs off that code was re-applied to the new layout:
+
+- **`WhiteBearTheme`** wraps upstream's new `Surface`, so the black-yellow theme and its settings still reach every screen.
+- **The all-files gate and the folder-grant gate** again wrap `AppNavigation`, ahead of the library, with upstream's debug-only FPS overlay alongside them.
+- **WebView debugging** (`chrome://inspect` over adb) is still enabled first thing in `onCreate`, ahead of upstream's splash gate.
+
+Upstream also deferred the startup folder sync until after the first frame (`launchPostLibraryReady`), on the grounds that walking a SAF tree storms the ContentResolver during launch. The fork's startup scan — discovery of new books first, the full sidecar reconciliation chained behind it — now runs inside that same deferred launcher, so it inherits the faster first paint instead of fighting it.
+
+### The folder-sync worker, both sides kept
+
+Upstream made `FolderSyncWorker`'s still-linked guards O(1) — one snapshot of the linked folders built at the start of a run instead of re-reading preferences per directory, per hundred files and per book — and added a retry backoff. The fork's discover-only mode, its progress and output reporting, batched inserts and the six-hour full-sync throttle all sit beside it unchanged. The snapshot is built before either pass starts, so the fork's discovery walk gets the faster guards too.
+
+### Upstream's wallet strings, rebranded
+
+1.0.57 recasts credits as a wallet and rewords the Pro strings to match ("Episteme Pro and Credits", "top up your wallet"). Upstream's new wording was taken and rebranded to 白い熊 書籍閲覧, the same way as every sweep before it; the fork's permission-gate strings and upstream's new legacy-PDF-text conversion strings sit side by side. No user-visible "Episteme" survives in any string value in any locale.
+
+### What else upstream brings
+
+- **PDF text boxes grew up**: paragraph alignment, bulleted and numbered lists, an action menu and position locking, better tap hit detection, and fixes for alignment, list toggling and IME state.
+- **The legacy page rich-text editor is retired on Android.** Pages carrying old Word-like text are offered a one-tap conversion into text boxes; alignment and lists carry over, mixed styles collapse to the dominant one.
+- **PDF toolbars can dock at the side**, with better tool-dock overlap handling and side-wheel scrolling; two-page spread zoom tiling is fixed and ink strokes draw faster.
+- **Realistic page curls work right-to-left**, for RTL pagination.
+- **Bundled reader fonts**, a back button on error states, and an improved drawer sheet layout.
+- **TTS**: Fish Audio and REST-based Cloud TTS, language filtering, favourite voices, pre-generated sample previews, and independent voice settings for Listen.
+- **AI**: bring-your-own-key model overrides on all online builds, with BYOK bypassing credit checks.
+- **Performance**: faster startup and background workers, Compose UI and touch-target optimisations, lighter artwork loading.
+
+### Fork state
+
+Every fork customization verified intact after the replay: app id `shiroikuma.shosekietsuran` with the `com.aryan.reader` namespace untouched, the oss flavor's appId/versionName suffixes still removed, the 「白い熊 書籍閲覧」 label, the fork version transformation over upstream's own `62` / `1.0.57` literals, single-ABI arm64, the `keystore.properties` signing bridge, the APK naming and `buildApk` task, the `ShiroikumaSyncData` sync folder, both fork repo links, and the Bubble-Zoom toast.
+
 ## 1.0.56+001 — 2026-09-26
 
 Base: Episteme Android v1.0.56 (oss). The first build of the 1.0.56 line, rebased from `1.0.55+003`. No fork feature work: everything here is upstream's release plus what the fork had to reconcile with it. Six of the sixty-three fork commits needed hand resolution, and three of upstream's changes land squarely in territory this fork had already built out — one of them being a second implementation of its headline feature.
