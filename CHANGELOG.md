@@ -2,6 +2,14 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.57+002 — 2026-10-04
+
+Base: Episteme Android v1.0.57 (oss). One fix on top of `1.0.57+001`.
+
+### Fixes
+
+- **“Save a copy” no longer throws you out of the app.** On this phone's system file picker (Huawei DocumentsUI 42.0.0.6), a picker opened without a start location reopens the last folder it remembers for the app — and when that remembered location is empty, the picker crashes in `PickActivity.onCreate`. Because the picker runs in the reader's own task, its crash dropped the reader back to the launcher, so it looked like the app had crashed. Every file picker the app opens now starts at the internal-storage root (`EXTRA_INITIAL_URI`), which the picker resolves without reading the remembered folder at all. The fix sits in one place — `MainActivity`, which every activity-result launcher passes through — so it covers saving copies, exports, imports and folder choices alike; pickers that already ask for their own start folder keep it.
+
 ## 1.0.57+001 — 2026-10-02
 
 Base: Episteme Android v1.0.57 (oss). The first build of the 1.0.57 line, rebased from `1.0.56+001`. No fork feature work: everything here is upstream's release plus what the fork had to reconcile with it. Five files needed hand resolution across six of the sixty-six fork commits; in two of them upstream had restructured the code the fork patches, so the fork's change was ported to the new shape rather than forced back into the old one.
