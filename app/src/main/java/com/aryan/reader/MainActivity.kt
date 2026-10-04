@@ -51,6 +51,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import com.aryan.reader.whitebear.WhiteBearAllFilesGate
 import com.aryan.reader.whitebear.WhiteBearFolderGrantGate
+import com.aryan.reader.whitebear.withWhiteBearPickerStart
 import com.aryan.reader.whitebear.WhiteBearTheme
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -79,6 +80,14 @@ open class MainActivity : AppCompatActivity() {
     private lateinit var platformFeaturesRepository: PlatformFeaturesRepository
     private val isTemporaryExternalOpen: Boolean
         get() = intent?.getBooleanExtra(EXTRA_TEMPORARY_EXTERNAL_OPEN, false) == true
+
+    // 白い熊: every activity-result launcher ends here — give SAF pickers a start location
+    // (see WhiteBearPickerStart.kt).
+    @Deprecated("Deprecated in Java")
+    @Suppress("DEPRECATION")
+    override fun startActivityForResult(intent: Intent, requestCode: Int, options: Bundle?) {
+        super.startActivityForResult(intent.withWhiteBearPickerStart(), requestCode, options)
+    }
 
     private val updateLauncher = registerForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
