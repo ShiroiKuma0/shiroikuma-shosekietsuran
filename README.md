@@ -10,7 +10,7 @@ A fork of [Episteme](https://github.com/Aryan-Raj3112/episteme) with **major add
 
 Installs **side-by-side** with Episteme (app id `shiroikuma.shosekietsuran`).
 
-**📥 Latest release: [`1.0.57+002`](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases/latest)** — [all releases & APK downloads »](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases)
+**📥 Latest release: [`1.0.57+003`](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases/latest)** — [all releases & APK downloads »](https://github.com/ShiroiKuma0/shiroikuma-shosekietsuran/releases)
 
 </div>
 
@@ -43,7 +43,7 @@ That same export runs **headlessly on request**, and out of the box: the automat
 **Nothing ever wears a backup's name until it is one.** Every export — by hand or unattended — is written to a `.part` file and moved onto its real name only once the archive is closed and whole, so a crash, a kill, a full disk or a cancelled run leaves your backup directory with **no file at all** rather than a truncated ZIP sorting to the top as "the latest backup" and waiting for the day you need it. Whatever a killed run does manage to leave is swept away by the next one. And a long export can be **stopped**: 中止 unwinds it between entries — never mid-write, never by killing anything — deletes the partial, and reports it as cancelled, leaving the directory exactly as it found it.
 
 ## 👆 Reading gestures — tap zones, swipe control, page-turn sound
-Side-third taps turn real pages in every render mode (instant full-viewport jumps that snap the top line whole and cross chapter boundaries); a right-third vertical swipe steps font size and a left-third swipe steps screen brightness, with a live on-page readout; page turns click with a choice of five bundled sounds. Every gesture has its own toggle.
+Side-third taps turn real pages in every render mode (instant full-viewport jumps that snap the top line whole and cross chapter boundaries); a right-third vertical swipe steps font size and a left-third swipe steps screen brightness, with a live on-page readout; page turns click with a choice of five bundled sounds. Every gesture has its own toggle. **Links always win**: a footnote or back-link under your finger in a side third opens instead of turning the page.
 
 ## 🗄️ Library, remade
 A grid layout with live-adjustable thumbnail, title and author sizes; author and tag pull-down filters (with search-as-you-type and first/last-name sorting) — **or just tap the author printed under any book** to filter the shelf to that author, and tap it again to clear; a three-dot menu on every cover for parallel reading, file info, tags, sharing and deletion; and deletion that actually deletes — folder-synced files included — confirmed by a yellow-framed dialog and an instant library update. A thick black-and-yellow **fast scroller** floats over the grid's right edge: tap anywhere on its track to jump, or grab the fat yellow thumb and sweep a 9000-book library end to end in one swipe.

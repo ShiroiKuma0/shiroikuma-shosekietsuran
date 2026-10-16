@@ -2,6 +2,20 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.57+003 — 2026-10-16
+
+Base: Episteme Android v1.0.57 (oss). One fix on top of `1.0.57+002`.
+
+### Fixes
+
+- **Links in the left and right thirds of the page can be tapped again.** Footnote links and their back-links near the side of a page used to turn the page instead of opening: the 白い熊 tap-to-turn layer sees every touch before the book text does, and on release it turned the page and swallowed the tap. A link under the finger now always takes precedence over the page-turn tap, in every render mode:
+  - **Paginated and native vertical modes** — the link detectors flag a press that lands on a link, and the gesture layer yields to it on release.
+  - **縦書き pages** — vertical-text pages now claim link presses the same early way, instead of only noticing links once the tap had already been taken.
+  - **WebView scroll mode** — a side tap first asks the page whether a link sits under the finger; if so the tap is replayed as a click on it (so footnote pop-ups and link jumps behave as usual) and the page stays put.
+  - **Parallel-reading companion panes** follow the same rule for their page-turn and chrome-toggle taps.
+
+  Swipes, long-press text selection and taps on plain text in the side thirds behave exactly as before.
+
 ## 1.0.57+002 — 2026-10-04
 
 Base: Episteme Android v1.0.57 (oss). One fix on top of `1.0.57+001`.
