@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
@@ -1515,6 +1516,23 @@ internal fun ReactiveBlockMap.readerLinkAtPagePosition(
     }
 }
 
+/**
+ * 白い熊 UI: the reading-gesture layers (side-third tap = page turn) see every touch first, in
+ * the Initial pass, ahead of the page content. When a link detector below finds a link under a
+ * fresh press it records the pointer here, so on release the gesture layer yields to the link
+ * instead of turning the page. Links always take precedence over navigation gestures.
+ */
+internal object ReaderLinkPressTracker {
+    @Volatile
+    private var linkPointer: PointerId? = null
+
+    fun markLinkPress(id: PointerId) {
+        linkPointer = id
+    }
+
+    fun isLinkPress(id: PointerId): Boolean = linkPointer == id
+}
+
 internal suspend fun AwaitPointerEventScope.awaitReaderLinkTap(
     source: String,
     urlAtPosition: (Offset) -> String?,
@@ -1540,6 +1558,7 @@ internal suspend fun AwaitPointerEventScope.awaitReaderLinkTap(
             "href=${url.readerLinkDiagPreview()}"
     )
     down.consume()
+    ReaderLinkPressTracker.markLinkPress(down.id)
 
     var movedOutsideTapSlop = false
     while (true) {

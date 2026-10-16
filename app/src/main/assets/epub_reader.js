@@ -1694,6 +1694,23 @@
     // the eye can follow where the text continues; it returns "moved-partial" so the app
     // skips its overlay animation. Returns "end"/"start" when already at the chapter
     // boundary so the app can flip to the neighbouring chapter.
+    // 白い熊 UI: the app's side-third tap-to-turn layer intercepts the touch before the
+    // WebView sees it, so it asks here first: if a link sits under the tap (given in
+    // WebView physical pixels), replay the tap as a click on it — the regular link /
+    // footnote handlers then run — and return "link" so the page is NOT turned.
+    window.whiteBearLinkTapAt = function (px, py) {
+        var dpr = window.devicePixelRatio || 1;
+        var x = px / dpr;
+        var y = py / dpr;
+        var el = document.elementFromPoint(x, y);
+        var anchor = el && el.closest ? el.closest('a[href]') : null;
+        if (!anchor) return "none";
+        el.dispatchEvent(new MouseEvent('click', {
+            bubbles: true, cancelable: true, view: window, clientX: x, clientY: y
+        }));
+        return "link";
+    };
+
     window.whiteBearTurnPage = function (direction, fraction, anim) {
         var frac = (typeof fraction === "number" && fraction > 0) ? fraction : 1.0;
         var slide = anim === "slide";

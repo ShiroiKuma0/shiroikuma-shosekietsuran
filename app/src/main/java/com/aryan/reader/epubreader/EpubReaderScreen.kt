@@ -24,6 +24,8 @@
 
 package com.aryan.reader.epubreader
 
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import kotlinx.serialization.ExperimentalSerializationApi
 
 import android.Manifest
@@ -4438,13 +4440,29 @@ fun EpubReaderHost(
             // smooth-scrolls in the WebView, and Fade/Flip/Curl capture the old page and
             // animate it away above the already-turned page. Partial turns (chapter ends)
             // always smooth-scroll the remainder as the visual cue.
-            fun whiteBearTurnPage(dir: Int) {
+            // Window position of the gesture layer, to map its taps into the WebView.
+            val wbGestureLayerOrigin = remember { FloatArray(2) }
+            // `tapAt` (gesture-layer local px) is set for a side-third tap: in the WebView a
+            // link under the finger is opened instead of turning (links take precedence).
+            fun whiteBearTurnPage(dir: Int, tapAt: androidx.compose.ui.geometry.Offset? = null) {
                 if (currentRenderMode == RenderMode.VERTICAL_SCROLL && !isNativeVerticalMode) {
                     val fraction = whiteBearGestures.pageTurnStepPercent.coerceIn(50, 100) / 100.0
                     val webView = webViewRefForTts
                     if (webView == null) {
                         navigateReaderPageBy(dir)
                         whiteBearPlayPageSound()
+                        return
+                    }
+                    if (tapAt != null) {
+                        val loc = IntArray(2)
+                        webView.getLocationInWindow(loc)
+                        val px = wbGestureLayerOrigin[0] + tapAt.x - loc[0]
+                        val py = wbGestureLayerOrigin[1] + tapAt.y - loc[1]
+                        webView.evaluateJavascript(
+                            "window.whiteBearLinkTapAt ? window.whiteBearLinkTapAt($px, $py) : \"none\";"
+                        ) { result ->
+                            if (result?.trim('"') != "link") whiteBearTurnPage(dir)
+                        }
                         return
                     }
                     val wbAnim = whiteBearGestures.pageTurnAnimation
@@ -4593,9 +4611,14 @@ fun EpubReaderHost(
                                 // Only a quick release counts as a page-turn tap; a long press
                                 // is left alone so text selection still works.
                                 val quickTap = (change.uptimeMillis - down.uptimeMillis) < 350L
-                                if (!verticalDrag && !bailed && whiteBearTapTurn && quickTap && zone != 0) {
+                                // A link under the finger always wins over the page turn: the
+                                // native renderers' link detectors flag the press; the WebView
+                                // is asked inside whiteBearTurnPage via the tap position.
+                                val onLink = com.aryan.reader.paginatedreader.ReaderLinkPressTracker
+                                    .isLinkPress(down.id)
+                                if (!onLink && !verticalDrag && !bailed && whiteBearTapTurn && quickTap && zone != 0) {
                                     change.consume()
-                                    whiteBearTurnPage(if (zone < 0) -1 else 1)
+                                    whiteBearTurnPage(if (zone < 0) -1 else 1, change.position)
                                 }
                                 break
                             }
@@ -4792,7 +4815,15 @@ fun EpubReaderHost(
                     onSubRatioChange = { whiteBearParallel.updateSubRatio(it) },
                     companions = wbCompanionIds.map { wbCompanionPaneFor(it) }
                 ) { wbPaneModifier ->
-                Box(modifier = wbPaneModifier.then(whiteBearGestureModifier)) {
+                Box(
+                    modifier = wbPaneModifier
+                        .then(Modifier.onGloballyPositioned {
+                            val p = it.positionInWindow()
+                            wbGestureLayerOrigin[0] = p.x
+                            wbGestureLayerOrigin[1] = p.y
+                        })
+                        .then(whiteBearGestureModifier)
+                ) {
                 EpubReaderRenderSurfaces(
                     whiteBearWritingMode = wbWritingMode,
                     whiteBearRubySpace = wbRubySpace,

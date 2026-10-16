@@ -1,5 +1,6 @@
 package com.aryan.reader.paginatedreader
 
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -239,6 +240,23 @@ private fun VerticalPageTextBlock(
                         .drawBehind {
                             for ((rect, color) in overlayRects) {
                                 drawRect(color = color, topLeft = rect.topLeft, size = rect.size)
+                            }
+                        }
+                        // 白い熊 UI: claim link presses in the Initial pass so the
+                        // side-third page-turn layer yields to the link.
+                        .pointerInput(resolved, block) {
+                            val slop = viewConfiguration.touchSlop
+                            awaitEachGesture {
+                                awaitReaderLinkTap(
+                                    source = "VerticalPageContent:block=${block.blockIndex}",
+                                    urlAtPosition = { position ->
+                                        resolved.offsetAt(position)?.let {
+                                            block.content.readerUrlAnnotationAtOffset(it)
+                                        }
+                                    },
+                                    touchSlop = slop,
+                                    onLinkClick = onLinkClick
+                                )
                             }
                         }
                         .pointerInput(resolved, block, pageUserHighlights) {

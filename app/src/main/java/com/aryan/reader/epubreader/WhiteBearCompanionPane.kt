@@ -135,7 +135,10 @@ fun WhiteBearCompanionPane(
                 val change = event.changes.firstOrNull { it.id == down.id } ?: break
                 if (!change.pressed) {
                     val quickTap = (change.uptimeMillis - down.uptimeMillis) < 350L
-                    if (!verticalDrag && !bailed && quickTap) {
+                    // A link under the finger always wins over page turn / chrome toggle.
+                    val onLink = com.aryan.reader.paginatedreader.ReaderLinkPressTracker
+                        .isLinkPress(down.id)
+                    if (!onLink && !verticalDrag && !bailed && quickTap) {
                         if (zone != 0 && gestures.enabled && gestures.tapToTurnPages) {
                             change.consume()
                             turnPage(if (zone < 0) -1 else 1)
