@@ -2,6 +2,34 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.57+008 — 2026-11-15
+
+Base: Episteme Android v1.0.57 (oss). Reader link fixes and the black-yellow button and switch look, on top of `1.0.57+003`. Builds `+004` to `+007` were test builds and are all contained here.
+
+### Reader
+
+- **Backlinks and in-book links land on the exact spot.** Tapping a note's backlink used to open the chapter at its start, and later a page too early or too late. Two causes, both fixed:
+  - **The target was not found.** A long chapter is loaded in chunks, and the page only searched the chunks it already held. The chunk holding the target is now resolved from the chapter itself, so a link into the far end of a chapter works.
+  - **The jump was a single scroll on a fixed timer.** Chunks not yet loaded are placeholders with an estimated height, and fonts and styles settle after the page loads, so the text kept moving after the scroll. Every fragment jump — backlinks, in-book links and table-of-contents entries — now goes through one routine: it waits for the target element, puts its line at the top of the text area, and keeps it there until the layout has stopped moving (or the screen is touched). In 縦書き it works on the horizontal axis, where the old jump could not be right at all.
+- **The marker flashes after a link jump**, with an outline ring for a second and a half, so the small superscript is easy to find on its line. Table-of-contents jumps do not flash.
+- **A link tap no longer brings up the bars.** Android confirms a single tap about 300 ms after the touch; by then the link had already jumped, nothing link-like was under the finger any more, and the tap was taken for a centre tap. Taps arriving within 800 ms of an internal link jump are now ignored.
+- **The top bar's buttons can be tapped in the Sync and Hidden system-bar modes.** The bar used to slide under the status bar there, which made its ⋮ button unreachable. It now keeps the status-bar height clear.
+
+### UI & theming
+
+- **Every button is an outlined pill, everywhere in the app.** Never filled: the main action of a dialog or panel has a thick 3 dp frame and bold text, every other action — including what used to be bare-text buttons such as Cancel — a thin 1.25 dp frame. This covers upstream's screens as well as the fork's own.
+- **Every switch is an outlined pill with a solid dot** — right and accent-coloured when on, left and a darker yellow when off. Nothing is filled, and both states share one shape.
+- **白い熊 書籍閲覧 UI page reworked.**
+  - Rows that do something when tapped (Export / Import…, Reset, Add external font…, Grant All-files access…) are pills as wide as their label, with › when they open something and their explanation beneath.
+  - An **App settings** pill leads the page. Opened from Settings it goes back there; opened from the reader, library or home screen it opens Settings over the page, so Back returns.
+  - Rows with an explanation have a bold label, a dim-gold description and a thin dim-gold rule down their left edge; the automation token is shown as a monospace tag line.
+  - Rows are only as tall as their content.
+- **Two new colour roles** under Colors → Notes & switches: the dim gold of explanations (`#C8C800`) and the colour of a switch that is off (`#8C8C00`).
+
+### Packaging
+
+- The pill and switch components live in the shared module (`shared/ui/whitebear`) and are picked up by import, so screens added later get them the same way.
+
 ## 1.0.57+003 — 2026-10-16
 
 Base: Episteme Android v1.0.57 (oss). One fix on top of `1.0.57+002`.
