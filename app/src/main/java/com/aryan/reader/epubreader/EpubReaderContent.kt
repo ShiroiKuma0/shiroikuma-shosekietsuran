@@ -128,6 +128,18 @@ internal fun readerChunkContainerAttributes(
     return "data-chunk-index='$index' data-element-start-index='$startIndex' data-element-count='$elementCount'"
 }
 
+// 白い熊, 2026-11-04: only the first chunks of a chapter reach the WebView at load; the rest
+// stay null in `window.virtualization.chunksData` until scrolled near. A fragment jump that
+// searched only the JS side therefore missed every anchor past them (a notes backlink to
+// `#rch01bn10` landed at the chapter start). Kotlin holds every chunk, so it answers instead.
+internal fun readerChunkIndexForFragment(chunks: List<String>, fragment: String?): Int {
+    if (fragment.isNullOrBlank()) return -1
+    return chunks.indexOfFirst { chunk ->
+        chunk.contains("id=\"$fragment\"") || chunk.contains("id='$fragment'") ||
+            chunk.contains("name=\"$fragment\"") || chunk.contains("name='$fragment'")
+    }
+}
+
 internal fun initialReaderLoadedChunkCount(
     totalChunks: Int,
     targetChunkIndex: Int,

@@ -66,6 +66,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
+import com.aryan.reader.shared.ui.whitebear.Button
+import com.aryan.reader.shared.ui.whitebear.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.RectangleShape

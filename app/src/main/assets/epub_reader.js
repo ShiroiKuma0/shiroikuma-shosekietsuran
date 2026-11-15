@@ -3613,6 +3613,155 @@
         return -1;
     }
 
+    // 白い熊 2026-11-15: pin-point fragment jumps (backlinks, in-book links, TOC entries).
+    // A jump used to be one scroll on a fixed timer; chunk placeholders are only estimated
+    // heights and fonts/styles settle late, so the target then drifted a page either way.
+    // Now: find the element (waiting for its chunk), place it, and HOLD it in place until the
+    // layout has stopped moving — or the reader touches the screen.
+    var readerAnchorJump = null;
+
+    function readerAnchorFind(id) {
+        var el = document.getElementById(id);
+        if (!el) {
+            var named = document.getElementsByName(id);
+            el = named && named.length ? named[0] : null;
+        }
+        return el;
+    }
+
+    function readerAnchorChunkIndex(id) {
+        var v = window.virtualization;
+        if (!v || !v.chunksData) return -1;
+        var needles = ['id="' + id + '"', "id='" + id + "'", 'name="' + id + '"', "name='" + id + "'"];
+        for (var i = 0; i < v.chunksData.length; i++) {
+            var html = v.chunksData[i];
+            if (!html) continue;
+            for (var n = 0; n < needles.length; n++) {
+                if (html.indexOf(needles[n]) !== -1) return i;
+            }
+        }
+        return -1;
+    }
+
+    function readerAnchorMaterialize(chunkIndex) {
+        var v = window.virtualization;
+        var div = document.querySelector('.chunk-container[data-chunk-index="' + chunkIndex + '"]');
+        if (div && div.innerHTML === "" && v && v.chunksData[chunkIndex]) {
+            div.innerHTML = v.chunksData[chunkIndex];
+            div.style.height = "";
+            div.style.width = "";
+        }
+    }
+
+    // The box to pin: the anchor itself, or — for an empty/unrendered anchor — its parent.
+    function readerAnchorRect(el) {
+        var node = el;
+        for (var depth = 0; node && depth < 4; depth++) {
+            var rects = node.getClientRects ? node.getClientRects() : [];
+            if (rects.length) return rects[0];
+            node = node.parentElement;
+        }
+        return el.getBoundingClientRect();
+    }
+
+    // Distance still to scroll so the target sits at the reading edge; 0,0 when it is there.
+    function readerAnchorOffset(el) {
+        var rect = readerAnchorRect(el);
+        if (window.whiteBearEffectiveVertical) {
+            // 縦書き: columns flow right to left, so the reading edge is the right one.
+            return { x: rect.right - (window.innerWidth - 10), y: 0 };
+        }
+        return { x: 0, y: rect.top - ((window.VIEWPORT_PADDING_TOP || 0) + 10) };
+    }
+
+    function readerAnchorFlash(el) {
+        if (!document.getElementById("wbAnchorFlashStyle")) {
+            var style = document.createElement("style");
+            style.id = "wbAnchorFlashStyle";
+            style.textContent =
+                "@keyframes wbAnchorFlash{0%,100%{box-shadow:0 0 0 0 transparent}" +
+                "20%,60%{box-shadow:0 0 0 3px currentColor}40%,80%{box-shadow:0 0 0 1px currentColor}}" +
+                ".wb-anchor-flash{animation:wbAnchorFlash 1.5s ease-out 1;border-radius:3px}";
+            document.head.appendChild(style);
+        }
+        var target = (el.textContent || "").trim() ? el : el.parentElement || el;
+        target.classList.remove("wb-anchor-flash");
+        void target.offsetWidth;
+        target.classList.add("wb-anchor-flash");
+        setTimeout(function () { target.classList.remove("wb-anchor-flash"); }, 1700);
+    }
+
+    window.readerCancelAnchorJump = function () {
+        var jump = readerAnchorJump;
+        if (!jump) return;
+        readerAnchorJump = null;
+        clearInterval(jump.timer);
+        ["touchstart", "wheel", "keydown"].forEach(function (type) {
+            window.removeEventListener(type, jump.onUser, true);
+        });
+        if (window.reportScrollState) setTimeout(window.reportScrollState, 50);
+    };
+
+    /**
+     * Jump to the element with this id/name and keep it pinned until the layout settles.
+     * Returns -2 when the element is already in the DOM, the index of the chunk holding it
+     * when that chunk's HTML is known here, or -1 when the caller must supply the chunk
+     * (appendChunk) — the jump keeps waiting for it either way.
+     */
+    window.readerJumpToAnchor = function (id, flash) {
+        window.readerCancelAnchorJump();
+        var FIND_LIMIT_MS = 3000, HOLD_LIMIT_MS = 4000, SETTLED_MS = 600;
+        var started = Date.now();
+        var jump = { placedAt: 0, lastMove: 0, timer: 0, onUser: null };
+        jump.onUser = function () { if (readerAnchorJump === jump) window.readerCancelAnchorJump(); };
+
+        function tick() {
+            if (readerAnchorJump !== jump) return;
+            var now = Date.now();
+            var el = readerAnchorFind(id);
+            if (!el) {
+                var chunkIndex = readerAnchorChunkIndex(id);
+                if (chunkIndex >= 0) {
+                    readerAnchorMaterialize(chunkIndex);
+                    el = readerAnchorFind(id);
+                }
+            }
+            if (!el) {
+                if (now - started > FIND_LIMIT_MS) window.readerCancelAnchorJump();
+                return;
+            }
+            var offset = readerAnchorOffset(el);
+            if (Math.abs(offset.x) > 1 || Math.abs(offset.y) > 1) {
+                var beforeX = window.scrollX, beforeY = window.scrollY;
+                window.scrollBy(offset.x, offset.y);
+                // At the end of the document the target cannot reach the edge: that is settled.
+                if (Math.abs(window.scrollX - beforeX) > 0.5 || Math.abs(window.scrollY - beforeY) > 0.5) {
+                    jump.lastMove = now;
+                }
+            }
+            if (!jump.placedAt) {
+                jump.placedAt = now;
+                jump.lastMove = now;
+                if (flash) readerAnchorFlash(el);
+                // Only from here on does a touch mean "let go": the tap that started the
+                // jump must not cancel it.
+                ["touchstart", "wheel", "keydown"].forEach(function (type) {
+                    window.addEventListener(type, jump.onUser, { capture: true, passive: true });
+                });
+            }
+            if (now - jump.lastMove > SETTLED_MS || now - jump.placedAt > HOLD_LIMIT_MS) {
+                window.readerCancelAnchorJump();
+            }
+        }
+
+        readerAnchorJump = jump;
+        var present = !!readerAnchorFind(id);
+        var knownChunk = present ? -2 : readerAnchorChunkIndex(id);
+        jump.timer = setInterval(tick, 50);
+        tick();
+        return knownChunk;
+    };
+
     window.scrollToReaderImageSource = function(source, ordinal, originalSource) {
         var safeOrdinal = Math.max(0, parseInt(ordinal || 0, 10) || 0);
         var matches = findReaderImageElementsBySource(source, originalSource);

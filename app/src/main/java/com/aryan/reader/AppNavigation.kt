@@ -42,7 +42,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
+import com.aryan.reader.shared.ui.whitebear.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -640,7 +640,17 @@ fun AppNavigation(
         composable(route = AppDestinations.WHITE_BEAR_UI_SCREEN_ROUTE) {
             WhiteBearUiScreen(
                 viewModel = viewModel,
-                onBackClick = { navController.popBackStackIfReady() }
+                onBackClick = { navController.popBackStackIfReady() },
+                onOpenAppSettings = {
+                    // Opened from Settings: go back to it. From the reader or the library:
+                    // open Settings over this page, so Back returns here.
+                    val settingsRoute = SharedMobileAppDestination.SETTINGS.route
+                    if (navController.previousBackStackEntry?.destination?.route == settingsRoute) {
+                        navController.popBackStackIfReady()
+                    } else {
+                        navController.navigateIfReady(settingsRoute)
+                    }
+                }
             )
         }
 

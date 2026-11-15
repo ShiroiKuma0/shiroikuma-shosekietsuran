@@ -1,5 +1,8 @@
 package com.aryan.reader.whitebear
 
+import com.aryan.reader.shared.ui.whitebear.Button
+import com.aryan.reader.shared.ui.whitebear.OutlinedButton
+import com.aryan.reader.shared.ui.whitebear.TextButton
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -24,10 +27,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -434,7 +435,7 @@ fun WhiteBearExportImportSheet(
                 if (importUri != null) {
                     PillButton("Back") { importUri = null }
                     Spacer(Modifier.weight(1f))
-                    PillButton("Import") { onImport() }
+                    PillButton("Import", main = true) { onImport() }
                 } else {
                     PillButton("Cancel") { onDismiss() }
                     Spacer(Modifier.weight(1f))
@@ -442,7 +443,7 @@ fun WhiteBearExportImportSheet(
                         importPicker.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
                     }
                     Spacer(Modifier.width(8.dp))
-                    PillButton("Export") { onExport() }
+                    PillButton("Export", main = true) { onExport() }
                 }
             }
         }
@@ -464,9 +465,9 @@ fun WhiteBearExportImportSheet(
             modifier = Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(28.dp)),
             confirmButton = {
                 if (offerRestart) {
-                    TextButton(onClick = { restartApp(context) }) { Text("Restart now") }
+                    Button(onClick = { restartApp(context) }) { Text("Restart now") }
                 } else {
-                    TextButton(onClick = { acknowledge() }) { Text("OK") }
+                    Button(onClick = { acknowledge() }) { Text("OK") }
                 }
             },
             dismissButton = if (offerRestart) {
@@ -501,16 +502,14 @@ private fun CheckRow(
     }
 }
 
-/** Fully-rounded outline pill: surface fill, thin accent stroke, accent text. */
+/** The black-yellow pill: thick frame and bold for the panel's main action, thin otherwise. */
 @Composable
-private fun PillButton(label: String, onClick: () -> Unit) {
-    OutlinedButton(
-        onClick = onClick,
-        shape = RoundedCornerShape(50),
-        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 10.dp)
-    ) {
-        Text(label, color = MaterialTheme.colorScheme.primary)
+private fun PillButton(label: String, main: Boolean = false, onClick: () -> Unit) {
+    val padding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+    if (main) {
+        Button(onClick = onClick, contentPadding = padding) { Text(label) }
+    } else {
+        OutlinedButton(onClick = onClick, contentPadding = padding) { Text(label) }
     }
 }
 

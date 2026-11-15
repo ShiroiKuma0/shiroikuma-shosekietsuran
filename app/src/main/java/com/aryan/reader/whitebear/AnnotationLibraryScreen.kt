@@ -5,6 +5,8 @@
 
 package com.aryan.reader.whitebear
 
+import com.aryan.reader.shared.ui.whitebear.Button
+import com.aryan.reader.shared.ui.whitebear.TextButton
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -44,7 +46,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -526,7 +527,7 @@ private fun AnnotationTagDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            Button(onClick = {
                 addFromInput()
                 onSave(tags)
             }) { Text("Save") }

@@ -102,9 +102,9 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
+import com.aryan.reader.shared.ui.whitebear.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import com.aryan.reader.shared.ui.whitebear.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
@@ -1966,7 +1966,7 @@ fun CreateAppThemeDialog(
                         Text(stringResource(R.string.action_cancel), color = Color.Gray)
                     }
                     Spacer(Modifier.width(8.dp))
-                    androidx.compose.material3.Button(
+                    com.aryan.reader.shared.ui.whitebear.Button(
                         onClick = { onSave(name.ifBlank { context.getString(R.string.app_theme_custom_default_name) }, currentColor) },
                         colors = ButtonDefaults.buttonColors(containerColor = currentColor)
                     ) {

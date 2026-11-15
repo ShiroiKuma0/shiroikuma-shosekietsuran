@@ -17,6 +17,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import com.aryan.reader.shared.ui.whitebear.LocalWhiteBearNote
+import com.aryan.reader.shared.ui.whitebear.LocalWhiteBearSwitchOff
 
 /** Border thickness for fork-drawn chrome rules (e.g. the top-bar underline). 0 = none. */
 val LocalWhiteBearBorderWidth = compositionLocalOf<Dp> { 0.dp }
@@ -59,7 +61,11 @@ fun WhiteBearTheme(content: @Composable () -> Unit) {
 
     val shapes = remember(cornerRadius) { whiteBearShapes(cornerRadius) }
 
-    CompositionLocalProvider(LocalWhiteBearBorderWidth provides borderWidth.dp) {
+    CompositionLocalProvider(
+        LocalWhiteBearBorderWidth provides borderWidth.dp,
+        LocalWhiteBearNote provides Color(state.color(WhiteBearSlot.NOTE)),
+        LocalWhiteBearSwitchOff provides Color(state.color(WhiteBearSlot.SWITCH_OFF))
+    ) {
         MaterialTheme(
             colorScheme = scheme,
             typography = typography,
@@ -68,6 +74,10 @@ fun WhiteBearTheme(content: @Composable () -> Unit) {
         )
     }
 }
+
+/** Dim gold of explanations and their left rule — the settable [WhiteBearSlot.NOTE] role. */
+@Composable
+fun whiteBearNoteColor(): Color = LocalWhiteBearNote.current
 
 private fun whiteBearColorScheme(
     base: ColorScheme,

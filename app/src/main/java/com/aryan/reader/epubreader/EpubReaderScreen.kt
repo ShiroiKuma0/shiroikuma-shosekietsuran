@@ -96,7 +96,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import com.aryan.reader.shared.ui.whitebear.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.ui.graphics.toArgb
@@ -2951,56 +2951,15 @@ fun EpubReaderHost(
 
     fun scrollCurrentVerticalChapterToFragment(fragment: String) {
         val escapedFragment = escapeJsString(fragment)
-        val js = """
-            (function() {
-                var targetId = '$escapedFragment';
-                var el = document.getElementById(targetId) || document.querySelector('[name="' + targetId + '"]');
-                if (el) {
-                    var targetScrollY = window.scrollY + el.getBoundingClientRect().top - (window.VIEWPORT_PADDING_TOP + 10);
-                    window.scrollTo({ top: targetScrollY, behavior: 'auto' });
-                    return -2;
-                }
-                if (window.virtualization && window.virtualization.chunksData) {
-                    for (var i = 0; i < window.virtualization.chunksData.length; i++) {
-                        var chunkHtml = window.virtualization.chunksData[i];
-                        if (chunkHtml && (chunkHtml.indexOf('id="' + targetId + '"') !== -1 || chunkHtml.indexOf('name="' + targetId + '"') !== -1 || chunkHtml.indexOf("id='" + targetId + "'") !== -1 || chunkHtml.indexOf("name='" + targetId + "'") !== -1)) {
-                            return i;
-                        }
-                    }
-                }
-                return -1;
-            })()
-        """.trimIndent()
+        val js = "window.readerJumpToAnchor('$escapedFragment', true)"
         webViewRefForTts?.evaluateJavascript(js) { result ->
-            val chunkIdx = result?.toIntOrNull() ?: -1
+            val chunkIdx = (result?.toIntOrNull() ?: -1).let { jsIdx ->
+                if (jsIdx == -1) readerChunkIndexForFragment(chapterChunks, fragment) else jsIdx
+            }
             if (chunkIdx >= 0) {
                 injectVerticalChunksThrough(chunkIdx)
-                val scrollJs = """
-                    (function() {
-                        var chunkIndex = $chunkIdx;
-                        var fragmentId = '$escapedFragment';
-                        var chunkDiv = document.querySelector('.chunk-container[data-chunk-index="' + chunkIndex + '"]');
-                        if (chunkDiv) {
-                            if (chunkDiv.innerHTML === "" && window.virtualization && window.virtualization.chunksData[chunkIndex]) {
-                                chunkDiv.innerHTML = window.virtualization.chunksData[chunkIndex];
-                                chunkDiv.style.height = "";
-                            }
-                            setTimeout(function() {
-                                var el = document.getElementById(fragmentId) || document.querySelector('[name="' + fragmentId + '"]');
-                                if (el) {
-                                    var targetScrollY = window.scrollY + el.getBoundingClientRect().top - (window.VIEWPORT_PADDING_TOP + 10);
-                                    window.scrollTo({ top: targetScrollY, behavior: 'auto' });
-                                } else {
-                                    var targetScrollY = window.scrollY + chunkDiv.getBoundingClientRect().top - window.VIEWPORT_PADDING_TOP;
-                                    window.scrollTo({ top: targetScrollY, behavior: 'auto' });
-                                }
-                            }, 150);
-                        }
-                    })()
-                """.trimIndent()
-                webViewRefForTts?.evaluateJavascript(scrollJs, null)
             } else if (chunkIdx == -1) {
-                webViewRefForTts?.evaluateJavascript("javascript:window.scrollTo(0,0);", null)
+                webViewRefForTts?.evaluateJavascript("javascript:window.readerCancelAnchorJump();window.scrollTo(0,0);", null)
             }
         }
     }
@@ -3537,28 +3496,11 @@ fun EpubReaderHost(
                                     logTtsChapterDiag("Manual vertical chapter switch via TOC entry. targetChapter=$targetChapterIndex fragment=${entry.fragmentId}")
                                 } else {
                                     if (entry.fragmentId != null) {
-                                        val js = """
-                                            (function() {
-                                                var targetId = '${entry.fragmentId}';
-                                                var el = document.getElementById(targetId) || document.querySelector('[name="' + targetId + '"]');
-                                                if (el) {
-                                                    var targetScrollY = window.scrollY + el.getBoundingClientRect().top - (window.VIEWPORT_PADDING_TOP + 10);
-                                                    window.scrollTo({ top: targetScrollY, behavior: 'auto' });
-                                                    return -2;
-                                                }
-                                                if (window.virtualization && window.virtualization.chunksData) {
-                                                    for (var i = 0; i < window.virtualization.chunksData.length; i++) {
-                                                        var chunkHtml = window.virtualization.chunksData[i];
-                                                        if (chunkHtml && (chunkHtml.indexOf('id="' + targetId + '"') !== -1 || chunkHtml.indexOf('name="' + targetId + '"') !== -1 || chunkHtml.indexOf("id='" + targetId + "'") !== -1 || chunkHtml.indexOf("name='" + targetId + "'") !== -1)) {
-                                                            return i;
-                                                        }
-                                                    }
-                                                }
-                                                return -1;
-                                            })()
-                                        """.trimIndent()
+                                        val js = "window.readerJumpToAnchor('${escapeJsString(entry.fragmentId.orEmpty())}', false)"
                                         webViewRefForTts?.evaluateJavascript(js) { result ->
-                                            val chunkIdx = result?.toIntOrNull() ?: -1
+                                            val chunkIdx = (result?.toIntOrNull() ?: -1).let { jsIdx ->
+                                                if (jsIdx == -1) readerChunkIndexForFragment(chapterChunks, entry.fragmentId) else jsIdx
+                                            }
                                             if (chunkIdx >= 0) {
                                                 if (chunkIdx >= loadedChunkCount) {
                                                     val chunksToInject = (loadedChunkCount..chunkIdx)
@@ -3575,32 +3517,8 @@ fun EpubReaderHost(
                                                     loadUpToChunkIndex = chunkIdx
                                                     loadedChunkCount = max(loadedChunkCount, chunkIdx + 1)
                                                 }
-                                                val scrollJs = """
-                                                    (function() {
-                                                        var chunkIndex = $chunkIdx;
-                                                        var fragmentId = '${entry.fragmentId}';
-                                                        var chunkDiv = document.querySelector('.chunk-container[data-chunk-index="' + chunkIndex + '"]');
-                                                        if (chunkDiv) {
-                                                            if (chunkDiv.innerHTML === "" && window.virtualization && window.virtualization.chunksData[chunkIndex]) {
-                                                                chunkDiv.innerHTML = window.virtualization.chunksData[chunkIndex];
-                                                                chunkDiv.style.height = "";
-                                                            }
-                                                            setTimeout(function() {
-                                                                var el = document.getElementById(fragmentId) || document.querySelector('[name="' + fragmentId + '"]');
-                                                                if (el) {
-                                                                    var targetScrollY = window.scrollY + el.getBoundingClientRect().top - (window.VIEWPORT_PADDING_TOP + 10);
-                                                                    window.scrollTo({ top: targetScrollY, behavior: 'auto' });
-                                                                } else {
-                                                                    var targetScrollY = window.scrollY + chunkDiv.getBoundingClientRect().top - window.VIEWPORT_PADDING_TOP;
-                                                                    window.scrollTo({ top: targetScrollY, behavior: 'auto' });
-                                                                }
-                                                            }, 150);
-                                                        }
-                                                    })()
-                                                """.trimIndent()
-                                                webViewRefForTts?.evaluateJavascript(scrollJs, null)
                                             } else if (chunkIdx == -1) {
-                                                webViewRefForTts?.evaluateJavascript("javascript:window.scrollTo(0,0);", null)
+                                                webViewRefForTts?.evaluateJavascript("javascript:window.readerCancelAnchorJump();window.scrollTo(0,0);", null)
                                             }
                                         }
                                     } else {
@@ -5777,6 +5695,7 @@ fun EpubReaderHost(
                     },
                     searchFocusRequester = searchFocusRequester,
                     modifier = Modifier.align(Alignment.TopCenter),
+                    reserveStatusBar = prefs.systemUiMode != SystemUiMode.DEFAULT,
                     onOpenTtsSettings = { showTtsSettingsSheet = true },
                     onOpenTtsReplacements = { showTtsReplacementsSheet = true },
                     onOpenBookReplacements = { showBookReplacementsSheet = true },

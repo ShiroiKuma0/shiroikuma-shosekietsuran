@@ -58,7 +58,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import com.aryan.reader.shared.ui.whitebear.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -900,6 +900,7 @@ fun ChapterWebView(
     ttsScope: CoroutineScope,
     tocFragments: List<String>,
     initialFragmentId: String? = null,
+    resolveFragmentChunkIndex: (String) -> Int = { -1 },
     initialImageSource: String? = null,
     initialImageOriginalSource: String? = null,
     initialImageOrdinal: Int = 0,
@@ -1493,55 +1494,14 @@ fun ChapterWebView(
                                 }
                             } else if (!initialFragmentId.isNullOrBlank()) {
                                 Timber.tag("NavDiag").d("WebView onPageFinished: Scrolling to Element ID: $initialFragmentId")
-                                val js = """
-                                    (function() {
-                                        var targetId = '$initialFragmentId';
-                                        var el = document.getElementById(targetId) || document.querySelector('[name="' + targetId + '"]');
-                                        if (el) {
-                                            var targetScrollY = window.scrollY + el.getBoundingClientRect().top - (window.VIEWPORT_PADDING_TOP + 10);
-                                            window.scrollTo({ top: targetScrollY, behavior: 'auto' });
-                                            return -2;
-                                        }
-                                        if (window.virtualization && window.virtualization.chunksData) {
-                                            for (var i = 0; i < window.virtualization.chunksData.length; i++) {
-                                                var chunkHtml = window.virtualization.chunksData[i];
-                                                if (chunkHtml && (chunkHtml.indexOf('id="' + targetId + '"') !== -1 || chunkHtml.indexOf('name="' + targetId + '"') !== -1 || chunkHtml.indexOf("id='" + targetId + "'") !== -1 || chunkHtml.indexOf("name='" + targetId + "'") !== -1)) {
-                                                    return i;
-                                                }
-                                            }
-                                        }
-                                        return -1;
-                                    })()
-                                """.trimIndent()
+                                val js = "window.readerJumpToAnchor('$initialFragmentId', true)"
 
                                 view?.evaluateJavascript(js) { result ->
-                                    val chunkIdx = result?.toIntOrNull() ?: -1
+                                    val chunkIdx = (result?.toIntOrNull() ?: -1).let { jsIdx ->
+                                        if (jsIdx == -1) resolveFragmentChunkIndex(initialFragmentId.orEmpty()) else jsIdx
+                                    }
                                     if (chunkIdx >= 0) {
                                         onChunkRequested(chunkIdx)
-                                        val scrollJs = """
-                                            (function() {
-                                                var chunkIndex = $chunkIdx;
-                                                var fragmentId = '$initialFragmentId';
-                                                setTimeout(function() {
-                                                    var chunkDiv = document.querySelector('.chunk-container[data-chunk-index="' + chunkIndex + '"]');
-                                                    if (chunkDiv && chunkDiv.innerHTML === "" && window.virtualization && window.virtualization.chunksData[chunkIndex]) {
-                                                        chunkDiv.innerHTML = window.virtualization.chunksData[chunkIndex];
-                                                        chunkDiv.style.height = "";
-                                                    }
-                                                    setTimeout(function() {
-                                                        var el = document.getElementById(fragmentId) || document.querySelector('[name="' + fragmentId + '"]');
-                                                        if (el) {
-                                                            var targetScrollY = window.scrollY + el.getBoundingClientRect().top - (window.VIEWPORT_PADDING_TOP + 10);
-                                                            window.scrollTo({ top: targetScrollY, behavior: 'auto' });
-                                                        } else if (chunkDiv) {
-                                                            var targetScrollY = window.scrollY + chunkDiv.getBoundingClientRect().top - window.VIEWPORT_PADDING_TOP;
-                                                            window.scrollTo({ top: targetScrollY, behavior: 'auto' });
-                                                        }
-                                                    }, 50);
-                                                }, 200);
-                                            })()
-                                        """.trimIndent()
-                                        view.evaluateJavascript(scrollJs, null)
                                     }
                                 }
                                 onChapterInitiallyScrolled()

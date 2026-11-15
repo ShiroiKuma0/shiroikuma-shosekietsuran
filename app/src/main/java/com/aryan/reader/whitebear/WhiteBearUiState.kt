@@ -21,6 +21,10 @@ enum class WhiteBearSlot(val key: String, val label: String, val defaultArgb: In
     TEXT("wb_color_text", "Text", 0xFFFFFF00.toInt()),
     ACCENT("wb_color_accent", "Accent", 0xFFFFFF00.toInt()),
     BORDER("wb_color_border", "Border", 0xFFFFFF00.toInt()),
+    /** Dim gold of explanations and of the rule down their left edge. */
+    NOTE("wb_color_note", "Notes and explanations", 0xFFC8C800.toInt()),
+    /** A switch that is off: a darker, opaque yellow — never a faded one. */
+    SWITCH_OFF("wb_color_switch_off", "Switch, off", 0xFF8C8C00.toInt()),
 }
 
 class WhiteBearUiState private constructor(private val prefs: SharedPreferences) {

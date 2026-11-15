@@ -75,7 +75,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import com.aryan.reader.shared.ui.whitebear.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -423,6 +423,11 @@ internal fun EpubReaderRenderSurfaces(
     var isSummarizationLoading by isSummarizationLoadingState
     var isSwitchingToPaginated by isSwitchingToPaginatedState
     var lastHighlightClickTime by lastHighlightClickTimeState
+    // 白い熊, 2026-11-04: the WebView confirms a single tap ~300 ms after touch-down (it
+    // waits out a double tap). A link has jumped by then, so the hit test no longer sees an
+    // anchor under the finger and the link tap toggled the bars on. Stamp every internal link
+    // jump and ignore the bar toggle that trails it.
+    val lastInternalLinkNavTime = remember { longArrayOf(0L) }
     var lastKnownLocator by lastKnownLocatorState
     var lastScrollHideTime by lastScrollHideTimeState
     var loadUpToChunkIndex by loadUpToChunkIndexState
@@ -883,6 +888,9 @@ internal fun EpubReaderRenderSurfaces(
                                             initialPageScrollY = currentScrollYPosition,
                                             initialCfi = cfiToLoad,
                                             initialFragmentId = fragmentToLoad.also { },
+                                            resolveFragmentChunkIndex = { fragment ->
+                                                readerChunkIndexForFragment(chapterChunks, fragment)
+                                            },
                                             initialImageSource = imageToLoad?.sourcePath,
                                             initialImageOriginalSource = imageToLoad?.originalSource,
                                             initialImageOrdinal = imageToLoad?.ordinalInChapter ?: 0,
@@ -976,7 +984,7 @@ internal fun EpubReaderRenderSurfaces(
                                                     Timber.d("Auto-scroll toggled via tap: $isAutoScrollPlaying")
                                                 }
 
-                                                if (!(isMusicianMode && isAutoScrollModeActive) && System.currentTimeMillis() - lastHighlightClickTime > 500) {
+                                                if (!(isMusicianMode && isAutoScrollModeActive) && System.currentTimeMillis() - lastHighlightClickTime > 500 && System.currentTimeMillis() - lastInternalLinkNavTime[0] > 800) {
                                                     focusManager.clearFocus()
                                                     if (prefs.volumeScrollEnabled && !searchState.isSearchActive) {
                                                         containerFocusRequester.requestFocus()
@@ -1186,6 +1194,7 @@ internal fun EpubReaderRenderSurfaces(
                                                 Timber.d("Highlight clicked - Forcing bars hidden")
                                             },
                                             onInternalLinkClick = { url ->
+                                                lastInternalLinkNavTime[0] = System.currentTimeMillis()
                                                 scope.launch {
                                                     val basePath = "file://${epubBook.extractionBasePath}/"
                                                     val rawRelativeUrl = url.removePrefix(basePath)
@@ -1243,28 +1252,11 @@ internal fun EpubReaderRenderSurfaces(
                                                             Timber.tag(TAG_LINK_NAV).d("InternalLinkClick -> Target is current chapter. Evaluating JS for fragment.")
                                                             if (fragmentPart != null) {
                                                                 val escapedFragment = escapeJsString(fragmentPart)
-                                                                val js = """
-                                                                    (function() {
-                                                                        var targetId = '$escapedFragment';
-                                                                        var el = document.getElementById(targetId) || document.querySelector('[name="' + targetId + '"]');
-                                                                        if (el) {
-                                                                            var targetScrollY = window.scrollY + el.getBoundingClientRect().top - (window.VIEWPORT_PADDING_TOP + 10);
-                                                                            window.scrollTo({ top: targetScrollY, behavior: 'auto' });
-                                                                            return -2;
-                                                                        }
-                                                                        if (window.virtualization && window.virtualization.chunksData) {
-                                                                            for (var i = 0; i < window.virtualization.chunksData.length; i++) {
-                                                                                var chunkHtml = window.virtualization.chunksData[i];
-                                                                                if (chunkHtml && (chunkHtml.indexOf('id="' + targetId + '"') !== -1 || chunkHtml.indexOf('name="' + targetId + '"') !== -1 || chunkHtml.indexOf("id='" + targetId + "'") !== -1 || chunkHtml.indexOf("name='" + targetId + "'") !== -1)) {
-                                                                                    return i;
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                        return -1;
-                                                                    })()
-                                                                """.trimIndent()
+                                                                val js = "window.readerJumpToAnchor('$escapedFragment', true)"
                                                                 webViewRefForTts?.evaluateJavascript(js) { result ->
-                                                                    val chunkIdx = result?.toIntOrNull() ?: -1
+                                                                    val chunkIdx = (result?.toIntOrNull() ?: -1).let { jsIdx ->
+                                                                        if (jsIdx == -1) readerChunkIndexForFragment(chapterChunks, fragmentPart) else jsIdx
+                                                                    }
                                                                     if (chunkIdx >= 0) {
                                                                         if (chunkIdx >= loadedChunkCount) {
                                                                             val chunksToInject = (loadedChunkCount..chunkIdx)
@@ -1281,32 +1273,8 @@ internal fun EpubReaderRenderSurfaces(
                                                                             loadUpToChunkIndex = chunkIdx
                                                                             loadedChunkCount = max(loadedChunkCount, chunkIdx + 1)
                                                                         }
-                                                                        val scrollJs = """
-                                                                            (function() {
-                                                                                var chunkIndex = $chunkIdx;
-                                                                                var fragmentId = '$escapedFragment';
-                                                                                var chunkDiv = document.querySelector('.chunk-container[data-chunk-index="' + chunkIndex + '"]');
-                                                                                if (chunkDiv) {
-                                                                                    if (chunkDiv.innerHTML === "" && window.virtualization && window.virtualization.chunksData[chunkIndex]) {
-                                                                                        chunkDiv.innerHTML = window.virtualization.chunksData[chunkIndex];
-                                                                                        chunkDiv.style.height = "";
-                                                                                    }
-                                                                                    setTimeout(function() {
-                                                                                        var el = document.getElementById(fragmentId) || document.querySelector('[name="' + fragmentId + '"]');
-                                                                                        if (el) {
-                                                                                            var targetScrollY = window.scrollY + el.getBoundingClientRect().top - (window.VIEWPORT_PADDING_TOP + 10);
-                                                                                            window.scrollTo({ top: targetScrollY, behavior: 'auto' });
-                                                                                        } else {
-                                                                                            var targetScrollY = window.scrollY + chunkDiv.getBoundingClientRect().top - window.VIEWPORT_PADDING_TOP;
-                                                                                            window.scrollTo({ top: targetScrollY, behavior: 'auto' });
-                                                                                        }
-                                                                                    }, 150);
-                                                                                }
-                                                                            })()
-                                                                        """.trimIndent()
-                                                                        webViewRefForTts?.evaluateJavascript(scrollJs, null)
                                                                     } else if (chunkIdx == -1) {
-                                                                        webViewRefForTts?.evaluateJavascript("javascript:window.scrollTo(0,0);", null)
+                                                                        webViewRefForTts?.evaluateJavascript("javascript:window.readerCancelAnchorJump();window.scrollTo(0,0);", null)
                                                                     }
                                                                 }
                                                             } else {

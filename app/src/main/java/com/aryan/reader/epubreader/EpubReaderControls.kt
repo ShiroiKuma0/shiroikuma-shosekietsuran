@@ -40,6 +40,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -90,7 +92,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import com.aryan.reader.shared.ui.whitebear.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -267,6 +269,7 @@ fun EpubReaderTopBar(
     onDeleteReflow: (() -> Unit)? = null,
     readerMotionPolicy: ReaderMotionPolicy = ReaderMotionPolicy(),
     belowBarContent: (@Composable () -> Unit)? = null,
+    reserveStatusBar: Boolean = false,
 ) {
     com.aryan.reader.shared.ui.SharedReaderBarVisibility(
         visible = isVisible,
@@ -275,6 +278,19 @@ fun EpubReaderTopBar(
         modifier = modifier
     ) {
         Column {
+        // 白い熊, 2026-11-04: when the page reserves no status-bar strip (「Sync with
+        // Menus」/「Always Hide」), the status bar comes back with the chrome and sat on
+        // top of this bar, swallowing taps on ⋮ and the other actions. The bar now
+        // carries its own strip, in its own colour, sized to the live inset.
+        if (reserveStatusBar) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsTopHeight(WindowInsets.statusBars),
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 4.dp,
+            ) {}
+        }
         com.aryan.reader.shared.ui.SharedReaderToolbarSurface(height = 55.dp) {
             com.aryan.reader.shared.ui.SharedEpubTopToolbarRow {
                 if (searchState.isSearchActive) {

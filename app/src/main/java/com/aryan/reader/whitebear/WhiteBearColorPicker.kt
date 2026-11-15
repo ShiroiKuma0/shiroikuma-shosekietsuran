@@ -1,5 +1,7 @@
 package com.aryan.reader.whitebear
 
+import com.aryan.reader.shared.ui.whitebear.Button
+import com.aryan.reader.shared.ui.whitebear.TextButton
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,7 +22,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -123,7 +124,7 @@ fun WhiteBearColorPickerDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(current) }) { Text("Apply") }
+            Button(onClick = { onConfirm(current) }) { Text("Apply") }
         },
         dismissButton = {
             Row {

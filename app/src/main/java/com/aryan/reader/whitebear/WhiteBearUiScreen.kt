@@ -1,5 +1,9 @@
 package com.aryan.reader.whitebear
 
+import com.aryan.reader.shared.ui.whitebear.Button
+import com.aryan.reader.shared.ui.whitebear.OutlinedButton
+import com.aryan.reader.shared.ui.whitebear.TextButton
+import com.aryan.reader.shared.ui.whitebear.Switch
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -16,10 +20,10 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -29,21 +33,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,8 +52,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -86,7 +85,8 @@ private val IndentStep = 32.dp
 @Composable
 fun WhiteBearUiScreen(
     viewModel: MainViewModel,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    onOpenAppSettings: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -147,6 +147,16 @@ fun WhiteBearUiScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(start = 16.dp, end = 16.dp, bottom = 32.dp)
         ) {
+            // The link to the app's own settings: the first, thick pill under the page title.
+            Spacer(Modifier.height(6.dp))
+            PillActionRow(
+                label = "App settings",
+                level = 0,
+                main = true,
+                opens = true,
+                summary = "Everything that is not look and feel: library, reader, sync, backups.",
+                onClick = onOpenAppSettings
+            )
             SectionHeader("Export / Import", first = true)
             EximEntryRow(status = eximStatus) { showExim = true }
             AutomationSwitchRow(
@@ -179,9 +189,11 @@ fun WhiteBearUiScreen(
                 )
             }
             if (automationOn && !allFilesAccess) {
-                ActionRow(
-                    label = "Grant All-files access (needed to write to a given directory)…",
+                PillActionRow(
+                    label = "Grant All-files access…",
                     level = 1,
+                    opens = true,
+                    summary = "Needed to write the export to a given directory.",
                     onClick = { openAllFilesAccessSettings(context) }
                 )
             }
@@ -193,9 +205,11 @@ fun WhiteBearUiScreen(
                 level = 1,
                 onToggle = { state.updateEnabled(it) }
             )
-            ActionRow(
+            PillActionRow(
                 label = "Reset everything to defaults",
                 level = 1,
+                opens = false,
+                summary = "Colors, fonts, sizes and shapes back to black-yellow, after a confirmation.",
                 onClick = { showResetDialog = true }
             )
 
@@ -214,6 +228,13 @@ fun WhiteBearUiScreen(
             }
             SubHeader("Surfaces", level = 1)
             listOf(WhiteBearSlot.SURFACE, WhiteBearSlot.SURFACE_HIGH).forEach { slot ->
+                ColorRow(slot = slot, argb = state.color(slot), level = 2) {
+                    pickerOriginal = state.color(slot)
+                    pickerSlot = slot
+                }
+            }
+            SubHeader("Notes & switches", level = 1)
+            listOf(WhiteBearSlot.NOTE, WhiteBearSlot.SWITCH_OFF).forEach { slot ->
                 ColorRow(slot = slot, argb = state.color(slot), level = 2) {
                     pickerOriginal = state.color(slot)
                     pickerSlot = slot
@@ -443,7 +464,7 @@ fun WhiteBearUiScreen(
             title = { Text("Reset 白い熊 UI") },
             text = { Text("Reset all colors, fonts, sizes and shapes to the black-yellow defaults?") },
             confirmButton = {
-                TextButton(onClick = {
+                Button(onClick = {
                     state.resetAll()
                     showResetDialog = false
                 }) { Text("Reset") }
@@ -466,7 +487,7 @@ fun WhiteBearUiScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
+                Button(onClick = {
                     automationToken = WhiteBearAutomation.regenerate(context)
                     showRegenerateTokenDialog = false
                     Toast.makeText(context, "New automation token generated.", Toast.LENGTH_SHORT).show()
@@ -493,26 +514,14 @@ fun WhiteBearUiScreen(
  */
 @Composable
 private fun AutomationSwitchRow(checked: Boolean, onToggle: (Boolean) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onToggle(!checked) }
-            .padding(start = IndentStep, top = 8.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text("Automation export", style = MaterialTheme.typography.bodyLarge)
-            Text(
-                "Let a sister app (自由作業盤 保存復元) run this app's export headlessly, and " +
-                    "応用管理 back up and restore its data — reading positions, bookmarks, " +
-                    "shelves and annotations. Never the book files themselves.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                modifier = Modifier.padding(top = 3.dp, end = 8.dp)
-            )
-        }
-        Switch(checked = checked, onCheckedChange = onToggle)
-    }
+    ExplainedRow(
+        label = "Automation export",
+        description = "Let a sister app (自由作業盤 保存復元) run this app's export headlessly, and " +
+            "応用管理 back up and restore its data — reading positions, bookmarks, " +
+            "shelves and annotations. Never the book files themselves.",
+        level = 1,
+        onClick = { onToggle(!checked) }
+    ) { Switch(checked = checked, onCheckedChange = onToggle) }
 }
 
 /**
@@ -525,48 +534,79 @@ private fun AutomationSwitchRow(checked: Boolean, onToggle: (Boolean) -> Unit) {
  */
 @Composable
 private fun AutomationTokenSwitchRow(checked: Boolean, onToggle: (Boolean) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onToggle(!checked) }
-            .padding(start = IndentStep, top = 8.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text("Use authorization token?", style = MaterialTheme.typography.bodyLarge)
-            Text(
-                "Off: any sister app may drive the automation. On: a caller must also send the " +
-                    "token below. The data door checks the caller's identity and signature " +
-                    "either way.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                modifier = Modifier.padding(top = 3.dp, end = 8.dp)
-            )
-        }
-        Switch(checked = checked, onCheckedChange = onToggle)
-    }
+    ExplainedRow(
+        label = "Use authorization token?",
+        description = "Off: any sister app may drive the automation. On: a caller must also send the " +
+            "token below. The data door checks the caller's identity and signature " +
+            "either way.",
+        level = 1,
+        onClick = { onToggle(!checked) }
+    ) { Switch(checked = checked, onCheckedChange = onToggle) }
 }
 
 /** Tap copies the whole token; Regenerate replaces it. */
 @Composable
 private fun AutomationTokenRow(token: String, onCopy: () -> Unit, onRegenerate: () -> Unit) {
+    ExplainedRow(
+        label = "Automation token",
+        description = "Tap to copy.",
+        tag = WhiteBearAutomation.abbreviated(token),
+        level = 1,
+        onClick = onCopy
+    ) { OutlinedButton(onClick = onRegenerate) { Text("Regenerate") } }
+}
+
+/**
+ * A settings item that carries an explanation (black-yellow-theme skill): bold accent label,
+ * an optional bold-monospace tag line, the description in dim gold, and a thin dim-gold rule
+ * down the item's left edge. The control sits on the right; the row is only as tall as its
+ * content.
+ */
+@Composable
+private fun ExplainedRow(
+    label: String,
+    description: String,
+    level: Int,
+    onClick: () -> Unit,
+    tag: String? = null,
+    control: @Composable () -> Unit
+) {
+    val note = whiteBearNoteColor()
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onCopy)
-            .padding(start = IndentStep, top = 8.dp, bottom = 8.dp),
+            .clickable(onClick = onClick)
+            .padding(start = IndentStep * level, top = 2.dp, bottom = 2.dp)
+            .height(IntrinsicSize.Min),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Box(
+            Modifier
+                .width(2.dp)
+                .fillMaxHeight()
+                .background(note)
+        )
+        Spacer(Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text("Automation token", style = MaterialTheme.typography.bodyLarge)
             Text(
-                WhiteBearAutomation.abbreviated(token) + " — tap to copy",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 3.dp, end = 8.dp)
+                label,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
             )
+            if (tag != null) {
+                Text(
+                    tag,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            Text(description, fontSize = 13.sp, lineHeight = 17.sp, color = note)
         }
-        TextButton(onClick = onRegenerate) { Text("Regenerate") }
+        Spacer(Modifier.width(10.dp))
+        control()
     }
 }
 
@@ -615,9 +655,15 @@ private fun WhiteBearColorsPreview(state: WhiteBearUiState) {
             )
         }
         Spacer(Modifier.height(6.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(onClick = {}) { Text("Accent") }
-            OutlinedButton(onClick = {}) { Text("Outline") }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Button(onClick = {}) { Text("Main") }
+            OutlinedButton(onClick = {}) { Text("Regular") }
+            var sampleOn by remember { mutableStateOf(true) }
+            Switch(checked = sampleOn, onCheckedChange = { sampleOn = it })
+            Switch(checked = !sampleOn, onCheckedChange = { sampleOn = !it })
         }
     }
 }
@@ -723,26 +769,20 @@ private fun SubHeader(text: String, level: Int) {
  */
 @Composable
 private fun EximEntryRow(status: Pair<String, Boolean>?, onClick: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(start = IndentStep, top = 10.dp, bottom = 10.dp)
+    PillActionRow(
+        label = "Export / Import…",
+        level = 1,
+        main = true,
+        opens = true,
+        summary = "Export or import every setting and the whole book library, by category, as one ZIP.",
+        onClick = onClick
     ) {
-        Text("Export / Import", style = MaterialTheme.typography.bodyLarge)
-        Text(
-            "Export or import every setting and the whole book library, by category, as one ZIP.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-            modifier = Modifier.padding(top = 3.dp)
-        )
         status?.let { (message, warn) ->
             Text(
                 message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (warn) Color(0xFFFF5252)
-                        else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
-                modifier = Modifier.padding(top = 3.dp)
+                fontSize = 13.sp,
+                color = if (warn) Color(0xFFFF5252) else whiteBearNoteColor(),
+                modifier = Modifier.padding(start = PillTextInset, top = 3.dp)
             )
         }
     }
@@ -806,8 +846,9 @@ private fun PageTurnAnimationChooser(
 private fun GestureHelpText(text: String, level: Int) {
     Text(
         text,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        fontSize = 13.sp,
+        lineHeight = 17.sp,
+        color = whiteBearNoteColor(),
         modifier = Modifier.padding(start = IndentStep * level, top = 2.dp, bottom = 2.dp)
     )
 }
@@ -818,8 +859,7 @@ private fun ColorRow(slot: WhiteBearSlot, argb: Int, level: Int, onClick: () -> 
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(start = IndentStep * level)
-            .heightIn(min = 38.dp),
+            .padding(start = IndentStep * level, top = 2.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -837,8 +877,7 @@ private fun SwitchRow(label: String, checked: Boolean, level: Int, onToggle: (Bo
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onToggle(!checked) }
-            .padding(start = IndentStep * level)
-            .heightIn(min = 38.dp),
+            .padding(start = IndentStep * level, top = 2.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
@@ -846,26 +885,68 @@ private fun SwitchRow(label: String, checked: Boolean, level: Int, onToggle: (Bo
     }
 }
 
+/** Horizontal inset of a pill's label; its explanation beneath is aligned to it. */
+private val PillTextInset = 18.dp
+
+/**
+ * A row that does something when tapped (black-yellow-theme skill, “every pressable row is a
+ * pill”, 白い熊 2026-11-07): an outlined pill as wide as its label, never filled — 3 dp frame and bold
+ * label for the main action of its section, 1.25 dp otherwise — with › when it opens
+ * something, and its explanation beneath in dim gold. Only the pill is the touch target.
+ */
 @Composable
-private fun ActionRow(label: String, level: Int, onClick: () -> Unit, icon: ImageVector? = null) {
-    Row(
-        modifier = Modifier
+private fun PillActionRow(
+    label: String,
+    level: Int,
+    opens: Boolean,
+    onClick: () -> Unit,
+    main: Boolean = false,
+    summary: String? = null,
+    below: @Composable () -> Unit = {}
+) {
+    val ink = MaterialTheme.colorScheme.primary
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(50)
+    Column(
+        Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(start = IndentStep * level)
-            .heightIn(min = 38.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(start = IndentStep * level, top = 3.dp, bottom = 3.dp)
     ) {
-        if (icon != null) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp)
+        // The pill hugs its label — never stretched across the line.
+        Row(
+            modifier = Modifier
+                .clip(shape)
+                .border(if (main) 3.dp else 1.25.dp, ink, shape)
+                .clickable(onClick = onClick)
+                .padding(start = PillTextInset, end = 16.dp, top = 9.dp, bottom = 9.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                label,
+                modifier = Modifier.weight(1f, fill = false),
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (main) FontWeight.Bold else FontWeight.Normal,
+                color = ink
             )
-            Spacer(Modifier.width(8.dp))
+            if (opens) {
+                Text(
+                    "\u203A",
+                    fontSize = 22.sp,
+                    fontWeight = if (main) FontWeight.Bold else FontWeight.Normal,
+                    color = ink,
+                    modifier = Modifier.padding(start = 10.dp)
+                )
+            }
         }
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+        if (!summary.isNullOrEmpty()) {
+            Text(
+                summary,
+                fontSize = 13.sp,
+                lineHeight = 17.sp,
+                color = whiteBearNoteColor(),
+                modifier = Modifier.padding(start = PillTextInset, top = 3.dp)
+            )
+        }
+        below()
     }
 }
 
@@ -937,8 +1018,7 @@ private fun FontChoices(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { onSelect(choice.preference) }
-                .padding(start = IndentStep * level)
-                .heightIn(min = 36.dp),
+                .padding(start = IndentStep * level, top = 2.dp, bottom = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(Modifier.width(26.dp), contentAlignment = Alignment.CenterStart) {
@@ -965,27 +1045,13 @@ private fun FontChoices(
 private fun AddFontRow(level: Int, viewModel: MainViewModel) {
     val pickFontLauncher = rememberFilePickerLauncher(viewModel::importFonts)
     val fontMimeTypes = remember { supportedFontMimeTypes() }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { pickFontLauncher.launch(fontMimeTypes) }
-            .padding(start = IndentStep * level)
-            .heightIn(min = 36.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            Icons.Default.Add,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            "Add external font…",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
-    }
+    PillActionRow(
+        label = "Add external font…",
+        level = level,
+        opens = true,
+        summary = "Pick a font file; it joins the list above.",
+        onClick = { pickFontLauncher.launch(fontMimeTypes) }
+    )
 }
 
 /** The boxed entry card injected under the Settings search bar. */
