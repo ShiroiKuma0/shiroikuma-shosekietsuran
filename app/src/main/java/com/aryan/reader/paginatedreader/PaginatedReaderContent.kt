@@ -46,6 +46,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import com.aryan.reader.shared.ui.whitebear.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -590,6 +591,16 @@ internal fun PaginatedReaderContent(
         }
         val latestPageLayoutCoordinates = rememberUpdatedState(pageLayoutCoordinates)
         val latestOnLinkClickCallback = rememberUpdatedState(onLinkClickCallback)
+        // 白い熊 UI: let the side-third page-turn layer follow a link the tap narrowly missed.
+        DisposableEffect(blockLayoutMap) {
+            val resolver: (Offset, Float) -> Boolean = { windowPosition, slopPx ->
+                val href = blockLayoutMap.readerNearestLinkAtWindowPosition(windowPosition, slopPx)
+                if (href != null) latestOnLinkClickCallback.value(href)
+                href != null
+            }
+            ReaderNearLinkResolvers.register(resolver)
+            onDispose { ReaderNearLinkResolvers.unregister(resolver) }
+        }
         val pageHorizontalPaddingPx = with(density) { horizontalPadding.roundToPx() }
         val pageVerticalPaddingPx = with(density) { verticalPadding.roundToPx() }
         val pageContentBoundsProvider = {

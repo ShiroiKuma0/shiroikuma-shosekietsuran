@@ -1533,6 +1533,105 @@ internal object ReaderLinkPressTracker {
     fun isLinkPress(id: PointerId): Boolean = linkPointer == id
 }
 
+/**
+ * 白い熊 UI: distance from [position] to the nearest URL-annotated run of this layout, or null
+ * when none lies within [slopPx]. Unlike [readerUrlAnnotationAtPosition] (an exact hit test)
+ * this is the finger-sized fallback: a one-digit back-link is a few millimetres wide, and a
+ * tap that lands just beside it must still follow the link rather than turn the page.
+ */
+internal fun TextLayoutResult.readerNearestUrlAnnotation(
+    position: Offset,
+    slopPx: Float
+): Pair<String, Float>? {
+    val text = layoutInput.text
+    val textLength = text.length
+    if (textLength == 0 || lineCount == 0) return null
+
+    var bestHref: String? = null
+    var bestDistance = Float.POSITIVE_INFINITY
+    text.getStringAnnotations("URL", 0, textLength).forEach { annotation ->
+        if (annotation.item.isBlank()) return@forEach
+        val start = annotation.start.coerceIn(0, textLength)
+        val end = annotation.end.coerceIn(start, textLength)
+        if (start >= end) return@forEach
+        val firstLine = getLineForOffset(start)
+        val lastLine = getLineForOffset(end - 1)
+        for (line in firstLine..lastLine) {
+            val top = getLineTop(line)
+            val bottom = getLineBottom(line)
+            val dy = maxOf(top - position.y, position.y - bottom, 0f)
+            if (dy > slopPx) continue
+            val segmentStart = maxOf(start, getLineStart(line))
+            val segmentEnd = minOf(end, getLineEnd(line, visibleEnd = true))
+            if (segmentStart >= segmentEnd) continue
+            var left = Float.POSITIVE_INFINITY
+            var right = Float.NEGATIVE_INFINITY
+            for (offset in segmentStart until segmentEnd) {
+                val box = getBoundingBox(offset)
+                left = minOf(left, box.left, box.right)
+                right = maxOf(right, box.left, box.right)
+            }
+            if (left > right) continue
+            val dx = maxOf(left - position.x, position.x - right, 0f)
+            val distance = sqrt(dx * dx + dy * dy)
+            if (distance <= slopPx && distance < bestDistance) {
+                bestDistance = distance
+                bestHref = annotation.item
+            }
+        }
+    }
+    return bestHref?.let { it to bestDistance }
+}
+
+/** 白い熊 UI: the link nearest to a window position across every attached text block. */
+internal fun ReactiveBlockMap.readerNearestLinkAtWindowPosition(
+    windowPosition: Offset,
+    slopPx: Float,
+    keySuffix: String? = null
+): String? {
+    var bestHref: String? = null
+    var bestDistance = Float.POSITIVE_INFINITY
+    entries.toList().forEach { (key, value) ->
+        if (keySuffix != null && !key.endsWith(keySuffix)) return@forEach
+        val (layout, coordinates, _) = value
+        if (!coordinates.isAttached) return@forEach
+        val local = coordinates.windowToLocal(windowPosition)
+        if (
+            local.x < -slopPx || local.y < -slopPx ||
+            local.x > layout.size.width + slopPx || local.y > layout.size.height + slopPx
+        ) {
+            return@forEach
+        }
+        val hit = layout.readerNearestUrlAnnotation(local, slopPx) ?: return@forEach
+        if (hit.second < bestDistance) {
+            bestDistance = hit.second
+            bestHref = hit.first
+        }
+    }
+    return bestHref
+}
+
+/**
+ * 白い熊 UI: the native readers register a "follow the link near this window position" hook
+ * here; the side-third page-turn layer asks it on release, before it turns the page, so a tap
+ * that narrowly misses a link's glyphs still follows the link. Links win over page turns.
+ */
+internal object ReaderNearLinkResolvers {
+    private val resolvers = java.util.concurrent.CopyOnWriteArrayList<(Offset, Float) -> Boolean>()
+
+    fun register(resolver: (Offset, Float) -> Boolean) {
+        resolvers.add(resolver)
+    }
+
+    fun unregister(resolver: (Offset, Float) -> Boolean) {
+        resolvers.remove(resolver)
+    }
+
+    /** True when a registered reader found a link within [slopPx] and followed it. */
+    fun followLinkNear(windowPosition: Offset, slopPx: Float): Boolean =
+        resolvers.any { it(windowPosition, slopPx) }
+}
+
 internal suspend fun AwaitPointerEventScope.awaitReaderLinkTap(
     source: String,
     urlAtPosition: (Offset) -> String?,

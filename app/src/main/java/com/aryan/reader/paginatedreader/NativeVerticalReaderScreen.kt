@@ -1026,6 +1026,20 @@ fun NativeVerticalReaderScreen(
                                 }
                             }
                         }
+                        // 白い熊 UI: let the side-third page-turn layer follow a link the tap narrowly
+                        // missed (this item's chapter only — the callback resolves hrefs against it).
+                        val latestItemLinkClick = rememberUpdatedState(onLinkClickCallback)
+                        DisposableEffect(blockLayoutMap, chapterIndex) {
+                            val resolver: (Offset, Float) -> Boolean = { windowPosition, slopPx ->
+                                val href = blockLayoutMap.readerNearestLinkAtWindowPosition(
+                                    windowPosition, slopPx, keySuffix = "_$chapterIndex"
+                                )
+                                if (href != null) latestItemLinkClick.value(href)
+                                href != null
+                            }
+                            ReaderNearLinkResolvers.register(resolver)
+                            onDispose { ReaderNearLinkResolvers.unregister(resolver) }
+                        }
 
                         if (block == null) {
                             if (item.kind == NativeVerticalFlowItemKind.UNLOADED_CHAPTER) {

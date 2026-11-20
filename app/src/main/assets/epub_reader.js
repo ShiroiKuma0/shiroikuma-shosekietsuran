@@ -1698,14 +1698,37 @@
     // WebView sees it, so it asks here first: if a link sits under the tap (given in
     // WebView physical pixels), replay the tap as a click on it — the regular link /
     // footnote handlers then run — and return "link" so the page is NOT turned.
-    window.whiteBearLinkTapAt = function (px, py) {
+    // A link's glyphs are far smaller than a fingertip (a one-digit back-link especially),
+    // so an exact miss falls back to the NEAREST link within `slopPx` of the tap.
+    window.whiteBearLinkTapAt = function (px, py, slopPx) {
         var dpr = window.devicePixelRatio || 1;
         var x = px / dpr;
         var y = py / dpr;
+        var slop = (typeof slopPx === "number" && slopPx > 0) ? slopPx / dpr : 0;
         var el = document.elementFromPoint(x, y);
         var anchor = el && el.closest ? el.closest('a[href]') : null;
+        var target = el;
+        if (!anchor && slop > 0) {
+            var best = slop;
+            var vw = window.innerWidth || document.documentElement.clientWidth || 0;
+            var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+            var anchors = document.querySelectorAll('a[href]');
+            for (var i = 0; i < anchors.length; i++) {
+                var rects = anchors[i].getClientRects();
+                for (var j = 0; j < rects.length; j++) {
+                    var r = rects[j];
+                    if (r.width <= 0 && r.height <= 0) continue;
+                    if (r.bottom < 0 || r.top > vh || r.right < 0 || r.left > vw) continue;
+                    var dx = Math.max(r.left - x, x - r.right, 0);
+                    var dy = Math.max(r.top - y, y - r.bottom, 0);
+                    var d = Math.sqrt(dx * dx + dy * dy);
+                    if (d <= best) { best = d; anchor = anchors[i]; }
+                }
+            }
+            target = anchor;
+        }
         if (!anchor) return "none";
-        el.dispatchEvent(new MouseEvent('click', {
+        target.dispatchEvent(new MouseEvent('click', {
             bubbles: true, cancelable: true, view: window, clientX: x, clientY: y
         }));
         return "link";

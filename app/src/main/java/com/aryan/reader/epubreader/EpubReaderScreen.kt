@@ -4360,6 +4360,8 @@ fun EpubReaderHost(
             // always smooth-scroll the remainder as the visual cue.
             // Window position of the gesture layer, to map its taps into the WebView.
             val wbGestureLayerOrigin = remember { FloatArray(2) }
+            // Finger-sized tolerance around a link: a side tap this close to one follows it.
+            val wbLinkSlopPx = with(androidx.compose.ui.platform.LocalDensity.current) { 20.dp.toPx() }
             // `tapAt` (gesture-layer local px) is set for a side-third tap: in the WebView a
             // link under the finger is opened instead of turning (links take precedence).
             fun whiteBearTurnPage(dir: Int, tapAt: androidx.compose.ui.geometry.Offset? = null) {
@@ -4377,7 +4379,7 @@ fun EpubReaderHost(
                         val px = wbGestureLayerOrigin[0] + tapAt.x - loc[0]
                         val py = wbGestureLayerOrigin[1] + tapAt.y - loc[1]
                         webView.evaluateJavascript(
-                            "window.whiteBearLinkTapAt ? window.whiteBearLinkTapAt($px, $py) : \"none\";"
+                            "window.whiteBearLinkTapAt ? window.whiteBearLinkTapAt($px, $py, $wbLinkSlopPx) : \"none\";"
                         ) { result ->
                             if (result?.trim('"') != "link") whiteBearTurnPage(dir)
                         }
@@ -4536,7 +4538,19 @@ fun EpubReaderHost(
                                     .isLinkPress(down.id)
                                 if (!onLink && !verticalDrag && !bailed && whiteBearTapTurn && quickTap && zone != 0) {
                                     change.consume()
-                                    whiteBearTurnPage(if (zone < 0) -1 else 1, change.position)
+                                    // Native renderers: a tap that narrowly missed a link's
+                                    // glyphs still follows the nearest link within reach.
+                                    val nearLink = com.aryan.reader.paginatedreader.ReaderNearLinkResolvers
+                                        .followLinkNear(
+                                            androidx.compose.ui.geometry.Offset(
+                                                wbGestureLayerOrigin[0] + change.position.x,
+                                                wbGestureLayerOrigin[1] + change.position.y
+                                            ),
+                                            wbLinkSlopPx
+                                        )
+                                    if (!nearLink) {
+                                        whiteBearTurnPage(if (zone < 0) -1 else 1, change.position)
+                                    }
                                 }
                                 break
                             }
