@@ -1,5 +1,6 @@
 package com.aryan.reader.shared.ui
 
+import com.aryan.reader.shared.ui.whitebear.MenuRole
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -43,9 +44,9 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
+import com.aryan.reader.shared.ui.whitebear.DropdownMenu
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -1272,8 +1273,7 @@ private fun ReaderWorkspaceTopChrome(
                                     fileActionsExpanded = false
                                     onShareAction()
                                 },
-                                leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
-                            )
+                                leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }, role = MenuRole.Share)
                         }
                         if (
                             (fileActions.canGenerateTextView ||
@@ -1306,8 +1306,7 @@ private fun ReaderWorkspaceTopChrome(
                                     fileActionsExpanded = false
                                     onSaveCopyAction()
                                 },
-                                leadingIcon = { Icon(Icons.Default.Save, contentDescription = null) }
-                            )
+                                leadingIcon = { Icon(Icons.Default.Save, contentDescription = null) }, role = MenuRole.Share)
                         }
                         if (fileActions.canPrint && onPrintAction != null) {
                             DropdownMenuItem(
@@ -1316,8 +1315,7 @@ private fun ReaderWorkspaceTopChrome(
                                     fileActionsExpanded = false
                                     onPrintAction()
                                 },
-                                leadingIcon = { Icon(Icons.Default.Print, contentDescription = null) }
-                            )
+                                leadingIcon = { Icon(Icons.Default.Print, contentDescription = null) }, role = MenuRole.Share, opens = true)
                         }
                     }
                 }

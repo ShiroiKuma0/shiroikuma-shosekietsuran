@@ -17,7 +17,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import com.aryan.reader.shared.ui.whitebear.LocalWhiteBearMenuColors
 import com.aryan.reader.shared.ui.whitebear.LocalWhiteBearNote
+import com.aryan.reader.shared.ui.whitebear.WhiteBearMenuColors
 import com.aryan.reader.shared.ui.whitebear.LocalWhiteBearSwitchOff
 
 /** Border thickness for fork-drawn chrome rules (e.g. the top-bar underline). 0 = none. */
@@ -52,6 +54,10 @@ fun WhiteBearTheme(content: @Composable () -> Unit) {
     val base = MaterialTheme.colorScheme
     val scheme = remember(base, background, surface, surfaceHigh, text, accent, border) {
         whiteBearColorScheme(base, background, surface, surfaceHigh, text, accent, border)
+    }.let { built ->
+        // Every destructive tint in the app follows the settable delete role.
+        val delete = Color(state.color(WhiteBearSlot.MENU_DELETE))
+        remember(built, delete) { built.copy(error = delete) }
     }
 
     val baseTypography = MaterialTheme.typography
@@ -64,7 +70,15 @@ fun WhiteBearTheme(content: @Composable () -> Unit) {
     CompositionLocalProvider(
         LocalWhiteBearBorderWidth provides borderWidth.dp,
         LocalWhiteBearNote provides Color(state.color(WhiteBearSlot.NOTE)),
-        LocalWhiteBearSwitchOff provides Color(state.color(WhiteBearSlot.SWITCH_OFF))
+        LocalWhiteBearSwitchOff provides Color(state.color(WhiteBearSlot.SWITCH_OFF)),
+        LocalWhiteBearMenuColors provides WhiteBearMenuColors(
+            connect = Color(state.color(WhiteBearSlot.MENU_CONNECT)),
+            mark = Color(state.color(WhiteBearSlot.MENU_MARK)),
+            contact = Color(state.color(WhiteBearSlot.MENU_CONTACT)),
+            share = Color(state.color(WhiteBearSlot.MENU_SHARE)),
+            block = Color(state.color(WhiteBearSlot.MENU_BLOCK)),
+            delete = Color(state.color(WhiteBearSlot.MENU_DELETE))
+        )
     ) {
         MaterialTheme(
             colorScheme = scheme,

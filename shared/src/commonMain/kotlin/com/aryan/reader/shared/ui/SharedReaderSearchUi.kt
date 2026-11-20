@@ -1,5 +1,7 @@
 package com.aryan.reader.shared.ui
 
+import com.aryan.reader.shared.ui.whitebear.WbMenuIcons
+import com.aryan.reader.shared.ui.whitebear.MenuRole
 import androidx.compose.foundation.clickable
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
@@ -20,12 +22,12 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
+import com.aryan.reader.shared.ui.whitebear.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.DropdownMenu
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import com.aryan.reader.shared.ui.whitebear.TextButton
@@ -395,15 +397,13 @@ fun <T> SharedAndroidPdfHighlightsList(
                                     onClick = {
                                         onNoteRequested(highlight)
                                         menuExpanded = false
-                                    },
-                                )
+                                    }, icon = WbMenuIcons.Edit, role = MenuRole.Mark, opens = true)
                                 DropdownMenuItem(
                                     text = { Text(strings.deleteAction) },
                                     onClick = {
                                         showDeleteConfirmDialogFor = highlight
                                         menuExpanded = false
-                                    },
-                                )
+                                    }, icon = WbMenuIcons.Delete, role = MenuRole.Delete)
                             }
                         }
                     },
@@ -488,15 +488,13 @@ fun <T> SharedAndroidPdfBookmarksList(
                                 onClick = {
                                     showRenameBookmarkDialog = bookmark
                                     bookmarkMenuExpandedFor = null
-                                },
-                            )
+                                }, icon = WbMenuIcons.Edit, role = MenuRole.Mark, opens = true)
                             DropdownMenuItem(
                                 text = { Text(strings.deleteAction) },
                                 onClick = {
                                     showDeleteConfirmDialogFor = bookmark
                                     bookmarkMenuExpandedFor = null
-                                },
-                            )
+                                }, icon = WbMenuIcons.Delete, role = MenuRole.Delete)
                         }
                     }
                 },
@@ -629,15 +627,13 @@ fun SharedAndroidEpubBookmarksList(
                                     onClick = {
                                         showRenameBookmarkDialog = bookmark
                                         bookmarkMenuExpandedFor = null
-                                    },
-                                )
+                                    }, icon = WbMenuIcons.Edit, role = MenuRole.Mark, opens = true)
                                 DropdownMenuItem(
                                     text = { Text(strings.deleteAction) },
                                     onClick = {
                                         showDeleteConfirmDialogFor = bookmark
                                         bookmarkMenuExpandedFor = null
-                                    },
-                                )
+                                    }, icon = WbMenuIcons.Delete, role = MenuRole.Delete)
                             }
                         }
                     },

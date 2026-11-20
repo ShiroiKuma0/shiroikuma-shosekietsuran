@@ -1,5 +1,7 @@
 package com.aryan.reader.shared.ui
 
+import com.aryan.reader.shared.ui.whitebear.WbMenuIcons
+import com.aryan.reader.shared.ui.whitebear.MenuRole
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,16 +40,16 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.DropdownMenu
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
+import com.aryan.reader.shared.ui.whitebear.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.NavigationDrawerItem
+import com.aryan.reader.shared.ui.whitebear.NavigationDrawerItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -431,12 +433,10 @@ internal fun SharedMobileEpubBookmarks(
                         DropdownMenu(expanded = menuBookmark?.id == bookmark.id, onDismissRequest = { menuBookmark = null }) {
                             DropdownMenuItem(
                                 text = { Text(readerString("action_rename", "Rename")) },
-                                onClick = { renameBookmark = bookmark; menuBookmark = null },
-                            )
+                                onClick = { renameBookmark = bookmark; menuBookmark = null }, icon = WbMenuIcons.Edit, role = MenuRole.Mark, opens = true)
                             DropdownMenuItem(
                                 text = { Text(readerString("action_delete", "Delete")) },
-                                onClick = { deleteBookmark = bookmark; menuBookmark = null },
-                            )
+                                onClick = { deleteBookmark = bookmark; menuBookmark = null }, icon = WbMenuIcons.Delete, role = MenuRole.Delete)
                         }
                     }
                 }
@@ -631,8 +631,7 @@ internal fun SharedMobileEpubHighlights(
                                                     onClick = {
                                                         onHighlightEdit(highlight)
                                                         menuHighlight = null
-                                                    }
-                                                )
+                                                    }, icon = WbMenuIcons.Edit, role = MenuRole.Mark, opens = true)
                                             }
                                             ReaderHighlightListAction.DELETE -> {
                                                 DropdownMenuItem(
@@ -640,8 +639,7 @@ internal fun SharedMobileEpubHighlights(
                                                     onClick = {
                                                         deleteHighlight = highlight
                                                         menuHighlight = null
-                                                    }
-                                                )
+                                                    }, icon = WbMenuIcons.Delete, role = MenuRole.Delete)
                                             }
                                         }
                                     }

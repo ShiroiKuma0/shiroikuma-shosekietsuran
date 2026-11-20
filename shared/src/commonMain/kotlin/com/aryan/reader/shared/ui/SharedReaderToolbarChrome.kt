@@ -29,8 +29,8 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.ScrollState
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.DropdownMenu
+import com.aryan.reader.shared.ui.whitebear.HorizontalDivider
+import com.aryan.reader.shared.ui.whitebear.DropdownMenu
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.Dp

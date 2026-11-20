@@ -25,6 +25,13 @@ enum class WhiteBearSlot(val key: String, val label: String, val defaultArgb: In
     NOTE("wb_color_note", "Notes and explanations", 0xFFC8C800.toInt()),
     /** A switch that is off: a darker, opaque yellow — never a faded one. */
     SWITCH_OFF("wb_color_switch_off", "Switch, off", 0xFF8C8C00.toInt()),
+    /** Menu icons, coloured by what the row does. Plain view / open / settings rows use the accent. */
+    MENU_CONNECT("wb_color_menu_connect", "Start, sync, load", 0xFF00FF00.toInt()),
+    MENU_MARK("wb_color_menu_mark", "Edit, bookmark, tag, shelf", 0xFF4D94FF.toInt()),
+    MENU_CONTACT("wb_color_menu_contact", "Account, devices", 0xFF00FFFF.toInt()),
+    MENU_SHARE("wb_color_menu_share", "Share, save, export, print", 0xFFFF8000.toInt()),
+    MENU_BLOCK("wb_color_menu_block", "Stop, clear, close", 0xFFFF00FF.toInt()),
+    MENU_DELETE("wb_color_menu_delete", "Delete, remove", 0xFFFF0000.toInt()),
 }
 
 class WhiteBearUiState private constructor(private val prefs: SharedPreferences) {
@@ -72,6 +79,33 @@ class WhiteBearUiState private constructor(private val prefs: SharedPreferences)
     fun setColor(slot: WhiteBearSlot, argb: Int, persist: Boolean = true) {
         colorMap[slot] = argb
         if (persist) prefs.edit().putInt(slot.key, argb).apply()
+    }
+
+    /** Section ids of the UI page in the order 白い熊 arranged them; unknown ids go last. */
+    var sectionOrder by mutableStateOf(
+        prefs.getString(KEY_SECTION_ORDER, null)?.split(",")?.filter { it.isNotBlank() } ?: emptyList()
+    )
+        private set
+
+    /** Sections of the UI page that are unfolded; every section starts folded. */
+    var openSections by mutableStateOf(
+        prefs.getString(KEY_SECTIONS_OPEN, null)?.split(",")?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
+    )
+        private set
+
+    fun updateSectionOrder(value: List<String>) {
+        sectionOrder = value
+        prefs.edit().putString(KEY_SECTION_ORDER, value.joinToString(",")).apply()
+    }
+
+    fun resetSectionOrder() {
+        sectionOrder = emptyList()
+        prefs.edit().remove(KEY_SECTION_ORDER).apply()
+    }
+
+    fun setSectionOpen(id: String, open: Boolean) {
+        openSections = if (open) openSections + id else openSections - id
+        prefs.edit().putString(KEY_SECTIONS_OPEN, openSections.joinToString(",")).apply()
     }
 
     fun updateEnabled(value: Boolean) {
@@ -126,6 +160,8 @@ class WhiteBearUiState private constructor(private val prefs: SharedPreferences)
     companion object {
         private const val PREFS_NAME = "whitebear_ui_prefs"
         private const val KEY_ENABLED = "wb_enabled"
+        private const val KEY_SECTION_ORDER = "wb_ui_section_order"
+        private const val KEY_SECTIONS_OPEN = "wb_ui_sections_open"
         private const val KEY_FONT_SCALE = "wb_font_scale"
         private const val KEY_FONT_WEIGHT = "wb_font_weight"
         private const val KEY_CORNER_RADIUS = "wb_corner_radius"

@@ -1,5 +1,7 @@
 package com.aryan.reader.shared.ui
 
+import com.aryan.reader.shared.ui.whitebear.WbMenuIcons
+import com.aryan.reader.shared.ui.whitebear.MenuRole
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -67,14 +69,14 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.DropdownMenu
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
+import com.aryan.reader.shared.ui.whitebear.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import com.aryan.reader.shared.ui.whitebear.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
+import com.aryan.reader.shared.ui.whitebear.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
@@ -514,44 +516,38 @@ internal fun SharedMobileCompactSelectionActions(
                 DropdownMenuItem(
                     text = { Text(labels.tag) },
                     leadingIcon = { tagIcon(null) },
-                    onClick = { showMore = false; action() },
-                )
+                    onClick = { showMore = false; action() }, role = MenuRole.Mark, opens = true)
             }
             onAddToShelf?.let { action ->
                 DropdownMenuItem(
                     text = { Text(labels.addToShelf) },
                     leadingIcon = { Icon(Icons.Default.Folder, contentDescription = null) },
-                    onClick = { showMore = false; action() },
-                )
+                    onClick = { showMore = false; action() }, role = MenuRole.Mark, opens = true)
             }
             if (selectedItemCount == 1) {
                 onSave?.let { action ->
                     DropdownMenuItem(
                         text = { Text(labels.save) },
                         leadingIcon = { Icon(Icons.Default.Save, contentDescription = null) },
-                        onClick = { showMore = false; action() },
-                    )
+                        onClick = { showMore = false; action() }, role = MenuRole.Share, opens = true)
                 }
                 onShare?.let { action ->
                     DropdownMenuItem(
                         text = { Text(labels.share) },
                         leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
-                        onClick = { showMore = false; action() },
-                    )
+                        onClick = { showMore = false; action() }, role = MenuRole.Share)
                 }
                 onExportAnnotations?.let { action ->
                     DropdownMenuItem(
                         text = { Text(labels.exportAnnotations) },
                         leadingIcon = { Icon(Icons.Default.Save, contentDescription = null) },
-                        onClick = { showMore = false; action() },
-                    )
+                        onClick = { showMore = false; action() }, role = MenuRole.Share, opens = true)
                 }
             }
             DropdownMenuItem(
                 text = { Text(labels.clear) },
                 leadingIcon = { Icon(Icons.Default.Close, contentDescription = null) },
-                onClick = { showMore = false; onClear() },
-            )
+                onClick = { showMore = false; onClear() }, role = MenuRole.Block)
         }
     }
 }
@@ -834,50 +830,43 @@ internal fun SharedMobileContextualTopBar(
                     onTag?.let { tag ->
                         DropdownMenuItem(
                             text = { Text(readerString("section_tags", "Tags")) },
-                            onClick = { showMoreMenu = false; tag() }
-                        )
+                            onClick = { showMoreMenu = false; tag() }, icon = WbMenuIcons.Tag, role = MenuRole.Mark, opens = true)
                     }
                     onAddToShelf?.let { addToShelf ->
                         DropdownMenuItem(
                             text = { Text(readerString("desktop_add_to_shelf", "Add to shelf")) },
                             leadingIcon = { Icon(Icons.Default.Folder, contentDescription = null) },
-                            onClick = { showMoreMenu = false; addToShelf() }
-                        )
+                            onClick = { showMoreMenu = false; addToShelf() }, role = MenuRole.Mark, opens = true)
                     }
                     onRename?.let { rename ->
                         DropdownMenuItem(
                             text = { Text(readerString("action_rename", "Rename")) },
-                            onClick = { showMoreMenu = false; rename() }
-                        )
+                            onClick = { showMoreMenu = false; rename() }, icon = WbMenuIcons.Edit, role = MenuRole.Mark, opens = true)
                     }
                     if (selectedCount == 1) {
                         onSave?.let { save ->
                             DropdownMenuItem(
                                 text = { Text(readerString("action_save_copy_to_device", "Save copy to device")) },
                                 leadingIcon = { Icon(Icons.Default.Save, contentDescription = null) },
-                                onClick = { showMoreMenu = false; save() }
-                            )
+                                onClick = { showMoreMenu = false; save() }, role = MenuRole.Share, opens = true)
                         }
                         onShare?.let { share ->
                             DropdownMenuItem(
                                 text = { Text(readerString("action_share_original_file", "Share original file")) },
                                 leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
-                                onClick = { showMoreMenu = false; share() }
-                            )
+                                onClick = { showMoreMenu = false; share() }, role = MenuRole.Share)
                         }
                         onExportAnnotations?.let { export ->
                             DropdownMenuItem(
                                 text = { Text(readerString("action_export_annotations", "Export annotations")) },
                                 leadingIcon = { Icon(Icons.Default.Save, contentDescription = null) },
-                                onClick = { showMoreMenu = false; export() }
-                            )
+                                onClick = { showMoreMenu = false; export() }, role = MenuRole.Share, opens = true)
                         }
                     }
                     DropdownMenuItem(
                         text = { Text(readerString("action_clear", "Clear")) },
                         leadingIcon = { Icon(Icons.Default.Close, contentDescription = null) },
-                        onClick = { showMoreMenu = false; onClose() }
-                    )
+                        onClick = { showMoreMenu = false; onClose() }, role = MenuRole.Block)
                 }
             }
         }
@@ -1729,8 +1718,7 @@ internal fun SharedMobileFolderCard(
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                         DropdownMenuItem(
                             text = { Text(readerString("menu_edit_filters", "Edit Filters")) },
-                            onClick = { showMenu = false; onEditFilters() },
-                        )
+                            onClick = { showMenu = false; onEditFilters() }, icon = WbMenuIcons.Filter, role = MenuRole.Mark, opens = true)
                         DropdownMenuItem(
                             text = {
                                 Text(
@@ -1744,13 +1732,11 @@ internal fun SharedMobileFolderCard(
                             onClick = {
                                 showMenu = false
                                 onLocalSyncChange(!folder.localSyncEnabled)
-                            },
-                        )
+                            }, icon = WbMenuIcons.Sync, role = MenuRole.Connect)
                         DropdownMenuItem(
                             text = { Text(readerString("menu_remove_folder", "Remove Folder")) },
                             onClick = { showMenu = false; onRemove() },
-                            colors = MenuDefaults.itemColors(textColor = MaterialTheme.colorScheme.error),
-                        )
+                            colors = MenuDefaults.itemColors(textColor = MaterialTheme.colorScheme.error), icon = WbMenuIcons.Delete, role = MenuRole.Delete)
                     }
                 }
             }

@@ -19,6 +19,8 @@
  */
 package com.aryan.reader.epubreader
 
+import com.aryan.reader.shared.ui.whitebear.WbMenuIcons
+import com.aryan.reader.shared.ui.whitebear.MenuRole
 import android.graphics.BitmapFactory
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -66,9 +68,9 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
+import com.aryan.reader.shared.ui.whitebear.DropdownMenu
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -935,15 +937,13 @@ private fun HighlightsList(
                                             onClick = {
                                                 onEditNote(highlight)
                                                 highlightMenuExpandedFor = null
-                                            }
-                                        )
+                                            }, icon = WbMenuIcons.Edit, role = MenuRole.Mark, opens = true)
                                         DropdownMenuItem(
                                             text = { Text(stringResource(R.string.action_delete)) },
                                             onClick = {
                                                 showHighlightDeleteDialogFor = highlight
                                                 highlightMenuExpandedFor = null
-                                            }
-                                        )
+                                            }, icon = WbMenuIcons.Delete, role = MenuRole.Delete)
                                     }
                                 }
                             },

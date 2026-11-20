@@ -1,5 +1,8 @@
 package com.aryan.reader.shared.ui
 
+import com.aryan.reader.shared.ui.whitebear.whiteBearMenuSpec
+import com.aryan.reader.shared.ui.whitebear.WbMenuIcons
+import com.aryan.reader.shared.ui.whitebear.MenuRole
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -60,20 +63,20 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.DropdownMenu
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
+import com.aryan.reader.shared.ui.whitebear.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
+import com.aryan.reader.shared.ui.whitebear.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationDrawerItem
+import com.aryan.reader.shared.ui.whitebear.NavigationDrawerItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Scaffold
@@ -1997,15 +2000,13 @@ private fun SharedMobileShelfDetail(
                                         onClick = {
                                             showMoreMenu = false
                                             showRenameShelf = true
-                                        },
-                                    )
+                                        }, icon = WbMenuIcons.Edit, role = MenuRole.Mark, opens = true)
                                     DropdownMenuItem(
                                         text = { Text(readerString("menu_delete_shelf", "Delete shelf")) },
                                         onClick = {
                                             showMoreMenu = false
                                             showDeleteShelf = true
-                                        },
-                                    )
+                                        }, icon = WbMenuIcons.Delete, role = MenuRole.Delete)
                                 }
                             }
                         }
@@ -2841,6 +2842,7 @@ private fun SharedMobileHomeTopBar(
                             HorizontalDivider()
                         }
                         SharedMobileHomeOption(
+                            spec = item.action.whiteBearMenuSpec(),
                             label = itemLabel(item.action),
                             checked = item.checked,
                             onClick = {
@@ -2857,6 +2859,7 @@ private fun SharedMobileHomeTopBar(
 
 @Composable
 private fun SharedMobileHomeOption(
+    spec: com.aryan.reader.shared.ui.whitebear.WhiteBearMenuSpec,
     label: String,
     checked: Boolean? = null,
     onClick: () -> Unit,
@@ -2864,11 +2867,10 @@ private fun SharedMobileHomeOption(
     DropdownMenuItem(
         text = { Text(label) },
         onClick = onClick,
-        trailingIcon = if (checked == true) {
-            { Icon(Icons.Default.Check, contentDescription = readerString("content_desc_enabled", "Enabled")) }
-        } else {
-            null
-        },
+        icon = spec.icon,
+        role = spec.role,
+        opens = spec.opens,
+        checked = if (spec.toggle) (checked == true) else null,
     )
 }
 

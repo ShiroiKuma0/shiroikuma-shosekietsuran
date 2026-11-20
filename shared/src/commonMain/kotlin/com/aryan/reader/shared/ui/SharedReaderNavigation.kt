@@ -1,5 +1,7 @@
 package com.aryan.reader.shared.ui
 
+import com.aryan.reader.shared.ui.whitebear.WbMenuIcons
+import com.aryan.reader.shared.ui.whitebear.MenuRole
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -40,9 +42,9 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
+import com.aryan.reader.shared.ui.whitebear.DropdownMenu
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -1057,15 +1059,13 @@ internal fun SharedReaderAnnotationsTab(
                                                 onClick = {
                                                     menuExpandedFor = null
                                                     onEditHighlight(highlight)
-                                                }
-                                            )
+                                                }, icon = WbMenuIcons.Edit, role = MenuRole.Mark, opens = true)
                                             DropdownMenuItem(
                                                 text = { Text(readerString("action_delete", "Delete")) },
                                                 onClick = {
                                                     menuExpandedFor = null
                                                     deleteConfirmFor = highlight
-                                                }
-                                            )
+                                                }, icon = WbMenuIcons.Delete, role = MenuRole.Delete)
                                         }
                                     }
                                 }

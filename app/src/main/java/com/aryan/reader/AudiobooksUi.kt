@@ -1,5 +1,6 @@
 package com.aryan.reader
 
+import com.aryan.reader.shared.ui.whitebear.MenuRole
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
@@ -58,8 +59,8 @@ import androidx.compose.material3.AssistChip
 import com.aryan.reader.shared.ui.whitebear.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.DropdownMenu
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -1190,8 +1191,7 @@ private fun LegacyAudiobookMiniPlayer(
                             onClick = {
                                 showMenu = false
                                 onStop()
-                            }
-                        )
+                            }, role = MenuRole.Block)
                     }
                 }
             }

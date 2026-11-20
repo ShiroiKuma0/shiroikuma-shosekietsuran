@@ -1,5 +1,7 @@
 package com.aryan.reader.shared.ui
 
+import com.aryan.reader.shared.ui.whitebear.WbMenuIcons
+import com.aryan.reader.shared.ui.whitebear.MenuRole
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -45,9 +47,9 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import com.aryan.reader.shared.ui.whitebear.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExtendedFloatingActionButton
+import com.aryan.reader.shared.ui.whitebear.DropdownMenu
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.ExtendedFloatingActionButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import com.aryan.reader.shared.ui.whitebear.FilledTonalButton
 import androidx.compose.material3.FilterChip
@@ -1046,8 +1048,7 @@ private fun SharedOpdsBookCard(
                                         onClick = {
                                             showFormatMenu = false
                                             onDownloadBook(acquisition)
-                                        }
-                                    )
+                                        }, icon = WbMenuIcons.Download, role = MenuRole.Connect)
                                 }
                             }
                         }

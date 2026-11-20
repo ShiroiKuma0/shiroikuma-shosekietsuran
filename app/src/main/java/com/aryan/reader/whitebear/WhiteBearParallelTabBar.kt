@@ -1,5 +1,6 @@
 package com.aryan.reader.whitebear
 
+import com.aryan.reader.shared.ui.whitebear.MenuRole
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,9 +18,9 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
+import com.aryan.reader.shared.ui.whitebear.DropdownMenu
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -169,16 +170,14 @@ fun WhiteBearParallelTabBar(
                             DropdownMenuItem(
                                 text = { Text("File info") },
                                 leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
-                                onClick = { menuOpen = false; onInfo(bookId) }
-                            )
+                                onClick = { menuOpen = false; onInfo(bookId) }, opens = true)
                             HorizontalDivider()
                             DropdownMenuItem(
                                 text = { Text("Remove from parallel read", color = MaterialTheme.colorScheme.error) },
                                 leadingIcon = {
                                     Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                                 },
-                                onClick = { menuOpen = false; onRemove(bookId) }
-                            )
+                                onClick = { menuOpen = false; onRemove(bookId) }, role = MenuRole.Delete)
                         }
                     }
                 }

@@ -1,5 +1,7 @@
 package com.aryan.reader.shared.ui
 
+import com.aryan.reader.shared.ui.whitebear.WbMenuIcons
+import com.aryan.reader.shared.ui.whitebear.MenuRole
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
@@ -65,11 +67,11 @@ import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.CircularProgressIndicator
 import com.aryan.reader.shared.ui.whitebear.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.DropdownMenu
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
+import com.aryan.reader.shared.ui.whitebear.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -367,8 +369,7 @@ internal fun SharedMobileEpubTopBar(
                     DropdownMenuItem(
                         text = { Text(readerString("title_customize_toolbar", "Customize Toolbar")) },
                         onClick = { onShowMoreChange(false); onCustomizeTools() },
-                        leadingIcon = { Icon(Icons.Default.Settings, contentDescription = null) }
-                    )
+                        leadingIcon = { Icon(Icons.Default.Settings, contentDescription = null) }, opens = true)
                     val hiddenToolbarTools = toolbarPreferences.sanitized().toolOrder.filter { tool ->
                         tool in SharedMobileEpubToolbarTools && !toolbarPreferences.isVisible(tool) &&
                             (tool != ReaderTool.AI_FEATURES || aiAvailable)
@@ -378,8 +379,7 @@ internal fun SharedMobileEpubTopBar(
                         DropdownMenuItem(
                             text = { Text(readerString("toolbar_hidden_tools_menu", "Hidden tools")) },
                             onClick = { showHiddenToolsExpanded = !showHiddenToolsExpanded },
-                            trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) }
-                        )
+                            trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) }, icon = WbMenuIcons.Tools)
                         if (showHiddenToolsExpanded) {
                             hiddenToolbarTools.forEach { tool ->
                                 DropdownMenuItem(
@@ -400,8 +400,7 @@ internal fun SharedMobileEpubTopBar(
                                         }
                                         showHiddenToolsExpanded = false
                                         onShowMoreChange(false)
-                                    }
-                                )
+                                    }, iconColumn = true)
                             }
                         }
                     }
@@ -412,8 +411,7 @@ internal fun SharedMobileEpubTopBar(
                                 DropdownMenuItem(
                                     text = { Text(readerString("menu_change_reading_mode", "Change Reading Mode")) },
                                     onClick = { showReadingModeExpanded = !showReadingModeExpanded },
-                                    trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) }
-                                )
+                                    trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) }, icon = WbMenuIcons.Mode)
                                 if (showReadingModeExpanded) {
                                     DropdownMenuItem(
                                         text = { Text(readerString("menu_reading_mode_vertical_webview", "Vertical (WebView)")) },
@@ -426,8 +424,7 @@ internal fun SharedMobileEpubTopBar(
                                         },
                                         trailingIcon = {
                                             if (readingMode == ReaderReadingMode.VERTICAL && !useNativeVerticalRenderer) Text("✓")
-                                        }
-                                    )
+                                        }, iconColumn = true)
                                     DropdownMenuItem(
                                         text = { Text(readerString("menu_reading_mode_vertical_native", "Vertical (Native Beta)")) },
                                         enabled = !ttsBusy,
@@ -439,8 +436,7 @@ internal fun SharedMobileEpubTopBar(
                                         },
                                         trailingIcon = {
                                             if (readingMode == ReaderReadingMode.VERTICAL && useNativeVerticalRenderer) Text("✓")
-                                        }
-                                    )
+                                        }, iconColumn = true)
                                     DropdownMenuItem(
                                         text = { Text(readerString("menu_reading_mode_paginated", "Paginated (left-to-right)")) },
                                         enabled = !ttsBusy,
@@ -450,8 +446,7 @@ internal fun SharedMobileEpubTopBar(
                                             showReadingModeExpanded = false
                                             onShowMoreChange(false)
                                         },
-                                        trailingIcon = { if (readingMode == ReaderReadingMode.PAGINATED && !rightToLeftPagination) Text("✓") }
-                                    )
+                                        trailingIcon = { if (readingMode == ReaderReadingMode.PAGINATED && !rightToLeftPagination) Text("✓") }, iconColumn = true)
                                     DropdownMenuItem(
                                         text = { Text(readerString("menu_right_to_left_pagination", "Paginated (right-to-left)")) },
                                         enabled = !ttsBusy,
@@ -461,8 +456,7 @@ internal fun SharedMobileEpubTopBar(
                                             showReadingModeExpanded = false
                                             onShowMoreChange(false)
                                         },
-                                        trailingIcon = { if (readingMode == ReaderReadingMode.PAGINATED && rightToLeftPagination) Text("✓") }
-                                    )
+                                        trailingIcon = { if (readingMode == ReaderReadingMode.PAGINATED && rightToLeftPagination) Text("✓") }, iconColumn = true)
                                 }
                             }
                             ReaderTool.TAP_TO_TURN -> SharedMobileEpubSwitchMenuItem(
@@ -475,6 +469,7 @@ internal fun SharedMobileEpubTopBar(
                                 readerString("menu_realistic_page_turns", "Realistic Page Turns"),
                                 pageTurnAnimationEnabled,
                                 onPageTurnAnimationChange,
+                                icon = WbMenuIcons.PageTurn,
                                 enabled = readingMode == ReaderReadingMode.PAGINATED
                             )
                             ReaderTool.BOOKMARK -> DropdownMenuItem(
@@ -487,38 +482,31 @@ internal fun SharedMobileEpubTopBar(
                                     )
                                 },
                                 onClick = { onBookmark(); onShowMoreChange(false) },
-                                leadingIcon = { Icon(if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder, contentDescription = null) }
-                            )
+                                leadingIcon = { Icon(if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder, contentDescription = null) }, role = MenuRole.Mark)
                             ReaderTool.VISUAL_OPTIONS -> DropdownMenuItem(
                                 text = { Text(readerString("menu_visual_options", "Visual Options")) }, onClick = { onVisualOptions(); onShowMoreChange(false) },
-                                leadingIcon = { Icon(Icons.Default.Visibility, contentDescription = null) }
-                            )
+                                leadingIcon = { Icon(Icons.Default.Visibility, contentDescription = null) }, opens = true)
                             ReaderTool.TOC -> DropdownMenuItem(
                                 text = { Text(readerString("menu_contents", "Contents")) }, onClick = { onOpenToc(); onShowMoreChange(false) },
-                                leadingIcon = { Icon(Icons.Default.Menu, contentDescription = null) }
-                            )
+                                leadingIcon = { Icon(Icons.Default.Menu, contentDescription = null) }, opens = true)
                             ReaderTool.FORMAT -> DropdownMenuItem(
-                                text = { Text(readerString("content_desc_text_formatting", "Text formatting")) }, onClick = { onFormat(); onShowMoreChange(false) }
-                            )
+                                text = { Text(readerString("content_desc_text_formatting", "Text formatting")) }, onClick = { onFormat(); onShowMoreChange(false) }, icon = WbMenuIcons.Text, opens = true)
                             ReaderTool.SEARCH -> DropdownMenuItem(
                                 text = { Text(readerString("action_search", "Search")) }, onClick = { onSearch(); onShowMoreChange(false) },
-                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }
-                            )
+                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }, opens = true)
                             ReaderTool.SLIDER -> DropdownMenuItem(
                                 text = { Text(readerString("tool_navigation_slider", "Navigation slider")) }, onClick = { onShowMoreChange(false); onOpenSlider() },
                                 leadingIcon = { Icon(SharedReaderIcons.Slider, contentDescription = null) }
                             )
                             ReaderTool.TTS_CONTROLS -> DropdownMenuItem(
-                                text = { Text(readAloudLabel) }, onClick = { onReadAloudToggle(); onShowMoreChange(false) }
-                            )
+                                text = { Text(readAloudLabel) }, onClick = { onReadAloudToggle(); onShowMoreChange(false) }, icon = WbMenuIcons.Play, role = MenuRole.Connect)
                             ReaderTool.TTS_REPLACEMENTS -> {
                                 // Covered by the TTS_SETTINGS expander when both are present.
                                 if (ReaderTool.TTS_SETTINGS !in overflowTools) {
                                     DropdownMenuItem(
                                         text = { Text(readerString("menu_tts_word_replacements", "TTS Word Replacements")) },
                                         onClick = { onShowMoreChange(false); onTtsReplacements() },
-                                        leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null) }
-                                    )
+                                        leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null) }, role = MenuRole.Mark, opens = true)
                                 } else Unit
                             }
                             ReaderTool.TTS_SETTINGS -> {
@@ -534,29 +522,25 @@ internal fun SharedMobileEpubTopBar(
                                             text = { Text(readerString("menu_tts_voice_settings", "TTS Voice Settings")) },
                                             enabled = !ttsBusy,
                                             onClick = { onShowMoreChange(false); onTtsSettings() },
-                                            leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null) }
-                                        )
+                                            leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null) }, opens = true)
                                         DropdownMenuItem(
                                             text = { Text(readerString("menu_tts_word_replacements", "TTS Word Replacements")) },
                                             onClick = { onShowMoreChange(false); onTtsReplacements() },
-                                            leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null) }
-                                        )
+                                            leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null) }, role = MenuRole.Mark, opens = true)
                                     }
                                 } else {
                                     DropdownMenuItem(
                                         text = { Text(readerString("menu_tts_voice_settings", "TTS Voice Settings")) },
                                         enabled = !ttsBusy,
                                         onClick = { onShowMoreChange(false); onTtsSettings() },
-                                        leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null) }
-                                    )
+                                        leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null) }, opens = true)
                                 }
                             }
                             ReaderTool.BOOK_REPLACEMENTS -> DropdownMenuItem(
                                 text = { Text(readerString("menu_book_word_replacements", "Book Word Replacements")) },
                                 onClick = { onShowMoreChange(false); onBookReplacements() },
-                                leadingIcon = { Icon(Icons.Default.TextFields, contentDescription = null) }
-                            )
-                            ReaderTool.KEEP_SCREEN_ON -> SharedMobileEpubSwitchMenuItem("Keep Screen On", keepScreenOn, onKeepScreenOnChange)
+                                leadingIcon = { Icon(Icons.Default.TextFields, contentDescription = null) }, role = MenuRole.Mark, opens = true)
+                            ReaderTool.KEEP_SCREEN_ON -> SharedMobileEpubSwitchMenuItem("Keep Screen On", keepScreenOn, onKeepScreenOnChange, icon = WbMenuIcons.Brightness)
                             ReaderTool.AUTO_SCROLL -> DropdownMenuItem(
                                 // Android parity (EpubReaderControls
                                 // EpubOverflowMenuSection.AUTO_SCROLL): the item
@@ -565,24 +549,19 @@ internal fun SharedMobileEpubTopBar(
                                 text = { Text(readerString("menu_auto_scroll", "Auto Scroll")) },
                                 enabled = readingMode == ReaderReadingMode.VERTICAL &&
                                     !ttsBusy,
-                                onClick = { onAutoScrollChange(!autoScroll); onShowMoreChange(false) }
-                            )
+                                onClick = { onAutoScrollChange(!autoScroll); onShowMoreChange(false) }, icon = WbMenuIcons.Play, role = MenuRole.Connect)
                             ReaderTool.BRIGHTNESS -> DropdownMenuItem(
-                                text = { Text(readerString("tool_brightness", "Brightness")) }, onClick = { onBrightness(); onShowMoreChange(false) }
-                            )
+                                text = { Text(readerString("tool_brightness", "Brightness")) }, onClick = { onBrightness(); onShowMoreChange(false) }, icon = WbMenuIcons.Brightness, opens = true)
                             ReaderTool.SCREEN_ORIENTATION -> DropdownMenuItem(
                                 text = { Text(readerString("visual_options_screen_orientation", "Screen Orientation")) }, onClick = { onScreenOrientation(); onShowMoreChange(false) },
-                                leadingIcon = { Icon(SharedReaderIcons.ScreenRotation, contentDescription = null) }
-                            )
+                                leadingIcon = { Icon(SharedReaderIcons.ScreenRotation, contentDescription = null) }, opens = true)
                             ReaderTool.AI_FEATURES -> if (aiAvailable) DropdownMenuItem(
                                 text = { Text(readerString("tooltip_ai", "AI features")) },
                                 onClick = { onOpenAiHub(); onShowMoreChange(false) },
-                                leadingIcon = { Icon(Icons.Default.Ai, contentDescription = null) }
-                            )
+                                leadingIcon = { Icon(Icons.Default.Ai, contentDescription = null) }, opens = true)
                             ReaderTool.FILE_INFO -> DropdownMenuItem(
                                 text = { Text(readerString("file_information", "File Information")) }, onClick = { onFileInfo(); onShowMoreChange(false) },
-                                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
-                            )
+                                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }, opens = true)
                             ReaderTool.THEME -> Unit
                             else -> Unit
                         }
@@ -590,8 +569,7 @@ internal fun SharedMobileEpubTopBar(
                     if (ReaderTool.TTS_CONTROLS in overflowTools && ttsBusy) {
                         DropdownMenuItem(
                             text = { Text(readerString("menu_stop_reading", "Stop reading")) },
-                            onClick = { onReadAloudStop(); onShowMoreChange(false) }
-                        )
+                            onClick = { onReadAloudStop(); onShowMoreChange(false) }, icon = WbMenuIcons.Close, role = MenuRole.Block)
                     }
                 }
             }
@@ -733,13 +711,15 @@ internal fun SharedMobileEpubSwitchMenuItem(
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    icon: androidx.compose.ui.graphics.vector.ImageVector = WbMenuIcons.Touch
 ) {
     DropdownMenuItem(
         text = { Text(label) },
         enabled = enabled,
         onClick = { onCheckedChange(!checked) },
-        trailingIcon = { Switch(checked = checked, enabled = enabled, onCheckedChange = onCheckedChange) }
+        icon = icon,
+        checked = checked
     )
 }
 
@@ -1605,9 +1585,8 @@ internal fun SharedMobileReaderTtsSettingsSheet(
                                 else MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         },
-                        trailingIcon = if (favoritesOnly) {
-                            { Icon(Icons.Default.Check, contentDescription = null) }
-                        } else null,
+                        checked = favoritesOnly,
+                        role = MenuRole.Mark,
                         onClick = { favoritesOnly = !favoritesOnly },
                     )
                     HorizontalDivider()
@@ -1726,8 +1705,7 @@ internal fun SharedMobileReaderTtsSettingsSheet(
                                 )
                             },
                             enabled = false,
-                            onClick = {},
-                        )
+                            onClick = {}, header = true)
                     }
                     filteredVoices.forEach { voice ->
                         val isFavorite = voice.identifier in favoriteIds

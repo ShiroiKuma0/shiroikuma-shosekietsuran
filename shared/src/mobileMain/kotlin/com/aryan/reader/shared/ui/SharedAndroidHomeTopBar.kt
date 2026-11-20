@@ -1,5 +1,6 @@
 package com.aryan.reader.shared.ui
 
+import com.aryan.reader.shared.ui.whitebear.whiteBearMenuSpec
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
@@ -14,9 +15,9 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
+import com.aryan.reader.shared.ui.whitebear.DropdownMenu
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -216,6 +217,7 @@ fun SharedAndroidHomeTopBar(
                             HorizontalDivider()
                         }
                         item(
+                            spec = overflowItem.action.whiteBearMenuSpec(),
                             label = itemLabel(overflowItem.action),
                             checked = overflowItem.checked,
                             enabledDescription = strings.enabled,
@@ -232,14 +234,18 @@ fun SharedAndroidHomeTopBar(
 
 @Composable
 private fun androidx.compose.foundation.layout.ColumnScope.item(
+    spec: com.aryan.reader.shared.ui.whitebear.WhiteBearMenuSpec,
     label: String,
     checked: Boolean = false,
-    enabledDescription: String,
+    @Suppress("UNUSED_PARAMETER") enabledDescription: String,
     action: () -> Unit,
 ) {
     DropdownMenuItem(
         text = { Text(label) },
         onClick = { action() },
-        trailingIcon = if (checked) ({ Icon(Icons.Default.Check, enabledDescription) }) else null,
+        icon = spec.icon,
+        role = spec.role,
+        opens = spec.opens,
+        checked = if (spec.toggle) checked else null,
     )
 }

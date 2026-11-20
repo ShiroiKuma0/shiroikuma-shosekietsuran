@@ -1,6 +1,9 @@
 // PdfToolbars.kt
 package com.aryan.reader.pdf
 
+import com.aryan.reader.shared.ui.whitebear.WbMenuIcons
+import com.aryan.reader.shared.ui.whitebear.MenuRole
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -391,8 +394,7 @@ internal fun PdfTopBar(
                                             DropdownMenuItem(
                                                 text = { Text(stringResource(R.string.title_customize_toolbar)) },
                                                 onClick = { showMoreMenu = false; onShowCustomizeTools() },
-                                                leadingIcon = { Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.title_customize_toolbar), modifier = Modifier.size(20.dp)) }
-                                            )
+                                                leadingIcon = { Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.title_customize_toolbar), modifier = Modifier.size(20.dp)) }, opens = true)
                                         }
                                         PdfOverflowMenuSection.HIDDEN_TOOLS -> {
                                             DropdownMenuItem(
@@ -404,8 +406,7 @@ internal fun PdfTopBar(
                                                         contentDescription = null,
                                                         modifier = Modifier.rotate(if (showHiddenToolsExpanded) 180f else 0f)
                                                     )
-                                                }
-                                            )
+                                                }, icon = WbMenuIcons.Tools)
                                             if (showHiddenToolsExpanded) {
                                                 hiddenToolbarTools.forEach { tool ->
                                                     HiddenPdfToolMenuItem(
@@ -442,21 +443,18 @@ internal fun PdfTopBar(
                                             DropdownMenuItem(
                                                 text = { Text(stringResource(R.string.file_information)) },
                                                 onClick = { showMoreMenu = false; onShowFileInfo() },
-                                                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(20.dp)) }
-                                            )
+                                                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(20.dp)) }, opens = true)
                                         }
                                         PdfOverflowMenuSection.OCR_LANGUAGE -> {
                                             DropdownMenuItem(
                                                 text = { Text(stringResource(R.string.menu_ocr_language)) },
-                                                onClick = { showMoreMenu = false; onShowOcrLanguage() }
-                                            )
+                                                onClick = { showMoreMenu = false; onShowOcrLanguage() }, icon = WbMenuIcons.Translate, opens = true)
                                         }
                                         PdfOverflowMenuSection.VISUAL_OPTIONS -> {
                                             DropdownMenuItem(
                                                 text = { Text(stringResource(R.string.menu_visual_options)) },
                                                 onClick = { showMoreMenu = false; onShowVisualOptions() },
-                                                leadingIcon = { Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(20.dp)) }
-                                            )
+                                                leadingIcon = { Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(20.dp)) }, opens = true)
                                         }
                                         PdfOverflowMenuSection.READING_MODE -> {
                                             DropdownMenuItem(
@@ -468,15 +466,13 @@ internal fun PdfTopBar(
                                                         contentDescription = null,
                                                         modifier = Modifier.rotate(if (showReadingModeExpanded) 180f else 0f)
                                                     )
-                                                }
-                                            )
+                                                }, icon = WbMenuIcons.Mode)
                                             if (showReadingModeExpanded) {
                                                 DropdownMenuItem(
                                                     text = { Text(stringResource(R.string.menu_reading_mode_vertical)) },
                                                     enabled = !isTtsSessionActive,
                                                     onClick = { onChangeDisplayMode(DisplayMode.VERTICAL_SCROLL); showMoreMenu = false },
-                                                    trailingIcon = { if (displayMode == DisplayMode.VERTICAL_SCROLL) Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.content_desc_selected)) }
-                                                )
+                                                    trailingIcon = { if (displayMode == DisplayMode.VERTICAL_SCROLL) Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.content_desc_selected)) }, iconColumn = true)
                                                 DropdownMenuItem(
                                                     text = { Text(stringResource(R.string.menu_reading_mode_paginated)) },
                                                     enabled = !isTtsSessionActive,
@@ -489,8 +485,7 @@ internal fun PdfTopBar(
                                                         if (displayMode == DisplayMode.PAGINATION && !isRightToLeftPagination) {
                                                             Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.content_desc_selected))
                                                         }
-                                                    }
-                                                )
+                                                    }, iconColumn = true)
                                                 DropdownMenuItem(
                                                     text = { Text(stringResource(R.string.menu_right_to_left_pagination)) },
                                                     enabled = !isTtsSessionActive,
@@ -503,8 +498,7 @@ internal fun PdfTopBar(
                                                         if (displayMode == DisplayMode.PAGINATION && isRightToLeftPagination) {
                                                             Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.content_desc_selected))
                                                         }
-                                                    }
-                                                )
+                                                    }, iconColumn = true)
                                             }
                                         }
                                         PdfOverflowMenuSection.TAP_TO_TURN -> {
@@ -514,16 +508,7 @@ internal fun PdfTopBar(
                                                 onClick = {
                                                     onToggleTapToNavigate()
                                                     showMoreMenu = false
-                                                },
-                                                trailingIcon = {
-                                                    if (tapToNavigateEnabled) {
-                                                        Icon(
-                                                            Icons.Filled.Check,
-                                                            contentDescription = stringResource(R.string.content_desc_enabled)
-                                                        )
-                                                    }
-                                                }
-                                            )
+                                                }, icon = WbMenuIcons.Touch, checked = tapToNavigateEnabled)
                                         }
                                         PdfOverflowMenuSection.PAGE_TURN_ANIM -> {
                                             DropdownMenuItem(
@@ -532,30 +517,18 @@ internal fun PdfTopBar(
                                                 onClick = {
                                                     onTogglePageTurnAnimation()
                                                     showMoreMenu = false
-                                                },
-                                                trailingIcon = {
-                                                    if (pageTurnAnimationEnabled) {
-                                                        Icon(
-                                                            Icons.Filled.Check,
-                                                            contentDescription = stringResource(R.string.content_desc_enabled)
-                                                        )
-                                                    }
-                                                }
-                                            )
+                                                }, icon = WbMenuIcons.PageTurn, checked = pageTurnAnimationEnabled)
                                         }
                                         PdfOverflowMenuSection.KEEP_SCREEN_ON -> {
                                             DropdownMenuItem(
                                                 text = { Text(stringResource(R.string.menu_keep_screen_on)) },
-                                                onClick = { onToggleKeepScreenOn(); showMoreMenu = false },
-                                                trailingIcon = { if (isKeepScreenOn) Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.content_desc_selected)) }
-                                            )
+                                                onClick = { onToggleKeepScreenOn(); showMoreMenu = false }, icon = WbMenuIcons.Brightness, checked = isKeepScreenOn)
                                         }
                                         PdfOverflowMenuSection.AUTO_SCROLL -> {
                                             DropdownMenuItem(
                                                 text = { Text(stringResource(R.string.menu_auto_scroll)) },
                                                 enabled = !isTtsSessionActive && displayMode == DisplayMode.VERTICAL_SCROLL,
-                                                onClick = { showMoreMenu = false; onStartAutoScroll() }
-                                            )
+                                                onClick = { showMoreMenu = false; onStartAutoScroll() }, icon = WbMenuIcons.Play, role = MenuRole.Connect)
                                         }
                                         PdfOverflowMenuSection.TTS_SETTINGS -> {
                                             DropdownMenuItem(
@@ -576,35 +549,30 @@ internal fun PdfTopBar(
                                                         text = { Text(stringResource(R.string.menu_tts_voice_settings)) },
                                                         enabled = !isTtsSessionActive,
                                                         onClick = { showMoreMenu = false; onShowTtsSettings() },
-                                                        leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null, modifier = Modifier.size(20.dp)) }
-                                                    )
+                                                        leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null, modifier = Modifier.size(20.dp)) }, opens = true)
                                                 }
                                                 if (showTtsReplacements) {
                                                     DropdownMenuItem(
                                                         text = { Text(stringResource(R.string.menu_tts_word_replacements)) },
                                                         onClick = { showMoreMenu = false; onShowTtsReplacements() },
-                                                        leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null, modifier = Modifier.size(20.dp)) }
-                                                    )
+                                                        leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null, modifier = Modifier.size(20.dp)) }, role = MenuRole.Mark, opens = true)
                                                 }
                                             }
                                         }
                                         PdfOverflowMenuSection.BOOKMARK -> {
                                             DropdownMenuItem(
                                                 text = { Text(if (isBookmarked) stringResource(R.string.menu_remove_bookmark) else stringResource(R.string.menu_bookmark_this_page)) },
-                                                onClick = { showMoreMenu = false; onToggleBookmark() }
-                                            )
+                                                onClick = { showMoreMenu = false; onToggleBookmark() }, icon = WbMenuIcons.Bookmark, role = MenuRole.Mark)
                                         }
                                         PdfOverflowMenuSection.PAGE_MANAGEMENT -> {
                                             DropdownMenuItem(
                                                 text = { Text(stringResource(R.string.menu_insert_blank_page)) },
-                                                onClick = { showMoreMenu = false; onInsertPage() }
-                                            )
+                                                onClick = { showMoreMenu = false; onInsertPage() }, icon = WbMenuIcons.Add, role = MenuRole.Mark)
                                             if (canDeletePage) {
                                                 DropdownMenuItem(
                                                     text = { Text(stringResource(R.string.menu_delete_page)) },
                                                     onClick = { showMoreMenu = false; onDeletePage() },
-                                                    colors = MenuDefaults.itemColors(textColor = MaterialTheme.colorScheme.error)
-                                                )
+                                                    colors = MenuDefaults.itemColors(textColor = MaterialTheme.colorScheme.error), icon = WbMenuIcons.Delete, role = MenuRole.Delete)
                                             }
                                         }
                                         PdfOverflowMenuSection.REFLOW -> {
@@ -626,29 +594,25 @@ internal fun PdfTopBar(
                                                         contentDescription = null,
                                                         modifier = Modifier.rotate(if (showFileActionsExpanded) 180f else 0f)
                                                     )
-                                                }
-                                            )
+                                                }, role = MenuRole.Share)
                                             if (showFileActionsExpanded) {
                                                 if (showShareAction) {
                                                     DropdownMenuItem(
                                                         text = { Text(stringResource(R.string.action_share)) },
                                                         onClick = { showMoreMenu = false; onShare() },
-                                                        leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
-                                                    )
+                                                        leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }, role = MenuRole.Share)
                                                 }
                                                 if (showSaveCopyAction) {
                                                     DropdownMenuItem(
                                                         text = { Text(stringResource(R.string.action_save_copy_to_device)) },
                                                         onClick = { showMoreMenu = false; onSaveCopy() },
-                                                        leadingIcon = { Icon(Icons.Default.Save, contentDescription = null) }
-                                                    )
+                                                        leadingIcon = { Icon(Icons.Default.Save, contentDescription = null) }, role = MenuRole.Share, opens = true)
                                                 }
                                                 if (showPrintAction) {
                                                     DropdownMenuItem(
                                                         text = { Text(stringResource(R.string.action_print)) },
                                                         onClick = { showMoreMenu = false; onPrint() },
-                                                        leadingIcon = { Icon(painterResource(id = R.drawable.print), contentDescription = null, modifier = Modifier.size(20.dp)) }
-                                                    )
+                                                        leadingIcon = { Icon(painterResource(id = R.drawable.print), contentDescription = null, modifier = Modifier.size(20.dp)) }, role = MenuRole.Share, opens = true)
                                                 }
                                             }
                                         }

@@ -1,5 +1,6 @@
 package com.aryan.reader.shared.ui
 
+import com.aryan.reader.shared.ui.whitebear.MenuRole
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -56,8 +57,8 @@ import androidx.compose.material.icons.filled.Tag
 import com.aryan.reader.shared.ui.whitebear.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.DropdownMenu
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -339,24 +340,21 @@ internal fun BookActionMenu(
             onClick = {
                 onDismiss()
                 onTogglePinned()
-            }
-        )
+            }, role = MenuRole.Mark)
         DropdownMenuItem(
             leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
             text = { Text(readerString("info", "Info")) },
             onClick = {
                 onDismiss()
                 onShowInfo()
-            }
-        )
+            }, opens = true)
         DropdownMenuItem(
             leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
             text = { Text(readerString("action_edit", "Edit")) },
             onClick = {
                 onDismiss()
                 onEdit()
-            }
-        )
+            }, role = MenuRole.Mark, opens = true)
         if (onSaveOriginalFile != null) {
             DropdownMenuItem(
                 leadingIcon = { Icon(Icons.Default.Save, contentDescription = null) },
@@ -364,8 +362,7 @@ internal fun BookActionMenu(
                 onClick = {
                     onDismiss()
                     onSaveOriginalFile()
-                }
-            )
+                }, role = MenuRole.Share, opens = true)
         }
         if (onShareOriginalFile != null) {
             DropdownMenuItem(
@@ -374,8 +371,7 @@ internal fun BookActionMenu(
                 onClick = {
                     onDismiss()
                     onShareOriginalFile()
-                }
-            )
+                }, role = MenuRole.Share)
         }
         if (onAddToShelf != null) {
             DropdownMenuItem(
@@ -384,8 +380,7 @@ internal fun BookActionMenu(
                 onClick = {
                     onDismiss()
                     onAddToShelf()
-                }
-            )
+                }, role = MenuRole.Mark, opens = true)
         }
         DropdownMenuItem(
             leadingIcon = { Icon(if (selected) Icons.Default.Check else Icons.AutoMirrored.Filled.List, contentDescription = null) },

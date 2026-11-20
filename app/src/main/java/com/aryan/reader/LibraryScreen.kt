@@ -22,6 +22,7 @@
 
 package com.aryan.reader
 
+import com.aryan.reader.shared.ui.whitebear.MenuRole
 import android.annotation.SuppressLint
 import android.net.Uri
 import androidx.activity.compose.BackHandler
@@ -104,13 +105,13 @@ import com.aryan.reader.shared.ui.whitebear.Button
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.DropdownMenu
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
+import com.aryan.reader.shared.ui.whitebear.ExtendedFloatingActionButton
 import com.aryan.reader.shared.ui.whitebear.FilledTonalButton
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
+import com.aryan.reader.shared.ui.whitebear.HorizontalDivider
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -1845,24 +1846,20 @@ private fun WhiteBearBookCoverMenu(
             DropdownMenuItem(
                 text = { Text("File info") },
                 leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
-                onClick = { open = false; actions.onInfo(item) }
-            )
+                onClick = { open = false; actions.onInfo(item) }, opens = true)
             DropdownMenuItem(
                 text = { Text("Tags") },
                 leadingIcon = { Icon(painterResource(id = R.drawable.tag), contentDescription = null) },
-                onClick = { open = false; actions.onTags(item) }
-            )
+                onClick = { open = false; actions.onTags(item) }, role = MenuRole.Mark, opens = true)
             if (item.canExportOriginalFile()) {
                 DropdownMenuItem(
                     text = { Text("Share file") },
                     leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
-                    onClick = { open = false; actions.onShare(item) }
-                )
+                    onClick = { open = false; actions.onShare(item) }, role = MenuRole.Share)
                 DropdownMenuItem(
                     text = { Text("Save a copy") },
                     leadingIcon = { Icon(painterResource(id = R.drawable.wb_save_alt), contentDescription = null) },
-                    onClick = { open = false; actions.onSaveCopy(item) }
-                )
+                    onClick = { open = false; actions.onSaveCopy(item) }, role = MenuRole.Share, opens = true)
             }
             HorizontalDivider()
             DropdownMenuItem(
@@ -1870,8 +1867,7 @@ private fun WhiteBearBookCoverMenu(
                 leadingIcon = {
                     Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                 },
-                onClick = { open = false; actions.onDelete(item) }
-            )
+                onClick = { open = false; actions.onDelete(item) }, role = MenuRole.Delete)
         }
     }
 }

@@ -14,11 +14,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.HorizontalDivider
+import com.aryan.reader.shared.ui.whitebear.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -175,8 +175,7 @@ private fun SharedAppSelectionDropdown(
             DropdownMenuItem(
                 text = { Text(labels.none, color = if (!hasSelection) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface) },
                 trailingIcon = if (!hasSelection) ({ Icon(Icons.Default.Check, contentDescription = labels.selected, tint = MaterialTheme.colorScheme.primary) }) else null,
-                onClick = { onSelect(""); expanded = false }
-            )
+                onClick = { onSelect(""); expanded = false }, iconColumn = true)
             if (apps.isNotEmpty()) HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             apps.forEach { app ->
                 val selected = app.packageName == selectedPackageName
@@ -191,8 +190,7 @@ private fun SharedAppSelectionDropdown(
                         }
                     },
                     trailingIcon = if (selected) ({ Icon(Icons.Default.Check, contentDescription = labels.selected, tint = MaterialTheme.colorScheme.primary) }) else null,
-                    onClick = { onSelect(app.packageName); expanded = false }
-                )
+                    onClick = { onSelect(app.packageName); expanded = false }, iconColumn = true)
             }
         }
     }

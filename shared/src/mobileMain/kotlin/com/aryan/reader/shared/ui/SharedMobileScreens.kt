@@ -29,7 +29,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.NavigationDrawerItem
+import com.aryan.reader.shared.ui.whitebear.NavigationDrawerItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.CircularProgressIndicator
 import com.aryan.reader.shared.ui.whitebear.Switch
@@ -163,6 +163,7 @@ fun SharedMobileAppDrawerContent(
             } else {
                 Spacer(Modifier.height(8.dp))
                 NavigationDrawerItem(
+                    role = com.aryan.reader.shared.ui.whitebear.MenuRole.Contact,
                     icon = { Icon(Icons.Default.AccountCircle, contentDescription = null) },
                     label = {
                         Text(
@@ -308,6 +309,7 @@ fun SharedMobileAppDrawerContent(
             // hidden together with the library sync row (logic kept).
             if (currentUser != null && isSyncEnabled && showFolderSyncControls) {
                 NavigationDrawerItem(
+                    role = com.aryan.reader.shared.ui.whitebear.MenuRole.Mark,
                     icon = { Icon(Icons.Default.FolderSpecial, contentDescription = null) },
                     label = {
                         Column {

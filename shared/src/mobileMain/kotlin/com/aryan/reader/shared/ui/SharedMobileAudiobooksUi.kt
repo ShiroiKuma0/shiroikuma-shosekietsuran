@@ -1,5 +1,6 @@
 package com.aryan.reader.shared.ui
 
+import com.aryan.reader.shared.ui.whitebear.MenuRole
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -65,8 +66,8 @@ import androidx.compose.material3.AssistChip
 import com.aryan.reader.shared.ui.whitebear.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.DropdownMenu
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -1139,8 +1140,7 @@ fun SharedMobileAudiobookPlayerSheet(
                                 showMenu = false
                                 onStopPlayback()
                                 onDismiss()
-                            },
-                        )
+                            }, role = MenuRole.Block)
                     }
                 }
             }
@@ -1536,8 +1536,7 @@ fun SharedMobileAudiobookMiniPlayer(
                             onClick = {
                                 menuExpanded = false
                                 onStopPlayback()
-                            },
-                        )
+                            }, role = MenuRole.Block)
                     }
                 }
             }
@@ -1623,8 +1622,7 @@ fun SharedMobileAudiobookMiniPlayerFrame(
                             onClick = {
                                 menuExpanded = false
                                 onStopPlayback()
-                            },
-                        )
+                            }, role = MenuRole.Block)
                     }
                 }
             }
@@ -1901,8 +1899,7 @@ fun SharedMobileTtsPlayerSheet(
                                 onClick = {
                                     showMenu = false
                                     onOpenVoiceSettings()
-                                },
-                            )
+                                }, opens = true)
                         }
                         DropdownMenuItem(
                             text = { Text(readerString("audiobooks_stop_playback", "Stop playback")) },
@@ -1912,8 +1909,7 @@ fun SharedMobileTtsPlayerSheet(
                                 showMenu = false
                                 onStopPlayback()
                                 onDismiss()
-                            },
-                        )
+                            }, role = MenuRole.Block)
                     }
                 }
             }
@@ -2333,8 +2329,7 @@ fun SharedMobileTtsMiniPlayer(
                             onClick = {
                                 menuExpanded = false
                                 onStopPlayback()
-                            },
-                        )
+                            }, role = MenuRole.Block)
                     }
                 }
             }

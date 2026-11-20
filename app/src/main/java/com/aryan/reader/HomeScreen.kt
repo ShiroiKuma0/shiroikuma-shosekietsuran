@@ -96,7 +96,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.NavigationDrawerItem
+import com.aryan.reader.shared.ui.whitebear.NavigationDrawerItem
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SnackbarHost
@@ -1056,6 +1056,7 @@ internal fun AppDrawerContent(
                     // Signed-out: Show Sign In button at the top
                     Spacer(modifier = Modifier.height(8.dp))
                     NavigationDrawerItem(
+                        role = com.aryan.reader.shared.ui.whitebear.MenuRole.Contact,
                         icon = { Icon(Icons.Outlined.AccountCircle, contentDescription = null) },
                         label = { Text(stringResource(R.string.drawer_sign_in)) },
                         selected = false,
@@ -1088,6 +1089,7 @@ internal fun AppDrawerContent(
                 // Sync Toggle Item
                 if (uiState.currentUser != null) {
                     NavigationDrawerItem(
+                        role = com.aryan.reader.shared.ui.whitebear.MenuRole.Connect,
                         icon = { Icon(painterResource(id = R.drawable.sync), contentDescription = null) },
                         label = { Text(stringResource(R.string.drawer_sync_library)) },
                         badge = {
@@ -1118,6 +1120,7 @@ internal fun AppDrawerContent(
                 }
                 if (uiState.canUseCloudFolderSync()) {
                     NavigationDrawerItem(
+                        role = com.aryan.reader.shared.ui.whitebear.MenuRole.Mark,
                         icon = { Icon(imageVector = Icons.Default.FolderSpecial, contentDescription = null) },
                         label = {
                             Column {
@@ -1209,6 +1212,7 @@ internal fun AppDrawerContent(
             }
 
             NavigationDrawerItem(
+                role = com.aryan.reader.shared.ui.whitebear.MenuRole.Mark,
                 icon = { Icon(painterResource(id = R.drawable.feedback), contentDescription = null) },
                 label = { Text(stringResource(R.string.drawer_help_feedback)) },
                 selected = false,
@@ -1219,6 +1223,7 @@ internal fun AppDrawerContent(
             if (!isOss) {
                 if (uiState.currentUser != null) {
                     NavigationDrawerItem(
+                        role = com.aryan.reader.shared.ui.whitebear.MenuRole.Block,
                         icon = { Icon(painterResource(id = R.drawable.logout), contentDescription = null) },
                         label = { Text(stringResource(R.string.drawer_sign_out)) },
                         selected = false,

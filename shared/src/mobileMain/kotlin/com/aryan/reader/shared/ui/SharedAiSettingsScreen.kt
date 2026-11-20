@@ -16,11 +16,11 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import com.aryan.reader.shared.ui.whitebear.Button
-import androidx.compose.material3.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.HorizontalDivider
+import com.aryan.reader.shared.ui.whitebear.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -366,8 +366,7 @@ fun SharedAiSettingsScreen(
                                             internalFishLanguage = lang
                                             onFishLanguageSelectionChange?.invoke(lang)
                                             fishLanguageMenuExpanded = false
-                                        },
-                                    )
+                                        }, iconColumn = true)
                                 }
                             }
                         }
@@ -434,8 +433,7 @@ fun SharedAiSettingsScreen(
                                         },
                                         trailingIcon = if (voice.referenceId == currentSettings.ttsSpeakerId || voice.id == currentSettings.ttsSpeakerId) {
                                             { Icon(Icons.Default.Check, contentDescription = null) }
-                                        } else null,
-                                    )
+                                        } else null, iconColumn = true)
                                 }
                             }
                         }

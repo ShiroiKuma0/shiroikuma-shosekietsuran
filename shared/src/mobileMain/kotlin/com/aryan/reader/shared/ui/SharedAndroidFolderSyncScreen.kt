@@ -1,5 +1,7 @@
 package com.aryan.reader.shared.ui
 
+import com.aryan.reader.shared.ui.whitebear.WbMenuIcons
+import com.aryan.reader.shared.ui.whitebear.MenuRole
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,13 +30,13 @@ import androidx.compose.material3.AssistChip
 import com.aryan.reader.shared.ui.whitebear.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.DropdownMenu
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.ExtendedFloatingActionButton
+import com.aryan.reader.shared.ui.whitebear.ExtendedFloatingActionButton
 import com.aryan.reader.shared.ui.whitebear.FilledTonalButton
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
+import com.aryan.reader.shared.ui.whitebear.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -314,19 +316,16 @@ private fun SharedAndroidFolderCard(
                             if (folder.localSyncEnabled && onScanFolder != null && scanFolderLabel != null) {
                                 DropdownMenuItem(
                                     text = { Text(scanFolderLabel) },
-                                    onClick = { showMenu = false; onScanFolder() },
-                                )
+                                    onClick = { showMenu = false; onScanFolder() }, icon = WbMenuIcons.Refresh, role = MenuRole.Connect)
                             }
-                            DropdownMenuItem(text = { Text(strings.editFilters) }, onClick = { showMenu = false; onEdit() })
+                            DropdownMenuItem(text = { Text(strings.editFilters) }, onClick = { showMenu = false; onEdit() }, icon = WbMenuIcons.Filter, role = MenuRole.Mark, opens = true)
                             DropdownMenuItem(
                                 text = { Text(if (folder.localSyncEnabled) strings.disableLocalSync else strings.enableLocalSync) },
-                                onClick = { showMenu = false; onToggle() },
-                            )
+                                onClick = { showMenu = false; onToggle() }, icon = WbMenuIcons.Sync, role = MenuRole.Connect)
                             DropdownMenuItem(
                                 text = { Text(strings.removeFolder) },
                                 onClick = { showMenu = false; onRemove() },
-                                colors = MenuDefaults.itemColors(textColor = MaterialTheme.colorScheme.error),
-                            )
+                                colors = MenuDefaults.itemColors(textColor = MaterialTheme.colorScheme.error), icon = WbMenuIcons.Delete, role = MenuRole.Delete)
                         }
                     }
                 }

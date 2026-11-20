@@ -236,42 +236,15 @@ private fun SharedSettingsCategoryRow(
     category: SharedSettingsCategoryModel,
     onNavigate: (SharedSettingsDestination) -> Unit
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)),
+    com.aryan.reader.shared.ui.whitebear.WhiteBearSettingsPillRow(
+        icon = category.destination.iconForSettingsDestination(),
+        role = com.aryan.reader.shared.ui.whitebear.whiteBearRoleForName(category.destination.toString()),
+        label = readerLiteral(category.title),
+        summary = readerLiteral(category.summary),
+        note = if (category.itemCount == 1) "1 setting" else "${category.itemCount} settings",
+        opens = true,
         onClick = { onNavigate(category.destination) }
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Icon(
-                category.destination.iconForSettingsDestination(),
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(readerLiteral(category.title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text(
-                    readerLiteral(category.summary),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    if (category.itemCount == 1) "1 setting" else "${category.itemCount} settings",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(20.dp))
-        }
-    }
+    )
 }
 
 @Composable
@@ -366,57 +339,26 @@ private fun SharedSettingsSearchResultRow(
     val localizedBreadcrumb = result.breadcrumb
         .split(" / ")
         .joinToString(" / ") { stringResolver.literal(it) }
-    val contentColor = if (result.enabled) {
-        MaterialTheme.colorScheme.onSurface
+    val icon = result.action?.iconForSettings() ?: result.destination?.iconForSettingsDestination() ?: Icons.Default.Settings
+    val role = if (result.kind == SharedSettingsItemKind.DESTRUCTIVE) {
+        com.aryan.reader.shared.ui.whitebear.MenuRole.Delete
     } else {
-        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.46f)
+        com.aryan.reader.shared.ui.whitebear.whiteBearRoleForName((result.action ?: result.destination).toString())
     }
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surface,
-        enabled = result.enabled,
-        onClick = {
-            result.destination?.let(onNavigate) ?: result.action?.let(onAction)
-        }
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                result.action?.iconForSettings() ?: result.destination?.iconForSettingsDestination() ?: Icons.Default.Settings,
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
-                tint = if (result.kind == SharedSettingsItemKind.DESTRUCTIVE) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-            )
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(readerLiteral(result.title), fontWeight = FontWeight.SemiBold, color = contentColor)
-                Text(
-                    localizedBreadcrumb,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    readerLiteral(result.summary),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (result.enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.48f),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            when (result.kind) {
-                SharedSettingsItemKind.TOGGLE -> {
-                    Switch(
-                        checked = result.checked == true,
-                        enabled = result.enabled,
-                        onCheckedChange = { result.action?.let(onAction) }
-                    )
-                }
-                else -> Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(20.dp))
-            }
-        }
+    val onClick: () -> Unit = { result.destination?.let(onNavigate) ?: result.action?.let(onAction) }
+    if (result.kind == SharedSettingsItemKind.TOGGLE) {
+        com.aryan.reader.shared.ui.whitebear.WhiteBearSettingsSwitchRow(
+            icon = icon, role = role, label = readerLiteral(result.title),
+            summary = readerLiteral(result.summary), note = localizedBreadcrumb,
+            checked = result.checked == true, enabled = result.enabled,
+            onToggle = { result.action?.let(onAction) }
+        )
+    } else {
+        com.aryan.reader.shared.ui.whitebear.WhiteBearSettingsPillRow(
+            icon = icon, role = role, label = readerLiteral(result.title),
+            summary = readerLiteral(result.summary), note = localizedBreadcrumb,
+            opens = true, enabled = result.enabled, onClick = onClick
+        )
     }
 }
 
@@ -440,55 +382,28 @@ private fun SharedSettingsRow(
     onNavigate: (SharedSettingsDestination) -> Unit,
     onAction: (SharedSettingsAction) -> Unit
 ) {
-    val contentColor = if (item.enabled) {
-        MaterialTheme.colorScheme.onSurface
+    val icon = item.action.iconForSettings()
+    val role = if (item.kind == SharedSettingsItemKind.DESTRUCTIVE) {
+        com.aryan.reader.shared.ui.whitebear.MenuRole.Delete
     } else {
-        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.46f)
+        com.aryan.reader.shared.ui.whitebear.whiteBearRoleForName(item.action.toString())
     }
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surface,
-        enabled = item.enabled,
-        onClick = {
-            item.destination?.let(onNavigate) ?: onAction(item.action)
-        }
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 2.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                item.action.iconForSettings(),
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
-                tint = if (item.kind == SharedSettingsItemKind.DESTRUCTIVE) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-            )
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(readerLiteral(item.title), fontWeight = FontWeight.SemiBold, color = contentColor)
-                Text(
-                    readerLiteral(item.summary),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (item.enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.48f),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            when (item.kind) {
-                SharedSettingsItemKind.TOGGLE -> {
-                    Switch(
-                        checked = item.checked == true,
-                        enabled = item.enabled,
-                        onCheckedChange = { onAction(item.action) }
-                    )
-                }
-                SharedSettingsItemKind.INFO -> Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp))
-                SharedSettingsItemKind.DESTRUCTIVE,
-                SharedSettingsItemKind.NAVIGATION,
-                SharedSettingsItemKind.CONTROL -> Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(20.dp))
-            }
-        }
+    if (item.kind == SharedSettingsItemKind.TOGGLE) {
+        com.aryan.reader.shared.ui.whitebear.WhiteBearSettingsSwitchRow(
+            icon = icon, role = role, label = readerLiteral(item.title),
+            summary = readerLiteral(item.summary),
+            checked = item.checked == true, enabled = item.enabled,
+            onToggle = { onAction(item.action) }
+        )
+    } else {
+        com.aryan.reader.shared.ui.whitebear.WhiteBearSettingsPillRow(
+            icon = icon, role = role, label = readerLiteral(item.title),
+            summary = readerLiteral(item.summary),
+            // A destructive row acts in place after its confirmation; an info row only shows.
+            opens = item.kind == SharedSettingsItemKind.NAVIGATION || item.kind == SharedSettingsItemKind.CONTROL,
+            enabled = item.enabled,
+            onClick = { item.destination?.let(onNavigate) ?: onAction(item.action) }
+        )
     }
 }
 

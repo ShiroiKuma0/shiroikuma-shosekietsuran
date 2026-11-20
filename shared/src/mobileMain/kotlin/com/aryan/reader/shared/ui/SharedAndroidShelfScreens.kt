@@ -1,5 +1,7 @@
 package com.aryan.reader.shared.ui
 
+import com.aryan.reader.shared.ui.whitebear.WbMenuIcons
+import com.aryan.reader.shared.ui.whitebear.MenuRole
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,9 +26,9 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExtendedFloatingActionButton
+import com.aryan.reader.shared.ui.whitebear.DropdownMenu
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -187,8 +189,8 @@ fun <ShelfItem, BookItem> SharedAndroidShelfDetailScreen(
                         if (canMutateShelf) Box {
                             IconButton(onClick = { showMoreMenu = true }) { Icon(Icons.Default.MoreVert, strings.moreOptionsDescription) }
                             DropdownMenu(expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
-                                DropdownMenuItem(text = { Text(strings.renameShelf) }, onClick = { onRenameShelf(); showMoreMenu = false })
-                                DropdownMenuItem(text = { Text(strings.deleteShelf) }, onClick = { onDeleteShelf(); showMoreMenu = false })
+                                DropdownMenuItem(text = { Text(strings.renameShelf) }, onClick = { onRenameShelf(); showMoreMenu = false }, icon = WbMenuIcons.Edit, role = MenuRole.Mark, opens = true)
+                                DropdownMenuItem(text = { Text(strings.deleteShelf) }, onClick = { onDeleteShelf(); showMoreMenu = false }, icon = WbMenuIcons.Delete, role = MenuRole.Delete)
                             }
                         }
                     },

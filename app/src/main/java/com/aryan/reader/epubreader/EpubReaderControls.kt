@@ -1,5 +1,7 @@
 package com.aryan.reader.epubreader
 
+import com.aryan.reader.shared.ui.whitebear.WbMenuIcons
+import com.aryan.reader.shared.ui.whitebear.MenuRole
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.annotation.StringRes
@@ -80,11 +82,11 @@ import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.DropdownMenu
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.HorizontalDivider
+import com.aryan.reader.shared.ui.whitebear.FilledIconButton
+import com.aryan.reader.shared.ui.whitebear.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -497,8 +499,7 @@ fun EpubReaderTopBar(
                                             },
                                             leadingIcon = {
                                                 Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(20.dp))
-                                            }
-                                        )
+                                            }, opens = true)
                                     }
                                     EpubOverflowMenuSection.HIDDEN_TOOLS -> {
                                         DropdownMenuItem(
@@ -510,8 +511,7 @@ fun EpubReaderTopBar(
                                                     contentDescription = null,
                                                     modifier = Modifier.rotate(if (showHiddenToolsExpanded) 180f else 0f)
                                                 )
-                                            }
-                                        )
+                                            }, icon = WbMenuIcons.Tools)
                                         if (showHiddenToolsExpanded) {
                                             hiddenToolbarTools.forEach { tool ->
                                                 HiddenEpubToolMenuItem(
@@ -548,8 +548,7 @@ fun EpubReaderTopBar(
                                                     contentDescription = null,
                                                     modifier = Modifier.size(20.dp)
                                                 )
-                                            }
-                                        )
+                                            }, opens = true)
                                     }
                                     EpubOverflowMenuSection.VIEW_ORIGINAL_PDF -> {
                                         DropdownMenuItem(
@@ -564,8 +563,7 @@ fun EpubReaderTopBar(
                                                     contentDescription = null,
                                                     modifier = Modifier.size(20.dp)
                                                 )
-                                            }
-                                        )
+                                            }, opens = true)
                                     }
                                     EpubOverflowMenuSection.DELETE_TEXT_VIEW -> {
                                         DropdownMenuItem(
@@ -583,8 +581,7 @@ fun EpubReaderTopBar(
                                             },
                                             colors = androidx.compose.material3.MenuDefaults.itemColors(
                                                 textColor = MaterialTheme.colorScheme.error
-                                            )
-                                        )
+                                            ), role = MenuRole.Delete)
                                     }
                                     EpubOverflowMenuSection.READING_MODE -> {
                                         DropdownMenuItem(
@@ -596,8 +593,7 @@ fun EpubReaderTopBar(
                                                     contentDescription = null,
                                                     modifier = Modifier.rotate(if (showReadingModeExpanded) 180f else 0f)
                                                 )
-                                            }
-                                        )
+                                            }, icon = WbMenuIcons.Mode)
                                         if (showReadingModeExpanded) {
                                         WhiteBearReadingModeItems(
                                             currentRenderMode = currentRenderMode,
@@ -626,7 +622,7 @@ fun EpubReaderTopBar(
                                         }, onClick = {
                                             showMoreMenu = false
                                             onToggleBookmark()
-                                        })
+                                        }, icon = WbMenuIcons.Bookmark, role = MenuRole.Mark)
                                     }
                                     EpubOverflowMenuSection.TAP_TO_TURN -> {
                                         DropdownMenuItem(
@@ -635,13 +631,7 @@ fun EpubReaderTopBar(
                                             onClick = {
                                                 onToggleTapToNavigate(!tapToNavigateEnabled)
                                                 showMoreMenu = false
-                                            },
-                                            trailingIcon = {
-                                                if (tapToNavigateEnabled) Icon(
-                                                    Icons.Default.Check,
-                                                    contentDescription = stringResource(R.string.content_desc_enabled)
-                                                )
-                                            })
+                                            }, icon = WbMenuIcons.Touch, checked = tapToNavigateEnabled)
                                     }
                                     EpubOverflowMenuSection.VOLUME_SCROLL -> {
                                         DropdownMenuItem(
@@ -657,13 +647,7 @@ fun EpubReaderTopBar(
                                             onClick = {
                                                 onToggleVolumeScroll(!volumeScrollEnabled)
                                                 showMoreMenu = false
-                                            },
-                                            trailingIcon = {
-                                                if (volumeScrollEnabled) Icon(
-                                                    Icons.Default.Check,
-                                                    contentDescription = stringResource(R.string.content_desc_enabled)
-                                                )
-                                            })
+                                            }, icon = WbMenuIcons.VolumeKeys, checked = volumeScrollEnabled)
                                     }
                                     EpubOverflowMenuSection.PAGE_TURN_ANIM -> {
                                         DropdownMenuItem(
@@ -672,13 +656,7 @@ fun EpubReaderTopBar(
                                             onClick = {
                                                 onTogglePageTurnAnimation(!isPageTurnAnimationEnabled)
                                                 showMoreMenu = false
-                                            },
-                                            trailingIcon = {
-                                                if (isPageTurnAnimationEnabled) Icon(
-                                                    Icons.Default.Check,
-                                                    contentDescription = stringResource(R.string.content_desc_enabled)
-                                                )
-                                            })
+                                            }, icon = WbMenuIcons.PageTurn, checked = isPageTurnAnimationEnabled)
                                     }
                                     EpubOverflowMenuSection.KEEP_SCREEN_ON -> {
                                         DropdownMenuItem(
@@ -686,13 +664,7 @@ fun EpubReaderTopBar(
                                             onClick = {
                                                 onToggleKeepScreenOn(!isKeepScreenOn)
                                                 showMoreMenu = false
-                                            },
-                                            trailingIcon = {
-                                                if (isKeepScreenOn) Icon(
-                                                    Icons.Default.Check,
-                                                    contentDescription = stringResource(R.string.content_desc_enabled)
-                                                )
-                                            })
+                                            }, icon = WbMenuIcons.Brightness, checked = isKeepScreenOn)
                                     }
                                     EpubOverflowMenuSection.VISUAL_OPTIONS -> {
                                         DropdownMenuItem(
@@ -707,7 +679,7 @@ fun EpubReaderTopBar(
                                                     contentDescription = null,
                                                     modifier = Modifier.size(20.dp)
                                                 )
-                                            })
+                                            }, opens = true)
                                     }
                                     EpubOverflowMenuSection.AUTO_SCROLL -> {
                                         DropdownMenuItem(
@@ -716,7 +688,7 @@ fun EpubReaderTopBar(
                                             onClick = {
                                                 showMoreMenu = false
                                                 onStartAutoScroll()
-                                            })
+                                            }, icon = WbMenuIcons.Play, role = MenuRole.Connect)
                                     }
                                     EpubOverflowMenuSection.BOOK_REPLACEMENTS -> {
                                         DropdownMenuItem(
@@ -731,8 +703,7 @@ fun EpubReaderTopBar(
                                                     contentDescription = null,
                                                     modifier = Modifier.size(20.dp)
                                                 )
-                                            }
-                                        )
+                                            }, role = MenuRole.Mark, opens = true)
                                     }
                                     EpubOverflowMenuSection.TTS_SETTINGS -> {
                                         DropdownMenuItem(
@@ -768,8 +739,7 @@ fun EpubReaderTopBar(
                                                             contentDescription = null,
                                                             modifier = Modifier.size(20.dp)
                                                         )
-                                                    }
-                                                )
+                                                    }, opens = true)
                                             }
                                             if (showTtsReplacements) {
                                                 DropdownMenuItem(
@@ -784,8 +754,7 @@ fun EpubReaderTopBar(
                                                             contentDescription = null,
                                                             modifier = Modifier.size(20.dp)
                                                         )
-                                                    }
-                                                )
+                                                    }, role = MenuRole.Mark, opens = true)
                                             }
                                         }
                                     }
@@ -2376,16 +2345,14 @@ private fun WhiteBearReadingModeItems(
         onClick = { onPick(RenderMode.VERTICAL_SCROLL, false, isRightToLeftPagination, "horizontal") },
         trailingIcon = {
             if (webViewScroll && !tategakiActive) Icon(Icons.Default.Check, contentDescription = null)
-        }
-    )
+        }, iconColumn = true)
     DropdownMenuItem(
         text = { Text("Vertical text 縦書き (columns right → left)") },
         enabled = !isTtsActive,
         onClick = { onPick(RenderMode.VERTICAL_SCROLL, false, isRightToLeftPagination, "vertical") },
         trailingIcon = {
             if (webViewScroll && tategakiActive) Icon(Icons.Default.Check, contentDescription = null)
-        }
-    )
+        }, iconColumn = true)
     DropdownMenuItem(
         text = { Text("Scroll — native renderer (beta)") },
         enabled = !isTtsActive,
@@ -2394,8 +2361,7 @@ private fun WhiteBearReadingModeItems(
             if (currentRenderMode == RenderMode.VERTICAL_SCROLL && useNativeVerticalRenderer) {
                 Icon(Icons.Default.Check, contentDescription = null)
             }
-        }
-    )
+        }, iconColumn = true)
     DropdownMenuItem(
         text = { Text("Pages (left → right)") },
         enabled = !isTtsActive,
@@ -2404,8 +2370,7 @@ private fun WhiteBearReadingModeItems(
             if (currentRenderMode == RenderMode.PAGINATED && !isRightToLeftPagination) {
                 Icon(Icons.Default.Check, contentDescription = null)
             }
-        }
-    )
+        }, iconColumn = true)
     DropdownMenuItem(
         text = { Text("Pages (right → left)") },
         enabled = !isTtsActive,
@@ -2414,16 +2379,11 @@ private fun WhiteBearReadingModeItems(
             if (currentRenderMode == RenderMode.PAGINATED && isRightToLeftPagination) {
                 Icon(Icons.Default.Check, contentDescription = null)
             }
-        }
-    )
+        }, iconColumn = true)
     HorizontalDivider()
     // 縦書き ruby accommodation: ON gives ruby lines extra column spacing; OFF keeps a
     // strictly uniform column pitch (ruby may overpaint in tight gaps).
     DropdownMenuItem(
         text = { Text("振り仮名の余白 (furigana spacing)") },
-        onClick = { onRubySpaceToggle(!rubySpace) },
-        trailingIcon = {
-            if (rubySpace) Icon(Icons.Default.Check, contentDescription = null)
-        }
-    )
+        onClick = { onRubySpaceToggle(!rubySpace) }, icon = WbMenuIcons.LineSpacing, checked = rubySpace)
 }

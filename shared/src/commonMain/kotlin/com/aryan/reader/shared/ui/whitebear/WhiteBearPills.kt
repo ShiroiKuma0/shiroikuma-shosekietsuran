@@ -181,7 +181,13 @@ fun Switch(
     } else {
         Modifier
     }
-    Canvas(modifier.then(toggle).size(width = 52.dp, height = 28.dp)) {
+    WhiteBearSwitchTrack(position, ink, modifier.then(toggle).size(width = 52.dp, height = 28.dp))
+}
+
+/** The outlined track and its solid dot; `position` runs 0 (off, left) to 1 (on, right). */
+@Composable
+internal fun WhiteBearSwitchTrack(position: Float, ink: Color, modifier: Modifier) {
+    Canvas(modifier) {
         val stroke = 2.dp.toPx()
         drawRoundRect(
             color = ink,

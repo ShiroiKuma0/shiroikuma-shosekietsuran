@@ -35,9 +35,9 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
+import com.aryan.reader.shared.ui.whitebear.DropdownMenu
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -751,9 +751,7 @@ private fun SharedMoreMenuItem(
     DropdownMenuItem(
         text = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         leadingIcon = { Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp)) },
-        trailingIcon = checked?.let { isChecked ->
-            { Switch(checked = isChecked, onCheckedChange = null) }
-        },
+        checked = checked,
         onClick = onClick
     )
 }

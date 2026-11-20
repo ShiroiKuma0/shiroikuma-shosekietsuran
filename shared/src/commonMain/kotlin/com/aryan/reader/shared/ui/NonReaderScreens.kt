@@ -1,5 +1,6 @@
 package com.aryan.reader.shared.ui
 
+import com.aryan.reader.shared.ui.whitebear.MenuRole
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -52,10 +53,10 @@ import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material3.AssistChip
 import com.aryan.reader.shared.ui.whitebear.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.aryan.reader.shared.ui.whitebear.DropdownMenu
+import com.aryan.reader.shared.ui.whitebear.DropdownMenuItem
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
+import com.aryan.reader.shared.ui.whitebear.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -790,8 +791,7 @@ private fun SelectionToolbar(
                                 onClick = {
                                     exportMenuExpanded = false
                                     export()
-                                }
-                            )
+                                }, role = MenuRole.Share, opens = true)
                         }
                     }
                 }
@@ -1255,8 +1255,7 @@ private fun LibraryMoreActionsMenu(
                     onClick = {
                         expanded = false
                         onCreateShelf()
-                    }
-                )
+                    }, role = MenuRole.Mark, opens = true)
             }
         }
     }

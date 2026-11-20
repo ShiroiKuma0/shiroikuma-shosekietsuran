@@ -4,6 +4,27 @@ import com.aryan.reader.shared.ui.whitebear.Button
 import com.aryan.reader.shared.ui.whitebear.OutlinedButton
 import com.aryan.reader.shared.ui.whitebear.TextButton
 import com.aryan.reader.shared.ui.whitebear.Switch
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.unit.toSize
+import kotlinx.coroutines.launch
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.aryan.reader.shared.ui.whitebear.MenuRole
+import com.aryan.reader.shared.ui.whitebear.WbMenuIcons
+import com.aryan.reader.shared.ui.whitebear.color
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -140,24 +161,12 @@ fun WhiteBearUiScreen(
         },
         contentWindowInsets = WindowInsets.navigationBars
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(start = 16.dp, end = 16.dp, bottom = 32.dp)
-        ) {
-            // The link to the app's own settings: the first, thick pill under the page title.
-            Spacer(Modifier.height(6.dp))
-            PillActionRow(
-                label = "App settings",
-                level = 0,
-                main = true,
-                opens = true,
-                summary = "Everything that is not look and feel: library, reader, sync, backups.",
-                onClick = onOpenAppSettings
-            )
-            SectionHeader("Export / Import", first = true)
+        // The page is a folding accordion: every section is folded by default and remembers
+        // whether it is open; the chip index on top jumps to a section (tap) and reorders the
+        // sections (long-press drag). Order and fold state live in the UI prefs, so they travel
+        // with an export.
+        val sections = mutableListOf<WbSection>()
+        sections += WbSection("exim", "Export / Import") {
             EximEntryRow(status = eximStatus) { showExim = true }
             AutomationSwitchRow(
                 checked = automationOn,
@@ -191,29 +200,35 @@ fun WhiteBearUiScreen(
             if (automationOn && !allFilesAccess) {
                 PillActionRow(
                     label = "Grant All-files access…",
+                    icon = WbMenuIcons.Security,
+                    role = MenuRole.Connect,
                     level = 1,
                     opens = true,
                     summary = "Needed to write the export to a given directory.",
                     onClick = { openAllFilesAccessSettings(context) }
                 )
             }
-
-            SectionHeader("General")
+        }
+        sections += WbSection("general", "General") {
             SwitchRow(
                 label = "Use 白い熊 UI",
+                icon = WbMenuIcons.Sparkle,
+                role = MenuRole.View,
                 checked = state.enabled,
                 level = 1,
                 onToggle = { state.updateEnabled(it) }
             )
             PillActionRow(
                 label = "Reset everything to defaults",
+                icon = WbMenuIcons.Delete,
+                role = MenuRole.Delete,
                 level = 1,
                 opens = false,
                 summary = "Colors, fonts, sizes and shapes back to black-yellow, after a confirmation.",
                 onClick = { showResetDialog = true }
             )
-
-            SectionHeader("Colors")
+        }
+        sections += WbSection("colors", "Colors") {
             SubHeader("Foundation", level = 1)
             listOf(
                 WhiteBearSlot.BACKGROUND,
@@ -240,9 +255,23 @@ fun WhiteBearUiScreen(
                     pickerSlot = slot
                 }
             }
+            SubHeader("Menu icons, by what the row does", level = 1)
+            listOf(
+                WhiteBearSlot.MENU_CONNECT,
+                WhiteBearSlot.MENU_MARK,
+                WhiteBearSlot.MENU_CONTACT,
+                WhiteBearSlot.MENU_SHARE,
+                WhiteBearSlot.MENU_BLOCK,
+                WhiteBearSlot.MENU_DELETE
+            ).forEach { slot ->
+                ColorRow(slot = slot, argb = state.color(slot), level = 2) {
+                    pickerOriginal = state.color(slot)
+                    pickerSlot = slot
+                }
+            }
             WhiteBearColorsPreview(state)
-
-            SectionHeader("Typography")
+        }
+        sections += WbSection("typography", "Typography") {
             SubHeader("Font", level = 1)
             FontChoices(
                 current = uiState.appFontPreference.sanitized(),
@@ -271,8 +300,8 @@ fun WhiteBearUiScreen(
                 onChange = { state.updateFontWeight((it / 100f).roundToInt() * 100) }
             )
             WhiteBearTypographyPreview(state)
-
-            SectionHeader("Shape & borders")
+        }
+        sections += WbSection("shape", "Shape & borders") {
             SliderRow(
                 label = "Corner roundness",
                 value = state.cornerRadius,
@@ -292,10 +321,12 @@ fun WhiteBearUiScreen(
                 onChange = { state.updateBorderWidth((it * 2).roundToInt() / 2f) }
             )
             WhiteBearShapePreview(state)
-
-            SectionHeader("Library view")
+        }
+        sections += WbSection("library", "Library view") {
             SwitchRow(
                 label = "Grid layout (covers)",
+                icon = WbMenuIcons.Tools,
+                role = MenuRole.View,
                 checked = libraryState.gridLayout,
                 level = 1,
                 onToggle = { libraryState.updateGridLayout(it) }
@@ -327,10 +358,12 @@ fun WhiteBearUiScreen(
                 level = 1,
                 onChange = { libraryState.updateAuthorFontSize(it) }
             )
-
-            SectionHeader("Tap and swipe (reader)")
+        }
+        sections += WbSection("gestures", "Tap and swipe (reader)") {
             SwitchRow(
                 label = "Enable reading gestures",
+                icon = WbMenuIcons.Touch,
+                role = MenuRole.View,
                 checked = gestureState.enabled,
                 level = 1,
                 onToggle = { gestureState.updateEnabled(it) }
@@ -339,6 +372,8 @@ fun WhiteBearUiScreen(
             SubHeader("Page turning", level = 1)
             SwitchRow(
                 label = "Tap right third → next page,  left third → previous",
+                icon = WbMenuIcons.PageTurn,
+                role = MenuRole.View,
                 checked = gestureState.tapToTurnPages,
                 level = 2,
                 onToggle = { gestureState.updateTapToTurnPages(it) }
@@ -389,18 +424,22 @@ fun WhiteBearUiScreen(
             SubHeader("Vertical swipes", level = 1)
             SwitchRow(
                 label = "Right third: swipe up/down → font size larger/smaller",
+                icon = WbMenuIcons.Text,
+                role = MenuRole.View,
                 checked = gestureState.rightSwipeFontSize,
                 level = 2,
                 onToggle = { gestureState.updateRightSwipeFontSize(it) }
             )
             SwitchRow(
                 label = "Left third: swipe up/down → brightness up/down",
+                icon = WbMenuIcons.Brightness,
+                role = MenuRole.View,
                 checked = gestureState.leftSwipeBrightness,
                 level = 2,
                 onToggle = { gestureState.updateLeftSwipeBrightness(it) }
             )
-
-            SectionHeader("Split reading")
+        }
+        sections += WbSection("split", "Split reading") {
             SliderRow(
                 label = "Companion pane font scale",
                 value = gestureState.companionFontScale,
@@ -410,11 +449,13 @@ fun WhiteBearUiScreen(
                 level = 1,
                 onChange = { gestureState.updateCompanionFontScale(it) }
             )
-
-            SectionHeader("Writing 縦書き")
+        }
+        sections += WbSection("writing", "Writing 縦書き") {
             var rubySpace by remember { mutableStateOf(WhiteBearWritingMode.loadRubySpace(context)) }
             SwitchRow(
                 label = "Extra column spacing for ruby ルビ lines",
+                icon = WbMenuIcons.LineSpacing,
+                role = MenuRole.View,
                 checked = rubySpace,
                 level = 1,
                 onToggle = {
@@ -426,6 +467,67 @@ fun WhiteBearUiScreen(
                 "Per-book writing direction (auto / vertical / horizontal) is set from the reader menu.",
                 level = 1
             )
+        }
+        sections += WbSection("maintenance", "Maintenance") {
+            PillActionRow(
+                label = "Reset section order",
+                icon = WbMenuIcons.Refresh,
+                role = MenuRole.View,
+                level = 1,
+                opens = false,
+                summary = "Puts the sections of this page and the chips of its index back in their original order.",
+                onClick = { state.resetSectionOrder() }
+            )
+        }
+        val scrollState = rememberScrollState()
+        val scope = rememberCoroutineScope()
+        val headerTops = remember { mutableStateMapOf<String, Float>() }
+        val byId = sections.associateBy { it.id }
+        val ordered = state.sectionOrder.mapNotNull { byId[it] } + sections.filter { it.id !in state.sectionOrder }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(scrollState)
+                .padding(start = 16.dp, end = 16.dp, bottom = 32.dp)
+        ) {
+            // The link to the app's own settings: the first, thick pill under the page title.
+            Spacer(Modifier.height(6.dp))
+            PillActionRow(
+                label = "App settings",
+                icon = Icons.Default.Settings,
+                role = MenuRole.View,
+                level = 0,
+                main = true,
+                opens = true,
+                summary = "Everything that is not look and feel: library, reader, sync, backups.",
+                onClick = onOpenAppSettings
+            )
+            SectionIndex(
+                sections = ordered,
+                onJump = { id ->
+                    state.setSectionOpen(id, true)
+                    scope.launch {
+                        // Two frames, so the rows just unfolded are measured and can be scrolled to.
+                        repeat(2) { androidx.compose.runtime.withFrameNanos { } }
+                        headerTops[id]?.let { top -> scrollState.animateScrollTo(top.roundToInt()) }
+                    }
+                },
+                onReorder = { state.updateSectionOrder(it) }
+            )
+            ordered.forEachIndexed { index, section ->
+                key(section.id) {
+                    val open = section.id in state.openSections
+                    SectionHeader(
+                        text = section.title,
+                        first = index == 0,
+                        open = open,
+                        modifier = Modifier.onGloballyPositioned { headerTops[section.id] = it.positionInParent().y },
+                        onToggle = { state.setSectionOpen(section.id, !open) }
+                    )
+                    if (open) section.content(this@Column)
+                }
+            }
         }
     }
 
@@ -712,29 +814,137 @@ private fun WhiteBearShapePreview(state: WhiteBearUiState) {
  * exactly as wide as the text.
  */
 @Composable
-private fun SectionHeader(text: String, first: Boolean = false) {
-    if (!first) {
-        HorizontalDivider(
-            modifier = Modifier.padding(top = 20.dp),
-            thickness = 1.dp,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.35f)
-        )
+private fun SectionHeader(
+    text: String,
+    first: Boolean = false,
+    open: Boolean = true,
+    modifier: Modifier = Modifier,
+    onToggle: () -> Unit = {}
+) {
+    Column(modifier.fillMaxWidth()) {
+        // The line above a section stays whether the section is folded or open.
+        if (!first) {
+            HorizontalDivider(
+                modifier = Modifier.padding(top = if (open) 20.dp else 6.dp),
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.35f)
+            )
+        }
+        Row(
+            Modifier.fillMaxWidth().clickable(onClick = onToggle),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.width(IntrinsicSize.Max).padding(top = if (open) 16.dp else 8.dp, bottom = 6.dp)) {
+                Text(
+                    text,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1
+                )
+                Spacer(Modifier.height(4.dp))
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(2.dp)
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            Text(
+                if (open) "⌄" else "›",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+        }
     }
-    Column(Modifier.width(IntrinsicSize.Max).padding(top = 16.dp, bottom = 6.dp)) {
-        Text(
-            text,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-            maxLines = 1
-        )
-        Spacer(Modifier.height(4.dp))
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(2.dp)
-                .background(MaterialTheme.colorScheme.primary)
-        )
+}
+
+/** One foldable section of the page: a stable id (persisted), its heading, its rows. */
+private class WbSection(
+    val id: String,
+    val title: String,
+    val content: @Composable ColumnScope.() -> Unit
+)
+
+/**
+ * The jump index: a wrapping grid of small outlined chips, one per section. A tap unfolds the
+ * section and scrolls to it; a long-press lifts the chip into a drag, and the chips reorder
+ * live under the finger — the sections below follow, and the order is saved on drop.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SectionIndex(
+    sections: List<WbSection>,
+    onJump: (String) -> Unit,
+    onReorder: (List<String>) -> Unit
+) {
+    val accent = MaterialTheme.colorScheme.primary
+    val ids = sections.map { it.id }
+    val titles = remember(ids) { sections.associate { it.id to it.title } }
+    var order by remember(ids) { mutableStateOf(ids) }
+    val latestOrder by rememberUpdatedState(order)
+    val latestOnReorder by rememberUpdatedState(onReorder)
+    val bounds = remember { mutableStateMapOf<String, Rect>() }
+    var dragging by remember { mutableStateOf<String?>(null) }
+    FlowRow(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        order.forEach { id ->
+            key(id) {
+                val lifted = dragging == id
+                val shape = RoundedCornerShape(percent = 50)
+                Text(
+                    titles[id].orEmpty(),
+                    fontSize = 13.sp,
+                    fontWeight = if (lifted) FontWeight.Bold else FontWeight.Normal,
+                    color = accent,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .onGloballyPositioned { bounds[id] = Rect(it.positionInParent(), it.size.toSize()) }
+                        .clip(shape)
+                        .border(if (lifted) 3.dp else 1.25.dp, accent, shape)
+                        .pointerInput(id) { detectTapGestures(onTap = { onJump(id) }) }
+                        .pointerInput(id) {
+                            var finger = Offset.Zero
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { start ->
+                                    dragging = id
+                                    finger = (bounds[id]?.topLeft ?: Offset.Zero) + start
+                                },
+                                onDrag = { change, amount ->
+                                    change.consume()
+                                    finger += amount
+                                    val over = bounds.entries.firstOrNull { it.key != id && it.value.contains(finger) }?.key
+                                    if (over != null) {
+                                        val current = latestOrder
+                                        val to = current.indexOf(over)
+                                        if (to >= 0) {
+                                            order = current.toMutableList().apply {
+                                                remove(id)
+                                                add(to.coerceIn(0, size), id)
+                                            }
+                                        }
+                                    }
+                                },
+                                onDragEnd = {
+                                    dragging = null
+                                    latestOnReorder(latestOrder)
+                                },
+                                onDragCancel = {
+                                    dragging = null
+                                    latestOnReorder(latestOrder)
+                                }
+                            )
+                        }
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                )
+            }
+        }
     }
 }
 
@@ -771,6 +981,8 @@ private fun SubHeader(text: String, level: Int) {
 private fun EximEntryRow(status: Pair<String, Boolean>?, onClick: () -> Unit) {
     PillActionRow(
         label = "Export / Import…",
+        icon = WbMenuIcons.Save,
+        role = MenuRole.Share,
         level = 1,
         main = true,
         opens = true,
@@ -872,7 +1084,14 @@ private fun ColorRow(slot: WhiteBearSlot, argb: Int, level: Int, onClick: () -> 
 }
 
 @Composable
-private fun SwitchRow(label: String, checked: Boolean, level: Int, onToggle: (Boolean) -> Unit) {
+private fun SwitchRow(
+    label: String,
+    checked: Boolean,
+    level: Int,
+    icon: ImageVector? = null,
+    role: MenuRole = MenuRole.View,
+    onToggle: (Boolean) -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -880,6 +1099,10 @@ private fun SwitchRow(label: String, checked: Boolean, level: Int, onToggle: (Bo
             .padding(start = IndentStep * level, top = 2.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (icon != null) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = role.color())
+            Spacer(Modifier.width(10.dp))
+        }
         Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         Switch(checked = checked, onCheckedChange = onToggle)
     }
@@ -902,9 +1125,13 @@ private fun PillActionRow(
     onClick: () -> Unit,
     main: Boolean = false,
     summary: String? = null,
+    icon: ImageVector? = null,
+    role: MenuRole = MenuRole.View,
     below: @Composable () -> Unit = {}
 ) {
-    val ink = MaterialTheme.colorScheme.primary
+    // A destructive row lends its red to frame and label; any other row only colours its icon.
+    val ink = if (role == MenuRole.Delete) role.color() else MaterialTheme.colorScheme.primary
+    val iconInset = if (icon != null) 30.dp else 0.dp
     val shape = androidx.compose.foundation.shape.RoundedCornerShape(50)
     Column(
         Modifier
@@ -920,6 +1147,10 @@ private fun PillActionRow(
                 .padding(start = PillTextInset, end = 16.dp, top = 9.dp, bottom = 9.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (icon != null) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = role.color())
+                Spacer(Modifier.width(10.dp))
+            }
             Text(
                 label,
                 modifier = Modifier.weight(1f, fill = false),
@@ -943,7 +1174,7 @@ private fun PillActionRow(
                 fontSize = 13.sp,
                 lineHeight = 17.sp,
                 color = whiteBearNoteColor(),
-                modifier = Modifier.padding(start = PillTextInset, top = 3.dp)
+                modifier = Modifier.padding(start = PillTextInset + iconInset, top = 3.dp)
             )
         }
         below()
@@ -1047,6 +1278,8 @@ private fun AddFontRow(level: Int, viewModel: MainViewModel) {
     val fontMimeTypes = remember { supportedFontMimeTypes() }
     PillActionRow(
         label = "Add external font…",
+        icon = WbMenuIcons.Add,
+        role = MenuRole.Mark,
         level = level,
         opens = true,
         summary = "Pick a font file; it joins the list above.",
