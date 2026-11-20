@@ -2,6 +2,43 @@
 
 Everything built on top of stock Episteme, per release.
 
+## 1.0.57+011 — 2026-11-20
+
+Base: Episteme Android v1.0.57 (oss). The black-yellow look applied to every menu, drawer and settings row, a folding UI page, and a more forgiving link tap, on top of `1.0.57+008`. Builds `+009` and `+010` were test builds and are both contained here.
+
+### Reader
+
+- **A tap near a link follows the link.** Small back-links at the left edge, above all in the top-left corner, often turned the page back instead of opening: the link had to be hit within 2 px. A side tap now looks for the nearest link within 20 dp of the finger and follows it before any page turn, in every render mode:
+  - **Web reader (scrolling and 縦書き)** — the page is asked for the link under the finger, and failing that for the nearest visible link within the tolerance.
+  - **Paginated and native vertical modes** — the text layouts are searched the same way for the nearest link annotation.
+
+### UI & theming
+
+- **Every menu row is a full-width outlined pill with its icon.** This covers the ⋮ overflow menus, long-press menus and submenus of the home screen, library, shelves, OPDS, audiobooks, fonts, the EPUB and PDF readers and their toolbars:
+  - a **›** at the right end of a row that opens a screen, dialog, picker or submenu;
+  - **destructive rows in red** — frame, icon and label;
+  - **toggle rows plain**, with the outlined switch at the right instead of a checkmark;
+  - header lines as plain text, and a clear darker-yellow divider between groups.
+- **Icons are coloured by what the row does**, while frame and label stay yellow: view and settings in the accent, connect and sync green, mark and annotate blue, people and accounts cyan, share and export orange, hide and block magenta, delete red.
+- **Navigation drawer rows** are outlined pills with role-coloured icons; the selected row has the thick frame and bold label.
+- **Floating action buttons and filled icon buttons are outlined**, never filled.
+- **Settings hub**: category and action rows are pills that hug their label, with a role-coloured icon, a › and the explanation beneath in dim gold; toggle rows are plain with a bold label and the outlined switch. This applies to the search results as well.
+- **Every error-coloured element follows the settable delete red.**
+- **Real glyphs** for the sun, sparkle, broom, devices, globe, line spacing, shield, tag, gauge, tab, widgets, open book and up-down arrows, which the shared module's small icon set lacked.
+
+### 白い熊 書籍閲覧 UI page
+
+- **A folding accordion.** Each section — Export / Import, General, Colors, Typography, Shape, Library, Gestures, Split view, Writing, Maintenance — folds under its heading, which shows › folded or ⌄ open. All start folded, and the state is remembered.
+- **A chip index under the App settings pill.** A tap on a chip unfolds its section and scrolls to it; a long-press lifts the chip to reorder the sections by dragging.
+- **Maintenance → Reset section order** restores the original order.
+- **Colors → Menu icons**: six new colour roles for the menu icon colours (connect, mark, contact, share, block, delete).
+- **Rows carry role-coloured icons**, and “Reset everything to defaults” is a red pill.
+- Section order and fold state are part of the UI preferences, so they travel with an export.
+
+### Packaging
+
+- The menu, drawer, button and settings-row components live in the shared module (`shared/ui/whitebear`) under Material's own names and are picked up by import, so menus added later get the look the same way.
+
 ## 1.0.57+008 — 2026-11-15
 
 Base: Episteme Android v1.0.57 (oss). Reader link fixes and the black-yellow button and switch look, on top of `1.0.57+003`. Builds `+004` to `+007` were test builds and are all contained here.
